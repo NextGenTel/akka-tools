@@ -13,4 +13,5 @@ To register it, add the following to your akka application.conf:
 
     include classpath("akka-tools-json-serializing")
     
-
+The serializer also have the trait **DepricatedTypeWithMigrationInfo** which is very usefull when
+migrating from old to new datastructures.
