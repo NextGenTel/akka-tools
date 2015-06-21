@@ -60,13 +60,21 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   case class ExternalEffects(list:List[ExternalEffect])
 
+  private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
   private val defaultExternalEffectsHandler = (e:E) => {
     log.debug("No externalEffects handler for this event")
     ExternalEffects(List())
   }
 
-  case class EventResult(event:E, errorHandler:(String)=>Unit = defaultErrorHandler)
+  case class EventResult(
+                          event:E,
+                          errorHandler:(String)=>Unit = defaultErrorHandler,
+                          successHandler:()=>Unit = defaultSuccessHandler) {
+
+    def withErrorHandler(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
+    def withSuccessHandler(successHandler:()=>Unit) = copy(successHandler = successHandler)
+  }
 
   def cmdToEvent:PartialFunction[AnyRef, EventResult]
   def generateExternalEffects:PartialFunction[E, ExternalEffects]
@@ -91,6 +99,9 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
             (s, e) =>
               s.transition(e)
           }
+
+          // run the successHandler
+          eventResult.successHandler.apply()
 
           // it was valid - we can persist it
           persistAndApplyEvents(events)
