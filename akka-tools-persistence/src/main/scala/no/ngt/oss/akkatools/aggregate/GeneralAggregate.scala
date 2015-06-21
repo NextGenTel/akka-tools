@@ -6,7 +6,9 @@ import no.ngt.oss.akkatools.persistence.{NgtPersistentView, NgtPersistentActor, 
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
-case class AggregateError(errorMsg:String) extends RuntimeException(errorMsg)
+
+class AggregateError(errorMsg:String) extends RuntimeException(errorMsg)
+
 
 trait AggregateState[E, T <: AggregateState[E,T]] {
   def transition(event:E):T
@@ -79,7 +81,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
         sender ! state
       } else {
         val cmd = x
-        val defaultCmdToEvent:(AnyRef) => EventResult = {(q) => throw AggregateError("Do not know how to process cmd of type " + q.getClass)}
+        val defaultCmdToEvent:(AnyRef) => EventResult = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
         val eventResult:EventResult = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
@@ -94,7 +96,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           persistAndApplyEvents(events)
         } catch {
           case error:AggregateError =>
-            eventResult.errorHandler.apply(error.errorMsg)
+            eventResult.errorHandler.apply(error.getMessage)
             throw error
         }
       }

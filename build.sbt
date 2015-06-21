@@ -38,7 +38,14 @@ lazy val akkaToolsClusterDependencies = Seq(
 
 lazy val testDependencies = Seq(
   "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test"
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test"
+)
+
+lazy val exampleAggregatesDependencies = Seq(
+  "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
+  "ch.qos.logback" % "logback-classic" % "1.1.3",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion
 )
 
 lazy val root = (project in file("."))
@@ -70,3 +77,10 @@ lazy val akkaToolsCluster = (project in file("akka-tools-cluster"))
   .settings(name := "akka-tools-cluster")
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= (akkaToolsClusterDependencies))
+
+lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
+  .settings(name := "exmample-aggregates")
+  .dependsOn(akkaToolsPersistence)
+  .dependsOn(akkaToolsCluster)
+  .settings(commonSettings: _*)
+  .settings(libraryDependencies ++= (exampleAggregatesDependencies))
