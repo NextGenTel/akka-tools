@@ -18,36 +18,36 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
   // transform command to event
   override def cmdToEvent = {
-    case c: OpenBookingCmd  =>  EventResult(BookingOpenEvent(c.seats))
+    case c: OpenBookingCmd  =>  ResultingEvent(BookingOpenEvent(c.seats))
 
-    case c: CloseBookingCmd => EventResult(BookingClosedEvent())
+    case c: CloseBookingCmd => ResultingEvent(BookingClosedEvent())
 
     case c: ReserveSeatCmd  =>
       // Generate a random seatId
       val seatId = UUID.randomUUID().toString
       val event = ReservationEvent(seatId)
 
-      EventResult(event)
+      ResultingEvent(event)
         .withSuccessHandler(      () => sender ! seatId ) // Send the seatId back
         .withErrorHandler ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
 
     case c: CancelSeatCmd =>
-      EventResult(CancelationEvent(c.seatId))
+      ResultingEvent(CancelationEvent(c.seatId))
         .withSuccessHandler(       () => sender ! "ok")
         .withErrorHandler( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
-  override def generateExternalEffects = {
+  override def generateResultingDurableMessages = {
     case e: BookingClosedEvent =>
       // The booking has now been closed and we need to send an important notification to the Cinema
       val cinemaNotification = "Booking has closed with " + state.reservations.size + " seats reserved"
-      ExternalEffects(cinemaNotification, cinemaNotifier)
+      ResultingDurableMessages(cinemaNotification, cinemaNotifier)
 
     case e: ReservationEvent =>
       // The seat-reservation has been confirmed and we need to print the ticket
 
       val printShopMessage = "Ticket " + e.id + " is a valid ticket!"
-      ExternalEffects(printShopMessage, ticketPrintShop)
+      ResultingDurableMessages(printShopMessage, ticketPrintShop)
   }
 }
 

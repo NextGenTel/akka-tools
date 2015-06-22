@@ -2,7 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor._
 import akka.contrib.pattern.ClusterSharding
-import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentActor, EnhancedPersistentView, EnhancedPersistentActor$, EnhancedPersistentShardingActor}
+import no.nextgentel.oss.akkatools.persistence._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
@@ -52,22 +52,21 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   var state:S
 
-  case class ExternalEffect(message:AnyRef, destination:ActorPath)
-
-  object ExternalEffects {
-    def apply(message:AnyRef, destination:ActorPath):ExternalEffects = ExternalEffects(List(ExternalEffect(message, destination)))
+  object ResultingDurableMessages {
+    def apply(message:AnyRef, destination:ActorPath):ResultingDurableMessages = ResultingDurableMessages(List(SendAsDurableMessage(message, destination)))
+    def apply(sendAsDurableMessage: SendAsDurableMessage):ResultingDurableMessages = ResultingDurableMessages(List(sendAsDurableMessage))
   }
 
-  case class ExternalEffects(list:List[ExternalEffect])
+  case class ResultingDurableMessages(list:List[SendAsDurableMessage])
 
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
-  private val defaultExternalEffectsHandler = (e:E) => {
-    log.debug("No externalEffects handler for this event")
-    ExternalEffects(List())
+  private val defaultResultingDurableMessages = (e:E) => {
+    log.debug("No durableMessages generated for this event")
+    ResultingDurableMessages(List())
   }
 
-  case class EventResult(
+  case class ResultingEvent(
                           event:E,
                           errorHandler:(String)=>Unit = defaultErrorHandler,
                           successHandler:()=>Unit = defaultSuccessHandler) {
@@ -76,8 +75,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
     def withSuccessHandler(successHandler:()=>Unit) = copy(successHandler = successHandler)
   }
 
-  def cmdToEvent:PartialFunction[AnyRef, EventResult]
-  def generateExternalEffects:PartialFunction[E, ExternalEffects]
+  def cmdToEvent:PartialFunction[AnyRef, ResultingEvent]
+  def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages]
 
 
   final override protected def stateInfo(): String = state.toString
@@ -89,8 +88,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
         sender ! state
       } else {
         val cmd = x
-        val defaultCmdToEvent:(AnyRef) => EventResult = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
-        val eventResult:EventResult = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
+        val defaultCmdToEvent:(AnyRef) => ResultingEvent = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
+        val eventResult:ResultingEvent = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
           // for now we only have one event, but act as we have a list..
@@ -117,12 +116,9 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   final def onEvent = {
     case e:E =>
       val newState = state.transition(e)
-      val externalEffects = generateExternalEffects.applyOrElse(e, defaultExternalEffectsHandler)
+      val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)
       state = newState
-      externalEffects.list.foreach {
-        externalEffect =>
-          sendAsDurableMessage(externalEffect.message, externalEffect.destination)
-      }
+      resultingDurableMessages.list.foreach { msg => sendAsDurableMessage(msg) }
   }
 
 }

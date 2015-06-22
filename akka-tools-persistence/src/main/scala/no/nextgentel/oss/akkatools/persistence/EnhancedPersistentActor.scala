@@ -9,6 +9,7 @@ import akka.persistence.{PersistentView, RecoveryCompleted, AtLeastOnceDelivery,
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
 
+case class SendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
 
 object EnhancedPersistentActor {
   val DEFAULT_IDLE_TIMEOUT_IN_SECONDS = FiniteDuration(240, TimeUnit.SECONDS)
@@ -288,19 +289,23 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath) {
-    sendAsDurableMessage(payload, destinationActor, null)
+    sendAsDurableMessage( SendAsDurableMessage(payload, destinationActor) )
   }
 
-  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef) {
+  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = {
+    sendAsDurableMessage( SendAsDurableMessage(payload, destinationActor, confirmationRoutingInfo) )
+  }
+
+  protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage) {
     if (isProcessingEvent) {
-      deliver(destinationActor, {
+      deliver(sendAsDurableMessage.destinationActor, {
         deliveryId:Long =>
-          DurableMessage(deliveryId, payload, getDurableMessageSender(), confirmationRoutingInfo)
+          DurableMessage(deliveryId, sendAsDurableMessage.payload, getDurableMessageSender(), sendAsDurableMessage.confirmationRoutingInfo)
       })
     }
     else {
-      val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(payload)
-      context.actorSelection(destinationActor).tell(outgoingDurableMessage, self)
+      val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDurableMessage.payload)
+      context.actorSelection(sendAsDurableMessage.destinationActor).tell(outgoingDurableMessage, self)
       pendingDurableMessage = None
     }
   }
