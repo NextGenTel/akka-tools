@@ -53,7 +53,7 @@ You need the following grants:
     
 The payload of the events are written and read from the *persistentRepr*-column.
 
-If the payload is serialized using *no.ngt.oss.akkatools.serializing.NgtJsonSerializer*,
+If the payload is serialized using *no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer*,
 a json-string-representation of the payload is also written to *payload_write_only* - This is only done
 for readability and is never read/used in this code.
 
@@ -63,11 +63,11 @@ To enable this persistence-plugin, add the following to your akka *application.c
     include classpath("akka-tools-json-serializing")
     
 
-It would be a good idea to use this with the *NgtJsonSerializer*-module, but it is not mandatory.
+It would be a good idea to use this with the *JacksonJsonSerializer*-module, but it is not mandatory.
 
 You have to initialize it with a working DataSource, schemaName and an objectMapper by calling this method before use:
 
-    no.ngt.oss.akkatools.persistence.jdbcjournal.JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) );
+    no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) );
     
 
 Special PersistentView-feature
@@ -85,4 +85,4 @@ If you have the following eventsources acctors/aggregates:
 
 If you create a PersistentView with '/data/car/1', it will get all events for that car.
 But if you create a PersistentView with '/data/car/*', the special feature will give you all events for all cars.
-All these evets are wrapped in JournalEntry-objects
+All these events are wrapped in JournalEntry-objects
