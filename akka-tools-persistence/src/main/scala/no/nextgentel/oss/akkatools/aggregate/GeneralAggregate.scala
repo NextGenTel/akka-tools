@@ -88,7 +88,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   final def tryCommand = {
     case x:AnyRef =>
       // Can't get pattern-matching to work with generics..
-      if (x.isInstanceOf[GetAggregateState]) {
+      if (x.isInstanceOf[GetState]) {
         sender ! state
       } else {
         val cmd = x
@@ -148,7 +148,7 @@ class GeneralAggregateView[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
   override val onCmd: PartialFunction[AnyRef, Unit] = {
-    case x:GetAggregateState =>
+    case x:GetState =>
       sender ! state
   }
 }

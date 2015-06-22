@@ -22,6 +22,15 @@ It includes features like:
 The concept
 =====================
 
+Short about EventSourcing:
+
+If we receive a valid command, we write a 
+
+
+
+
+Below is a more detailed explanation of some terms: 
+
 Commands
 --------------
 Commands are sent to a GeneralAggregate from the outside world.

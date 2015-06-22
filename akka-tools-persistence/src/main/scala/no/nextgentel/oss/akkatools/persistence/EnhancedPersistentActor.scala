@@ -405,6 +405,9 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:
       log.debug("Sending EventAndStateHistory")
       sender ! history
     case x:DurableMessageReceived => // We can ignore these in our view
+    case x:GetState =>
+      log.debug("Sending state")
+      sender ! currentState()
     case x:AnyRef =>
       if (classTag[E].runtimeClass.isInstance(x) ) {
         val event = x.asInstanceOf[E]
