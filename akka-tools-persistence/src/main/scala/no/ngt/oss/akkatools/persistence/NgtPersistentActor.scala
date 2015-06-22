@@ -399,6 +399,7 @@ abstract class NgtPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:Strin
     case GetEventAndStateHistory() =>
       log.debug("Sending EventAndStateHistory")
       sender ! history
+    case x:DurableMessageReceived => // We can ignore these in our view
     case x:AnyRef =>
       if (classTag[E].runtimeClass.isInstance(x) ) {
         val event = x.asInstanceOf[E]

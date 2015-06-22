@@ -6,16 +6,15 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Props, ActorLogging, Actor, ActorSystem}
 import akka.util.Timeout
 import akka.pattern.ask
-import no.ngt.oss.akkatools.cluster.{NgtClusterConfig, NgtClusterListener}
+import no.ngt.oss.akkatools.example.booking._
 import no.ngt.oss.akkatools.persistence.{EventAndState, GetEventAndStateHistory, DurableMessage}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 import scala.io.StdIn._
 
 
 object ExampleApp extends App {
-
+  val infoColor = Console.BLUE
   val e = new ExampleSystem()
 
   val bookingId = "movie-" + UUID.randomUUID().toString
@@ -108,7 +107,7 @@ object ExampleApp extends App {
 
   def printInfo(info:String, sleep:Int = 1): Unit ={
     Thread.sleep(sleep*1000)
-    println(Console.YELLOW + info +  Console.RESET)
+    println(infoColor + info +  Console.RESET)
   }
 
   def waitForALittleWhile(seconds:Int = 1): Unit ={
@@ -117,7 +116,7 @@ object ExampleApp extends App {
 
   def doNextStep[T](description:String)(work:()=>T): T = {
     Thread.sleep(1000)
-    println(Console.BLUE + "\n\nType 'run + [ENTER]' to execute next step: " + Console.YELLOW + description + Console.RESET)
+    println(Console.BLUE + "\n\nType 'run + [ENTER]' to execute next step: " + infoColor + description + Console.RESET)
     var wait = true
     while(wait) {
       val line = readLine()
@@ -186,7 +185,7 @@ class Cinema extends Actor with ActorLogging {
   def receive = {
     case dm: DurableMessage =>
       val m = dm.payload
-      log.info(s"Cinema: $m")
+      log.info(Console.GREEN + s"Cinema: $m" + Console.RESET)
       dm.confirm(context, self)
   }
 }
@@ -202,10 +201,10 @@ class TicketPrinter extends Actor with ActorLogging {
       val willCrash = (counter % 3) != 0
 
       if ( willCrash)
-        log.warning(s"Failing to print ticket $m")
+        log.warning(Console.RED + s"Failing to print ticket $m" + Console.RESET)
       else {
 
-        log.info(s"Printing ticket: $m")
+        log.info(Console.GREEN + s"Printing ticket: $m" + Console.RESET)
         dm.confirm(context, self)
       }
   }
