@@ -37,7 +37,7 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
  *      if it failed: maybe do something
  *      if it works:
  *        persist event
- *        generate and send ExternalEffect (DurableMessages that needs to be sent)
+ *        generate and send DurableMessages
  *        change our current state (by calling state.transition() and keeping the result )
  *
  *
@@ -66,8 +66,12 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
     ResultingDurableMessages(List())
   }
 
+  object ResultingEvent {
+    def apply(event:E):ResultingEvent = ResultingEvent(List(event))
+  }
+
   case class ResultingEvent(
-                          event:E,
+                          events:List[E],
                           errorHandler:(String)=>Unit = defaultErrorHandler,
                           successHandler:()=>Unit = defaultSuccessHandler) {
 
@@ -92,9 +96,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
         val eventResult:ResultingEvent = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
-          // for now we only have one event, but act as we have a list..
-          val events = List(eventResult.event)
-          events.foldLeft(state) {
+          if( log.isDebugEnabled ) log.debug("Trying resultingEvents: " + eventResult.events)
+          eventResult.events.foldLeft(state) {
             (s, e) =>
               s.transition(e)
           }
@@ -103,7 +106,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           eventResult.successHandler.apply()
 
           // it was valid - we can persist it
-          persistAndApplyEvents(events)
+          persistAndApplyEvents(eventResult.events)
         } catch {
           case error:AggregateError =>
             eventResult.errorHandler.apply(error.getMessage)
@@ -118,7 +121,11 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
       val newState = state.transition(e)
       val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)
       state = newState
-      resultingDurableMessages.list.foreach { msg => sendAsDurableMessage(msg) }
+      resultingDurableMessages.list.foreach {
+        msg =>
+          if(log.isDebugEnabled) log.debug(s"Sending generated DurableMessage: $msg")
+          sendAsDurableMessage(msg)
+      }
   }
 
 }

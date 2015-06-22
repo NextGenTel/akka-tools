@@ -34,7 +34,7 @@ Events
 --------------
 Events are representing changes to our state and are persisted in the Journal.
 
-They drive the state-machine and may produce *External Effects*
+They drive the state-machine and may produce *DurableMessages*
 
 DurableMessage
 ----------------
@@ -69,10 +69,6 @@ In such situations we must confirm the message to stop the auto-retry-mechanism.
 
 NullPointerException is a typical example of an unexpected error..
 
-External Effect
---------------
-External Effects are DurableMessages to other actors and/or Aggregates produced based on Events that has happend.
-
 
 The state (machine)
 -----------
@@ -98,15 +94,22 @@ The event is then validated by trying to apply it to the state (machine).
 If the event is valid, then it is written to the journal.
 
 Before we change the state (machine), we check to see if applying this event should result in
-any External Effects (Do we need to send an important durable message to some other actor or Aggregate?).
+any DurableMessages (Do we need to send an important durable message to some other actor or Aggregate?).
 
-After any External Effects as sent as DurableMessage (AtLeastOnceDelivery), we apply the event to the state (machine)
+After any DurableMessages has been sent (AtLeastOnceDelivery), we apply the event to the state (machine)
 and store the new current state.
 
+
+Configuration
+---------------------
+
+As a convenience, you can include the following config enabling sharding
+
+    include classpath("akka-tools-sharding")
 
 
 
 Example
 --------------------------
 
-// TODO: info about include .conf file
+An [example-application can be found here](../examples/aggregates/)
