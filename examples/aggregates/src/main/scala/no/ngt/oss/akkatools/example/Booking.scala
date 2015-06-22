@@ -1,10 +1,13 @@
 package no.ngt.oss.akkatools.example
 
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import akka.actor.Status.Failure
 import akka.actor.{Props, ActorSystem, ActorRef, ActorPath}
 import no.ngt.oss.akkatools.aggregate._
+
+import scala.concurrent.duration.FiniteDuration
 
 // Commands
 trait BookingCmd extends AggregateCmd {
@@ -98,7 +101,7 @@ object BookingAggregate {
 
 // Aggregate
 class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath)
-  extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
+  extends GeneralAggregate[BookingEvent, BookingState](FiniteDuration(60, TimeUnit.SECONDS), ourDispatcherActor) {
 
   var state = BookingState.empty()
 
@@ -108,12 +111,12 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
     case c: ReserveSeatCmd =>
       val seatId = UUID.randomUUID().toString
       EventResult(ReservationEvent(seatId))
-        .withSuccessHandler {() => sender ! seatId } // Send the seatId back
-        .withErrorHandler {
-        errorMsg =>
-          sender ! Failure(new Exception("Sorry - booking not possible: " + errorMsg))
-      }
-    case c: CancelSeatCmd => EventResult(CancelationEvent(c.seatId))
+        .withSuccessHandler(() => sender ! seatId ) // Send the seatId back
+        .withErrorHandler ( errorMsg => sender ! Failure(new Exception("Sorry - booking not possible: " + errorMsg)) )
+    case c: CancelSeatCmd =>
+      EventResult(CancelationEvent(c.seatId))
+        .withSuccessHandler( () => sender ! "ok")
+        .withErrorHandler( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
   override def generateExternalEffects = {

@@ -2,7 +2,7 @@
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
 
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %msg - %-5level lgr=%logger{36}%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %X{akkaPersistenceRecovering} %-140msg - akkaSrc=%X{akkaSource} lgr=%logger{36}%n</pattern>
         </encoder>
     </appender>
 
@@ -17,7 +17,7 @@
             -->
         </rollingPolicy>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %msg - %-5level lgr=%logger{36}%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %X{akkaPersistenceRecovering} %msg - akkaSrc=%X{akkaSource} lgr=%logger{36}%n</pattern>
         </encoder>
     </appender>
 
