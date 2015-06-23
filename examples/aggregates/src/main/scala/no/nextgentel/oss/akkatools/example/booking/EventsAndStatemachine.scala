@@ -19,20 +19,28 @@ case class BookingError(e: String) extends AggregateError(e)
 
 // State (machine)
 
+object StateName extends Enumeration {
+  type StateName = Value
+  val NOT_OPEN = Value("NOT_OPEN")
+  val OPEN = Value("OPEN")
+  val CLOSED = Value("CLOSED")
+}
+
+import StateName._
+
 object BookingState {
-  def empty() = BookingState(false, 0, Set(), false)
+  def empty() = BookingState(NOT_OPEN, 0, Set())
 }
 
 case class BookingState
 (
-  opened: Boolean,
+  state: StateName,
   seats: Int,
-  reservations: Set[String],
-  closed: Boolean // finilized
+  reservations: Set[String]
   ) extends AggregateState[BookingEvent, BookingState] {
 
   override def transition(event: BookingEvent): BookingState = {
-    if (!opened) {
+    if (NOT_OPEN == state) {
       transitionWhenBookingHasNotOpenedYet(event)
     } else {
       transitionWhenBookingHasOpened(event)
@@ -44,7 +52,7 @@ case class BookingState
     event match {
       case e: BookingOpenEvent =>
         // we're opening the booking
-        BookingState(true, e.numberOfFreeSeats, Set(), false)
+        BookingState(OPEN, e.numberOfFreeSeats, Set())
 
       case e: BookingEvent => throw BookingError("Invalid event since Booking is not opened yet")
     }
@@ -52,7 +60,7 @@ case class BookingState
 
   def transitionWhenBookingHasOpened(event:BookingEvent): BookingState = {
     // Booking has been opened, but is it closed?
-    if (closed) throw BookingError("Booking is close")
+    if (CLOSED == state) throw BookingError("Booking is close")
 
     event match {
       case e: ReservationEvent =>
@@ -72,7 +80,7 @@ case class BookingState
 
       case e: BookingClosedEvent =>
         // Closing the booking
-        copy(closed = true)
+        copy(state = CLOSED)
 
       case e: BookingEvent =>
         throw BookingError("Not a valid event for this open booking")
