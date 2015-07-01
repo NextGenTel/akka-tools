@@ -51,13 +51,23 @@ lazy val exampleAggregatesDependencies = Seq(
 lazy val root = (project in file("."))
   .settings(name := "akka-tools-parent")
   .settings(commonSettings: _*)
-  .aggregate(akkaToolsPersistence, akkaToolsJsonSerializing, akkaToolsJdbcJournal, akkaToolsCluster)
+  .aggregate(
+    akkaToolsPersistence,
+    akkaToolsJsonSerializing,
+    akkaToolsJdbcJournal,
+    akkaToolsCluster,
+    akkaExampleAggregates)
 
 
 lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(name := "akka-tools-persistence")
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= (akkaToolsPersistenceDependencies))
+  .settings(libraryDependencies ++= (testDependencies))
+  .settings(libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
+    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))
+
 
 lazy val akkaToolsJsonSerializing = (project in file("akka-tools-json-serializing"))
   .settings(name := "akka-tools-json-serializing")
@@ -84,3 +94,7 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .dependsOn(akkaToolsCluster)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= (exampleAggregatesDependencies))
+  .settings(libraryDependencies ++= (testDependencies))
+  .settings(libraryDependencies ++= Seq(
+    "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
+    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))

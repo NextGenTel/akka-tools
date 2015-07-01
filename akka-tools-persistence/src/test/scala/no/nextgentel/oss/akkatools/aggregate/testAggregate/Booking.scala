@@ -1,4 +1,4 @@
-package no.nextgentel.oss.akkatools.example.booking
+package no.nextgentel.oss.akkatools.aggregate.testAggregate
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -14,21 +14,23 @@ import scala.concurrent.duration.FiniteDuration
 case class PrintTicketMessage(id:String)
 case class CinemaNotification(seatsBooked:List[String])
 
-trait SeatIdGenerator {
-  def generateNextSeatId():String
-}
-
-class DefaultSeatIdGenerator extends SeatIdGenerator {
-  override def generateNextSeatId(): String = UUID.randomUUID().toString
-}
-
 // Aggregate
-class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator)
+class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String] = List())
   extends GeneralAggregate[BookingEvent, BookingState](FiniteDuration(60, TimeUnit.SECONDS), ourDispatcherActor) {
 
   var state = BookingState.empty() // This is our initial state(Machine)
 
+  def generateNextSeatId():String = {
 
+    if (predefinedSeatIds.isEmpty) {
+      UUID.randomUUID().toString
+    } else {
+      // pop the first id
+      val id = predefinedSeatIds(0)
+      predefinedSeatIds = predefinedSeatIds.tail
+      id
+    }
+  }
 
   // transform command to event
   override def cmdToEvent = {
@@ -38,7 +40,7 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
     case c: ReserveSeatCmd  =>
       // Generate a random seatId
-      val seatId = seatIdGenerator.generateNextSeatId()
+      val seatId = generateNextSeatId()
       val event = ReservationEvent(seatId)
 
       ResultingEvent(event)
@@ -68,18 +70,18 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
 
 object BookingAggregate {
-  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator = new DefaultSeatIdGenerator()) =
-    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, seatIdGenerator))
+  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]) =
+    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, predefinedSeatIds))
 }
 
 
 // Setting up the builder we're going to use for our BookingAggregate and view
 class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem, "booking", Some(BookingState.empty())) {
 
-  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath): Unit = {
+  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]): Unit = {
     withGeneralAggregateProps {
       ourDispatcher: ActorPath =>
-        BookingAggregate.props(ourDispatcher, ticketPrintShop, cinemaNotifier)
+        BookingAggregate.props(ourDispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds)
     }
   }
 

@@ -1,4 +1,4 @@
-package no.nextgentel.oss.akkatools.example.booking
+package no.nextgentel.oss.akkatools.aggregate.testAggregate
 
 import no.nextgentel.oss.akkatools.aggregate.{AggregateError, AggregateState}
 
@@ -26,7 +26,7 @@ object StateName extends Enumeration {
   val CLOSED = Value("CLOSED")
 }
 
-import StateName._
+import no.nextgentel.oss.akkatools.aggregate.testAggregate.StateName._
 
 object BookingState {
   def empty() = BookingState(NOT_OPEN, 0, Set())

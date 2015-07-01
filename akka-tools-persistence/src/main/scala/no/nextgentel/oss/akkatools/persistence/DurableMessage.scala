@@ -44,7 +44,9 @@ class DurableMessageForwardAndConfirm(dest:ActorRef) extends Actor with ActorLog
       dest ! dm.payload
       log.debug("durableMessage has been forwarded - confirming it")
       dm.confirm(context, self)
-    case x:AnyRef => dest ! x
+    case x:AnyRef =>
+      //dest ! x
+    log.error("Expecting durableMessage to forward but got this message instead: " + x)
   }
 }
 
