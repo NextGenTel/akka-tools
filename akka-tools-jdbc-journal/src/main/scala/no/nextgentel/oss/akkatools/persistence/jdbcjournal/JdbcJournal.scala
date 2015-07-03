@@ -22,6 +22,7 @@ import akka.persistence.journal.SyncWriteJournal
 import akka.persistence.snapshot.SnapshotStore
 import akka.serialization.SerializationExtension
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
+import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializableButNotDeserializable
 import org.sql2o.Sql2o
 import org.sql2o.quirks.OracleQuirks
 
@@ -210,7 +211,11 @@ case class JournalEntry(processorId: ProcessorId, payload: AnyRef) {
   def payloadAs[T](): T = payload.asInstanceOf[T]
 }
 
-case class JsonObjectHolder(t:String, o:AnyRef)
+
+// Need JacksonJsonSerializableButNotDeserializable since we're using JacksonJsonSerializer to generate
+// read-only-json with type-name-info, and if it has serializationVerification turned on,
+// This class will faile since it does not have type-info..
+case class JsonObjectHolder(t:String, o:AnyRef) extends JacksonJsonSerializableButNotDeserializable
 
 class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
 

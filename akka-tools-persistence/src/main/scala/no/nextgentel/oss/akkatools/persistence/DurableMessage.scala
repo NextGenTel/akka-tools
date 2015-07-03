@@ -37,21 +37,26 @@ case class DurableMessage
 /*
 Useful when testing receiving of DurableMessages via TestProbe
  */
-class DurableMessageForwardAndConfirm(dest:ActorRef) extends Actor with ActorLogging {
+class DurableMessageForwardAndConfirm(dest:ActorRef, onlyAcceptDurableMessages:Boolean) extends Actor with ActorLogging {
 
   def receive = {
     case dm:DurableMessage=>
-      dest ! dm.payload
+      dest.forward(dm.payload)
       log.debug("durableMessage has been forwarded - confirming it")
       dm.confirm(context, self)
     case x:AnyRef =>
-      //dest ! x
-    log.error("Expecting durableMessage to forward but got this message instead: " + x)
+      if (onlyAcceptDurableMessages) {
+        log.error("Expecting durableMessage to forward but got this message instead: " + x)
+      } else {
+        log.debug("Forwarding none-durableMessage")
+        dest.forward(x)
+      }
+
   }
 }
 
 object DurableMessageForwardAndConfirm {
-  def apply(dest:ActorRef)(implicit system:ActorSystem):ActorRef = {
-    system.actorOf(Props(new DurableMessageForwardAndConfirm(dest)))
+  def apply(dest:ActorRef, onlyAcceptDurableMessages:Boolean = false)(implicit system:ActorSystem):ActorRef = {
+    system.actorOf(Props(new DurableMessageForwardAndConfirm(dest, onlyAcceptDurableMessages)))
   }
 }

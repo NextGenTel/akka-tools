@@ -37,6 +37,7 @@ object JacksonJsonSerializer {
   }
 }
 
+class JacksonJsonSerializerVerificationFailed(errorMsg:String) extends RuntimeException(errorMsg)
 
 class JacksonJsonSerializer extends Serializer {
   val logger = LoggerFactory.getLogger(getClass)
@@ -59,6 +60,8 @@ class JacksonJsonSerializer extends Serializer {
         val m = d.convertToMigratedType()
         if (logger.isDebugEnabled) logger.debug("fromBinaryJava: " + clazz + " was migrated to " + m.getClass)
         m
+      case d:JacksonJsonSerializableButNotDeserializable =>
+        throw new Exception("The type " + o.getClass + " is not supposed to be deserializable since it extends JacksonJsonSerializableButNotDeserializable")
       case x:AnyRef => x
     }
   }
@@ -74,13 +77,19 @@ class JacksonJsonSerializer extends Serializer {
     return bytes
   }
 
-  private def doVerifySerialization(originalObject: AnyRef, bytes: Array[Byte]) {
+  private def doVerifySerialization(originalObject: AnyRef, bytes: Array[Byte]):Unit = {
+    if (originalObject.isInstanceOf[JacksonJsonSerializableButNotDeserializable]) {
+      if (logger.isDebugEnabled) {
+        logger.debug("Skipping doVerifySerialization: " + originalObject.getClass)
+      }
+      return ;
+    }
     if (logger.isDebugEnabled) {
       logger.debug("doVerifySerialization: " + originalObject.getClass)
     }
     val deserializedObject: AnyRef = fromBinary(bytes, originalObject.getClass)
     if (!(originalObject == deserializedObject)) {
-      throw new RuntimeException("Serialization-verification failed.\n" + "original:     " + originalObject.toString + "\n" + "deserialized: " + deserializedObject.toString)
+      throw new JacksonJsonSerializerVerificationFailed("Serialization-verification failed.\n" + "original:     " + originalObject.toString + "\n" + "deserialized: " + deserializedObject.toString)
     }
   }
 }
