@@ -13,6 +13,7 @@ import no.nextgentel.oss.akkatools.testing.{AggregateStateGetter}
 import org.scalatest._
 import org.slf4j.LoggerFactory
 
+
 class BookingTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
