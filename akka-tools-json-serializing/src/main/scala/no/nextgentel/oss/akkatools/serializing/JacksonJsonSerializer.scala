@@ -45,7 +45,8 @@ class JacksonJsonSerializer extends Serializer {
 
 
 
-  override def identifier: Int = 67567522
+  // The serializer id has to have this exact value to be equal to the old original implementation
+  override def identifier: Int = 67567521
 
   override def includeManifest: Boolean = true
 
