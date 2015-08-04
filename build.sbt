@@ -2,7 +2,14 @@ lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   version := "0.9-SNAPSHOT",
   scalaVersion := "2.11.6",
-  publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  publishTo := {
+    val nexus = "http://nexus.nextgentel.net/content/repositories/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "snapshots/")
+    else
+      Some("releases"  at nexus + "thirdparty/")
+  }
 )
 
 
@@ -110,3 +117,10 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
     "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))
+
+
+
+
+
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
