@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.event.Logging.MDC
+import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
 import akka.persistence.{PersistentView, RecoveryCompleted, AtLeastOnceDelivery, PersistentActor}
 
 import scala.concurrent.duration.FiniteDuration
@@ -255,33 +256,40 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   /**
    * If doUnconfirmedWarningProcessing is turned on, then override this method
-   * to try to do someting usefull before we give up
-   * @param unconfirmedWarning
+   * to try to do something useful before we give up
+   * @param originalPayload
    */
-  protected def durableMessagesNotDeliveredHandler(unconfirmedWarning: AtLeastOnceDelivery.UnconfirmedWarning, errorMsg: String) {
+  protected def durableMessageNotDeliveredHandler(originalPayload:Any, errorMsg: String) {
   }
 
-  private def internalProcessUnconfirmedWarning(unconfirmedWarning: AtLeastOnceDelivery.UnconfirmedWarning) {
-    val destinationNotConfirming = unconfirmedWarning.unconfirmedDeliveries.find({p => true}).map(p => p.destination.toString).getOrElse("Unknown destination")
-    val errorMsg: String = "Not getting message-confirmation from: " + destinationNotConfirming + " - giving up"
-    log.error(s"$errorMsg: $unconfirmedWarning")
-    try {
-      durableMessagesNotDeliveredHandler(unconfirmedWarning, errorMsg)
+  protected def internalProcessUnconfirmedWarning(unconfirmedWarning: AtLeastOnceDelivery.UnconfirmedWarning) {
+
+    unconfirmedWarning.unconfirmedDeliveries.map {
+      ud: UnconfirmedDelivery =>
+        val errorMsg: String = "Not getting message-confirmation from: " + ud.destination + " - giving up"
+        log.error(s"$errorMsg: $ud")
+
+        // invoke the handler for this ud
+        try {
+          durableMessageNotDeliveredHandler(ud.message, errorMsg)
+        } catch {
+          case e: Exception => {
+            if (isExpectedError(e)) {
+              log.warning("durableMessageNotDeliveredHandler() failed while trying to give up: {}", e.getMessage)
+            } else {
+              log.error(e, "durableMessageNotDeliveredHandler() failed while trying to give up")
+            }
+          }
+        }
+
+        // Cannot call confirmDelivery directly because we need to remember that we have
+        // decided to threat this failed delivery as "delivered"
+        val persistableDurableMessageReceived = DurableMessageReceived(ud.deliveryId, null)
+        persist(persistableDurableMessageReceived) {
+          e => onDurableMessageReceived(e)
+        }
+
     }
-    catch {
-      case e: Exception => {
-        log.warning("durableMessagesNotDeliveredHandler() failed while trying to give up: {}", e.getMessage)
-      }
-    }
-    unconfirmedWarning.unconfirmedDeliveries.map({
-      ud =>
-      // Cannot call confirmDelivery directly because we need to remember that we have
-      // decided to threat this failed delivery as "delivered"
-      val persistableDurableMessageReceived = DurableMessageReceived(ud.deliveryId, null)
-      persist(persistableDurableMessageReceived) {
-        e => onDurableMessageReceived(e)
-      }
-    })
   }
 
   protected def getDurableMessageSender(): ActorPath = {

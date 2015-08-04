@@ -2,6 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor._
 import akka.contrib.pattern.ClusterSharding
+import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import no.nextgentel.oss.akkatools.persistence._
 
 import scala.concurrent.duration.FiniteDuration
@@ -128,6 +129,49 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
       }
   }
 
+
+  private var tmpStateWhileProcessingUnconfirmedWarning:S = null.asInstanceOf[S]
+
+  // We need to override this so that we can use a fresh copy of the state while we process
+  // all the unconfirmed messages
+  override protected def internalProcessUnconfirmedWarning(unconfirmedWarning: UnconfirmedWarning): Unit = {
+    tmpStateWhileProcessingUnconfirmedWarning = state // since we're maybe goint to validate multiple events in a row,
+    // we need to have a copy of the state that we can modify during the processing/validation
+    super.internalProcessUnconfirmedWarning(unconfirmedWarning)
+    tmpStateWhileProcessingUnconfirmedWarning = null.asInstanceOf[S]
+  }
+
+  /**
+   * If doUnconfirmedWarningProcessing is turned on, then override this method
+   * to try to do something useful before we give up
+   * @param originalPayload
+   */
+  override protected def durableMessageNotDeliveredHandler(originalPayload: Any, errorMsg: String): Unit = {
+    // call generateEventsForFailedDurableMessage to let the app decide if this should result in any events that should be persisted.
+
+    val events = generateEventsForFailedDurableMessage(originalPayload, errorMsg)
+    var tmpState = tmpStateWhileProcessingUnconfirmedWarning // we must validate that the events are valid
+
+    events.foreach {
+      e => tmpState = tmpState.transition(e)
+    }
+
+    // all events passed validation => we can persist them
+    persistAndApplyEvents(events.toList)
+
+    tmpStateWhileProcessingUnconfirmedWarning = tmpState
+  }
+
+  /**
+   * Override this to decide if the failed outbound durableMessage should result in a persisted event.
+   * If so, return these events.
+   * When these have been persisted, generateResultingDurableMessages() will be called as usual enabling
+   * you to perform some outbound action.
+   * @param originalPayload
+   * @param errorMsg
+   * @return
+   */
+  def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
 }
 
 
