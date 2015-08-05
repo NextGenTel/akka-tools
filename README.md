@@ -8,7 +8,9 @@ This project contains various addons to Akka useful when working with:
 * Persistence and Eventsourcing
 * Serializing
 
-This code has turned out to be quite useful for NextGenTel and is used in production
+This code has turned out to be quite useful for NextGenTel and is used in production.
+
+The current version is **0.9.0-RC1**
 
 Below is a summary of the various modules
 
