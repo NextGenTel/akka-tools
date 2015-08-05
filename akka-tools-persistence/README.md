@@ -22,10 +22,13 @@ It includes features like:
 The concept
 =====================
 
-Short about EventSourcing:
+![GeneralAggregate flow](img/general-aggregate-flow.jpg "GeneralAggregate-flow - You only need to implement the three red parts")
 
-If we receive a valid command, we write a 
+The above images shows how GeneralAggregate works.
 
+The red parts indicates what you need to implement.
+
+In short, this is how it works:
 
 
 

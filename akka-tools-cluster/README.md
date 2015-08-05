@@ -25,4 +25,7 @@ by looking at which nodes are currently running.
 
 
 
+ClusterSingletonHelper
+---------------------
 
+Simplifies using cluster-singletons
