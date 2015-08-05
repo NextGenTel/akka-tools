@@ -1,15 +1,41 @@
+
+val publishToNexus = false
+
+
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   version := "0.9-SNAPSHOT",
   scalaVersion := "2.11.6",
   //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   publishTo := {
-    val nexus = "http://nexus.nextgentel.net/content/repositories/"
-    if (isSnapshot.value)
-      Some("snapshots" at nexus + "snapshots/")
-    else
-      Some("releases"  at nexus + "thirdparty/")
-  }
+    if (publishToNexus) {
+      val nexus = "http://nexus.nextgentel.net/content/repositories/"
+      if (isSnapshot.value)
+        Some("snapshots" at nexus + "snapshots/")
+      else
+        Some("releases"  at nexus + "thirdparty/")
+    } else Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  },
+  pomExtra := (
+    <url>https://bitbucket.org/mbknor/akka-tools</url>
+      <licenses>
+        <license>
+          <name>MIT</name>
+          <url>https://bitbucket.org/mbknor/akka-tools/LICENSE.txt</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
+      <scm>
+        <url>git@bitbucket.org:mbknor/akka-tools.git</url>
+        <connection>scm:git:git@bitbucket.org:mbknor/akka-tools.git</connection>
+      </scm>
+      <developers>
+        <developer>
+          <id>mbknor</id>
+          <name>Morten Kjetland</name>
+          <url>https://github.com/mbknor</url>
+        </developer>
+      </developers>)
 )
 
 
