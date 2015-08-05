@@ -22,7 +22,7 @@ It includes features like:
 The concept
 =====================
 
-![GeneralAggregate flow](img/general-aggregate-flow.jpg "GeneralAggregate-flow - You only need to implement the three red parts")
+![This is how GeneralAggregate works](../img/general-aggregate-flow.jpg "This is how GeneralAggregate works")
 
 The above images shows how GeneralAggregate works.
 
