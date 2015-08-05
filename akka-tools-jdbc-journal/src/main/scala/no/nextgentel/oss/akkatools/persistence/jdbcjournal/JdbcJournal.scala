@@ -137,12 +137,14 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
           val clazz: Class[_] = getClass().getClassLoader().loadClass(e.snapshotClassname)
           val snapshot = serialization.serializerFor(clazz).fromBinary(e.snapshot, clazz)
 
-          SelectedSnapshot(
+          val selectedSnapshot = SelectedSnapshot(
             new SnapshotMetadata(
               e.processorId,
               e.sequenceNr,
               e.timestamp),
             snapshot)
+
+          promise.success(Some(selectedSnapshot))
       }
     } catch {
       case e: Exception =>
