@@ -51,9 +51,17 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
     }
   }
 
+
+  override protected def getDurableMessageSender(): ActorPath = ourDispatcherActor
+
   // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
   override protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath): Unit =
     sendAsDurableMessage(payload, destinationActor, dispatchId)
+
+  // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
+  override protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage): Unit = {
+    super.sendAsDurableMessage( sendAsDurableMessage.copy(confirmationRoutingInfo = dispatchId) )
+  }
 }
 
 abstract class EnhancedPersistentShardingJavaActor[Ex <: Exception : ClassTag](idleTimeout:FiniteDuration, ourDispatcherActor:ActorPath) extends EnhancedPersistentShardingActor[AnyRef, Ex](idleTimeout, ourDispatcherActor) with EnhancedPersistentJavaActorLike {

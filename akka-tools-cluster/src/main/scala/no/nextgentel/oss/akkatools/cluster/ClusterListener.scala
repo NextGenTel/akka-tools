@@ -109,6 +109,8 @@ class ClusterListener
   }
 
   private def checkForErrorSituation(): Boolean = {
+    //TODO: change it so that this error-situation has to be seen over some periode of time - eg. to checks
+    //.. To prevent us from concluding error situation if we have not been told that a member has joined the cluster yet.
     val aliveClusterNodes = repo.findAliveClusterNodes(clusterNodesAliveSinceCheck)
     log.debug("List of live clusterNodes from DB: " + aliveClusterNodes.mkString(","))
     if (aliveClusterNodes.size > upMembers.size) {
