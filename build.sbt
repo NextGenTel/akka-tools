@@ -1,10 +1,10 @@
 
-val publishToNexus = false
+val publishToNexus = true
 
 
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
-  version := "0.9.0-RC3-SNAPSHOT",
+  version := "0.9.0-RC3",
   scalaVersion := "2.11.6",
   //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   publishTo := {
