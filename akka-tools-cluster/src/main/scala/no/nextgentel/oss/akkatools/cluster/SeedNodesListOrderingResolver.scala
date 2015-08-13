@@ -18,7 +18,14 @@ object SeedNodesListOrderingResolver {
     repo.removeClusterNodeAlive(ourSeedNode)
 
     val allSeedNodes = clusterConfig.seedNodes
-    val aliveNodes = repo.findAliveClusterNodes(maxAliveAge)
+    val aliveNodes = repo.findAliveClusterNodes(maxAliveAge).map {
+      node =>
+        // alive nodes are listed on this form:
+        //    akka.tcp://SomeAkkaSystem@host1:9999
+        // We must remove everything before hostname:port
+        val index = node.indexOf('@')
+        if ( index >= 0) node.substring(index+1) else node
+    }
 
     val seedNodeListToUse = if ( aliveNodes.isEmpty ) {
       val allNodesExceptOur = allSeedNodes.filter( n => n != ourSeedNode)

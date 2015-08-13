@@ -132,6 +132,7 @@ lazy val akkaToolsCluster = (project in file("akka-tools-cluster"))
   .dependsOn(akkaToolsCommon)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= (akkaToolsClusterDependencies))
+  .settings(libraryDependencies ++= (testDependencies))
 
 lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(name := "exmample-aggregates")
