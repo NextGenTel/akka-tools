@@ -53,34 +53,16 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   var state:S
 
-  object ResultingDurableMessages {
-    def apply(message:AnyRef, destination:ActorPath):ResultingDurableMessages = ResultingDurableMessages(List(SendAsDurableMessage(message, destination)))
-    def apply(sendAsDurableMessage: SendAsDurableMessage):ResultingDurableMessages = ResultingDurableMessages(List(sendAsDurableMessage))
-  }
-
-  case class ResultingDurableMessages(list:List[SendAsDurableMessage])
-
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
+
+
   private val defaultResultingDurableMessages = (e:E) => {
     log.debug("No durableMessages generated for this event")
     ResultingDurableMessages(List())
   }
 
-  object ResultingEvent {
-    def apply(event:E):ResultingEvent = ResultingEvent(List(event))
-  }
-
-  case class ResultingEvent(
-                          events:List[E],
-                          errorHandler:(String)=>Unit = defaultErrorHandler,
-                          successHandler:()=>Unit = defaultSuccessHandler) {
-
-    def withErrorHandler(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
-    def withSuccessHandler(successHandler:()=>Unit) = copy(successHandler = successHandler)
-  }
-
-  def cmdToEvent:PartialFunction[AnyRef, ResultingEvent]
+  def cmdToEvent:PartialFunction[AnyRef, ResultingEvent[E]]
   def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages]
 
 
@@ -93,8 +75,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
         sender ! state
       } else {
         val cmd = x
-        val defaultCmdToEvent:(AnyRef) => ResultingEvent = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
-        val eventResult:ResultingEvent = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
+        val defaultCmdToEvent:(AnyRef) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
+        val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
           if( log.isDebugEnabled ) log.debug("Trying resultingEvents: " + eventResult.events)
@@ -104,13 +86,13 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           }
 
           // run the successHandler
-          eventResult.successHandler.apply()
+          Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
 
           // it was valid - we can persist it
           persistAndApplyEvents(eventResult.events)
         } catch {
           case error:AggregateError =>
-            eventResult.errorHandler.apply(error.getMessage)
+            Option(eventResult.errorHandler).getOrElse(defaultErrorHandler).apply(error.getMessage)
             throw error
         }
       }
@@ -122,10 +104,15 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
       val newState = state.transition(e)
       val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)
       state = newState
-      resultingDurableMessages.list.foreach {
-        msg =>
-          if(log.isDebugEnabled) log.debug(s"Sending generated DurableMessage: $msg")
-          sendAsDurableMessage(msg)
+
+      // From java resultingDurableMessages might be null.. Wrap it optional
+      Option(resultingDurableMessages).map {
+        rdm =>
+          rdm.list.foreach {
+            msg =>
+              if(log.isDebugEnabled) log.debug(s"Sending generated DurableMessage: $msg")
+              sendAsDurableMessage(msg)
+          }
       }
   }
 
@@ -173,6 +160,28 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
    */
   def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
 }
+
+object ResultingEvent {
+  def apply[E](event:E):ResultingEvent[E] = ResultingEvent[E](List(event))
+}
+
+case class ResultingEvent[+E](
+                           events:List[E],
+                           errorHandler:(String)=>Unit = null,
+                           successHandler:()=>Unit = null) {
+
+  def withErrorHandler(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
+  def withSuccessHandler(successHandler:()=>Unit) = copy(successHandler = successHandler)
+}
+
+object ResultingDurableMessages {
+  def apply(message:AnyRef, destination:ActorPath):ResultingDurableMessages = ResultingDurableMessages(List(SendAsDurableMessage(message, destination)))
+  def apply(sendAsDurableMessage: SendAsDurableMessage):ResultingDurableMessages = ResultingDurableMessages(List(sendAsDurableMessage))
+}
+
+case class ResultingDurableMessages(list:List[SendAsDurableMessage])
+
+
 
 
 class GeneralAggregateView[E:ClassTag, S <: AggregateState[E, S]:ClassTag]

@@ -29,3 +29,9 @@ class AggregateStateGetter[S:ClassTag](system:ActorSystem, aggregateActorRef:Act
   }
 
 }
+
+class AggregateStateGetterJava(system:ActorSystem, aggregateActorRef:ActorRef, timeout:Duration)
+  extends AggregateStateGetter[Any](system, aggregateActorRef, timeout) {
+
+  def this(system:ActorSystem, aggregateActorRef:ActorRef) = this(system, aggregateActorRef, defaultTimeout)
+}

@@ -31,7 +31,8 @@ lazy val commonSettings = Seq(
           <name>Morten Kjetland</name>
           <url>https://github.com/mbknor</url>
         </developer>
-      </developers>)
+      </developers>),
+  compileOrder in Test := CompileOrder.Mixed
 )
 
 
@@ -106,7 +107,8 @@ lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))
+    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11"),
+    "junit" % "junit" % "4.12" % "test"))
 
 
 lazy val akkaToolsJsonSerializing = (project in file("akka-tools-json-serializing"))
