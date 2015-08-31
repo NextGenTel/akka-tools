@@ -7,27 +7,21 @@ lazy val commonSettings = Seq(
   version := "0.9.0-RC5-SNAPSHOT",
   scalaVersion := "2.11.6",
   //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  publishMavenStyle := true,
   publishTo := {
-    if (publishToNexus) {
-      val nexus = "http://nexus.nextgentel.net/content/repositories/"
-      if (isSnapshot.value)
-        Some("snapshots" at nexus + "snapshots/")
-      else
-        Some("releases"  at nexus + "thirdparty/")
-    } else Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("releases"  at nexus + "service/local/staging/deploy/maven2")
   },
+  homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
+  licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
+  startYear := Some(2015),
   pomExtra := (
-    <url>https://bitbucket.org/mbknor/akka-tools</url>
-      <licenses>
-        <license>
-          <name>MIT</name>
-          <url>https://bitbucket.org/mbknor/akka-tools/LICENSE.txt</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
       <scm>
-        <url>git@bitbucket.org:mbknor/akka-tools.git</url>
-        <connection>scm:git:git@bitbucket.org:mbknor/akka-tools.git</connection>
+        <url>git@github.com:NextGenTel/akka-tools.git</url>
+        <connection>scm:git:git@github.com:NextGenTel/akka-tools.git</connection>
       </scm>
       <developers>
         <developer>
@@ -135,7 +129,7 @@ lazy val akkaToolsCluster = (project in file("akka-tools-cluster"))
   .settings(libraryDependencies ++= (testDependencies))
 
 lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
-  .settings(name := "exmample-aggregates")
+  .settings(name := "example-aggregates")
   .dependsOn(akkaToolsPersistence)
   .dependsOn(akkaToolsCluster)
   .settings(commonSettings: _*)
@@ -144,10 +138,3 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
     "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))
-
-
-
-
-
-
-credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
