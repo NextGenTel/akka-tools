@@ -1,5 +1,7 @@
 NextGenTel - Akka Tools
 ==========================
+[![Build Status](https://travis-ci.org/NextGenTel/akka-tools.svg)](https://travis-ci.org/NextGenTel/akka-tools)
+
 
 This project contains various addons to Akka useful when working with:
 
