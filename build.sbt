@@ -4,6 +4,8 @@ val publishToNexus = true
 
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
+  organizationName := "NextGenTel AS",
+  organizationHomepage := Some(url("http://www.nextgentel.net")),
   version := "0.9.0-RC5-SNAPSHOT",
   scalaVersion := "2.11.6",
   //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
@@ -18,6 +20,7 @@ lazy val commonSettings = Seq(
   homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
   licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
   startYear := Some(2015),
+  coverageExcludedPackages := "<empty>;.*\\example\\.*",
   pomExtra := (
       <scm>
         <url>git@github.com:NextGenTel/akka-tools.git</url>

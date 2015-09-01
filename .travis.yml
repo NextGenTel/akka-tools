@@ -1,5 +1,13 @@
 language: scala
 scala:
-   - 2.11.6
+- 2.11.6
 jdk:
-   - oraclejdk8
+- oraclejdk8
+env:
+  global:
+    secure: Ht9s+1Flk8PVdcrm7bPJfU5oH1jy746SCC/N4yMcaPBNj6kUaq05FfWLWFBK2jInAWpuQcs991JcSOWP6KqMEDA2PFP2LoMYxbJJZXs9y6V/hL0ZOX0nWu4uPO+DHrX+yhWB+RuUTM3TYjfiLqJn9JnRx8Emb79hPTNZxmSsX51V+N9kPmdMBZLyrYgaG/7/K3fVMvsYd7YnHATE917voIavGPyFBmIX04tNk4fw0mSG2b+JkyHbhrk0GxgGho5a8wgPqyMXGwp9/7ygxxTQxWSCqznxmhzHOCqtg+kt3IlzKpUkrlg2lfEBIj2p98j06jY141Q4ChdXIKdymx7wXJVLmD9sU6cEhlEtL81yvEgPk+u9eTJDqPcmWHEmPTeb6PuEhhyDWeSfi8mEBOD90TJJgOEf+c1D8HcHeVTlfYHkNcYHw0nI4yxByQnLkH69u0OBvnrwAwl9NAMPDBzGXGy8LhNxozTM5T5HYf31My0zo4R/Ped/Y+su2F8tAbRg9PUL2++wk/8zagDEbcgP2BzHC55tkAct/zlQL4XXZvbdTLz2a2VNZUOnB4wr3wbOZMVIAPHtQtZ1yJlVUHg7BK7YqxTpQenspqA9SkMXEbfuALbVVjYa8siT8QreO74Jg6WzJCbUJqGBmn/EeC/hEtz3/xT0YsIRhWHVUD7KAOE=
+script:
+  - sbt clean coverage test &&
+    sbt coverageAggregate
+after_success:
+  - sbt coveralls
