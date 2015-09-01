@@ -1,7 +1,7 @@
 NextGenTel - Akka Tools
 ==========================
 [![Build Status](https://travis-ci.org/NextGenTel/akka-tools.svg)](https://travis-ci.org/NextGenTel/akka-tools)
-
+[![Coverage Status](https://coveralls.io/repos/NextGenTel/akka-tools/badge.svg?branch=master&service=github)](https://coveralls.io/github/NextGenTel/akka-tools?branch=master)
 
 This project contains various addons to Akka useful when working with:
 
