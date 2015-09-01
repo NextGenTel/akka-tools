@@ -20,7 +20,6 @@ lazy val commonSettings = Seq(
   homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
   licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
   startYear := Some(2015),
-  coverageExcludedPackages := "<empty>;.*\\example\\.*",
   pomExtra := (
       <scm>
         <url>git@github.com:NextGenTel/akka-tools.git</url>
