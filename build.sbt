@@ -6,10 +6,11 @@ lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
-  version := "0.9.0-RC5-SNAPSHOT",
+  version := "0.9.0-RC5",
   scalaVersion := "2.11.6",
   //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
   publishMavenStyle := true,
+  publishArtifact in Test := false,
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
