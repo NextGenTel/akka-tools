@@ -163,6 +163,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
 object ResultingEvent {
   def apply[E](event:E):ResultingEvent[E] = ResultingEvent[E](List(event))
+  def empty[E]():ResultingEvent[E] = ResultingEvent[E](List(), null, null)
 }
 
 case class ResultingEvent[+E](
