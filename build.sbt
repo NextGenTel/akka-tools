@@ -1,5 +1,5 @@
 
-val publishToNexus = true
+val publishLocallyOnly = false
 
 
 lazy val commonSettings = Seq(
@@ -12,11 +12,15 @@ lazy val commonSettings = Seq(
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
-    val nexus = "https://oss.sonatype.org/"
-    if (isSnapshot.value)
-      Some("snapshots" at nexus + "content/repositories/snapshots")
-    else
-      Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+    if (publishLocallyOnly)
+      Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+    else {
+      val nexus = "https://oss.sonatype.org/"
+      if (isSnapshot.value)
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      else
+        Some("releases" at nexus + "service/local/staging/deploy/maven2")
+    }
   },
   homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
   licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
@@ -33,7 +37,8 @@ lazy val commonSettings = Seq(
           <url>https://github.com/mbknor</url>
         </developer>
       </developers>),
-  compileOrder in Test := CompileOrder.Mixed
+  compileOrder in Test := CompileOrder.Mixed,
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 )
 
 
