@@ -15,7 +15,7 @@ public class MyJavaAggregate extends GeneralAggregateJava {
 
 
     @Override
-    public ResultingEvent<Object> onCmdToEvent(Object cmd) {
+    public ResultingEvent<Object> onCmdToEvent(AggregateCmd cmd) {
         if ( cmd instanceof IncrementCmd ) {
             return ResultingEvent.apply( new IncrementEvent() );
                     //.withSuccessHandler( () -> sender().tell("ok", self()));

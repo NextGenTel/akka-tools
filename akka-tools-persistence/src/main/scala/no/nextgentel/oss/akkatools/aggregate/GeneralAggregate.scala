@@ -62,20 +62,20 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
     ResultingDurableMessages(List())
   }
 
-  def cmdToEvent:PartialFunction[AnyRef, ResultingEvent[E]]
+  def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
   def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages]
 
 
   final override protected def stateInfo(): String = state.toString
 
   final def tryCommand = {
-    case x:AnyRef =>
+    case x:AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
         sender ! state
       } else {
         val cmd = x
-        val defaultCmdToEvent:(AnyRef) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
+        val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
@@ -96,6 +96,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
             throw error
         }
       }
+    case x:AnyRef => throw new AggregateError("Do not know how to process cmd of type " + x.getClass)
   }
 
 

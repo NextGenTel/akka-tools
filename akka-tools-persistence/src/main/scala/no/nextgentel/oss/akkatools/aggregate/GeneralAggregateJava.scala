@@ -21,10 +21,10 @@ abstract class GeneralAggregateJava
 
   var state:AggregateStateJava = initialState
 
-  def onCmdToEvent(cmd:AnyRef):ResultingEvent[Any]
+  def onCmdToEvent(cmd:AggregateCmd):ResultingEvent[Any]
   def onGenerateResultingDurableMessages(event:Any):ResultingDurableMessages
 
-  override def cmdToEvent: PartialFunction[AnyRef, ResultingEvent[Any]] = {
+  override def cmdToEvent: PartialFunction[AggregateCmd, ResultingEvent[Any]] = {
     case cmd:AnyRef => onCmdToEvent(cmd)
   }
 
