@@ -58,6 +58,7 @@ If valid, they may result in an Event/statechange.
 They must extend AggregateCmd since we support sharding.
 
 ([example-application: Cmds.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/Cmds.scala))
+([example2-application: Cmds.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/Cmds.scala))
 
 Events
 --------------
@@ -66,6 +67,7 @@ Events are representing changes to our state and are persisted in the Journal.
 They drive the state-machine and may produce *DurableMessages*
 
 ([example-application: EventsAndStatemachine.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/EventsAndStatemachine.scala))
+([example2-application: EventsAndStatemachine.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/EventsAndStatemachine.scala))
 
 DurableMessage
 ----------------
@@ -93,6 +95,8 @@ In an error-situation, where the plain actor died, the auto-retrying mechanism w
 
 ([example-application: Booking.scala which extends GeneralAggregate and sends DurableMessages in method generateResultingDurableMessages()](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/Booking.scala))
 
+([example2-application: TAC.scala which extends GeneralAggregate and sends DurableMessages in method generateResultingDurableMessages()](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/TAC.scala))
+
 Expected error
 ---------------
 This is an error of type AggregateError.
@@ -119,6 +123,7 @@ This method is used both when testing if incoming commands are valid, and when c
 It is also used in GeneralAggregateView to make sure we get the same state there.
 
 ([example-application: EventsAndStatemachine.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/EventsAndStatemachine.scala))
+([example2-application: EventsAndStatemachine.scala](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/EventsAndStatemachine.scala))
 
 GeneralAggregate
 ------------------
@@ -134,6 +139,7 @@ After any DurableMessages has been sent (AtLeastOnceDelivery), we apply the even
 and store the new current state.
 
 ([example-application: Booking.scala which extends GeneralAggregate](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/Booking.scala))
+([example2-application: TAC.scala which extends GeneralAggregate](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/TAC.scala))
 
 Configuration
 ---------------------
@@ -147,4 +153,4 @@ As a convenience, you can include the following config enabling sharding
 Example
 --------------------------
 
-A simplified working [example-application can be found here](../examples/aggregates/)
+* Examples can be found here: [example-application can be found here](../examples/)
