@@ -2,7 +2,7 @@ NextGenTel - Akka Tools
 ==========================
 [![Build Status](https://travis-ci.org/NextGenTel/akka-tools.svg)](https://travis-ci.org/NextGenTel/akka-tools)
 [![Coverage Status](https://coveralls.io/repos/NextGenTel/akka-tools/badge.svg?branch=master&service=github)](https://coveralls.io/github/NextGenTel/akka-tools?branch=master)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/no.nextgentel.oss.akka-tools/akka-tools-parent_2.11/badge.svg)](http://mvnrepository.com/artifact/no.nextgentel.oss.akka-tools/akka-tools-parent_2.11)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/no.nextgentel.oss.akka-tools/akka-tools-parent_2.11/badge.svg)](http://mvnrepository.com/artifact/no.nextgentel.oss.akka-tools/)
 
 This project contains various addons to Akka useful when working with:
 
