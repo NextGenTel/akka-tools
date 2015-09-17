@@ -4,13 +4,19 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import no.nextgentel.oss.akkatools.persistence.{DurableMessage, DurableMessageReceived}
+import no.nextgentel.oss.akkatools.persistence.{DurableMessageForwardAndConfirm, DurableMessage, DurableMessageReceived}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Future, Promise}
+import scala.reflect.ClassTag
 
-object DurableMessageTesting {
+object DurableMessageTesting extends DurableMessageTesting {
   val defaultTimeout = FiniteDuration(3, TimeUnit.SECONDS)
+
+}
+
+trait DurableMessageTesting {
+  import DurableMessageTesting.defaultTimeout
 
   def sendDM(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = defaultTimeout)(implicit system:ActorSystem):DurableMessageConfirmationChecker = {
 
@@ -65,4 +71,14 @@ class TestingDurableMessageSendAndReceiver private [testing] (promise:Promise[Bo
     case x:AnyRef =>
       log.warning(s"Received something else while waiting for messageId=$messageId: " + x)
   }
+}
+
+
+trait AggregateTesting[S] extends DurableMessageTesting {
+
+  val main:ActorRef
+
+  def getState()(implicit system:ActorSystem):S = AggregateStateGetter[Any](main).getState().asInstanceOf[S]
+
+  def dmForwardAndConfirm(dest:ActorRef, onlyAcceptDurableMessages:Boolean = false)(implicit system:ActorSystem) = DurableMessageForwardAndConfirm(dest, onlyAcceptDurableMessages)
 }
