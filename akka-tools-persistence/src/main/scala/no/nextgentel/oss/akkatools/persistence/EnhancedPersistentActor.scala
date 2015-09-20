@@ -306,10 +306,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage) {
     if (isProcessingEvent) {
-      deliver(sendAsDurableMessage.destinationActor, {
+      deliver(sendAsDurableMessage.destinationActor) {
         deliveryId:Long =>
           DurableMessage(deliveryId, sendAsDurableMessage.payload, getDurableMessageSender(), sendAsDurableMessage.confirmationRoutingInfo)
-      })
+      }
     }
     else {
       val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDurableMessage.payload)

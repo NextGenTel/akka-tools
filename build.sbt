@@ -1,14 +1,12 @@
 
 val publishLocallyOnly = false
 
-
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
-  version := "0.9.0-RC6-SNAPSHOT",
-  scalaVersion := "2.11.6",
-  //publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+  version := "1.0.0-SNAPSHOT",
+  scalaVersion := "2.11.7",
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
@@ -38,11 +36,13 @@ lazy val commonSettings = Seq(
         </developer>
       </developers>),
   compileOrder in Test := CompileOrder.Mixed,
-  javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
+  resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
 )
 
 
-val akkaVersion = "2.3.12"
+val akkaVersion = "2.4.0-RC3"
+val akkaPersistenceInMemoryVersion = "1.1.1-RC3"
 val jacksonVersion = "2.4.6"
 val jacksonScalaModuleVersion = "2.4.5"
 val slf4jVersion = "1.7.7"
@@ -53,8 +53,9 @@ lazy val akkaToolsCommonDependencies = Seq(
 
 lazy val akkaToolsPersistenceDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-persistence-experimental" % akkaVersion,
-  "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "org.slf4j" % "slf4j-api" % slf4jVersion,
   "com.google.guava" % "guava" % "18.0")
@@ -66,14 +67,15 @@ lazy val akkaToolsJsonSerializingDependencies = Seq(
 )
 
 lazy val akkaToolsJdbcJournalDependencies = Seq(
-  "com.typesafe.akka" %% "akka-persistence-experimental" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
   "org.sql2o" % "sql2o" % "1.5.2"
 )
 
 lazy val akkaToolsClusterDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-persistence-experimental" % akkaVersion,
-  "com.typesafe.akka" %% "akka-contrib" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
   "org.slf4j" % "slf4j-api" % slf4jVersion
 )
 
@@ -113,7 +115,8 @@ lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11"),
+    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test",
+      //exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence_2.11"),
     "junit" % "junit" % "4.12" % "test"))
 
 
@@ -147,4 +150,4 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.michaelpisula" %% "akka-persistence-inmemory" % "0.2.1" % "test" exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence-experimental_2.11")))
+    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test"))

@@ -4,7 +4,7 @@ import java.io.UnsupportedEncodingException
 import java.net.URLDecoder
 
 import akka.actor.{ActorPath, PoisonPill}
-import akka.contrib.pattern.ShardRegion
+import akka.cluster.sharding.ShardRegion
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag

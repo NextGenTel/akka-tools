@@ -7,18 +7,16 @@ object ProcessorIdType extends Enumeration {
 }
 
 import java.nio.charset.Charset
-import java.time.OffsetDateTime
 import javax.sql.DataSource
 
 import ProcessorIdType._
 import akka.actor.ActorLogging
-import akka.persistence.PersistentConfirmation
-import akka.persistence.PersistentId
+import akka.persistence.AtomicWrite
 import akka.persistence.PersistentRepr
 import akka.persistence.SelectedSnapshot
 import akka.persistence.SnapshotMetadata
 import akka.persistence.SnapshotSelectionCriteria
-import akka.persistence.journal.SyncWriteJournal
+import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.snapshot.SnapshotStore
 import akka.serialization.SerializationExtension
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
@@ -29,7 +27,7 @@ import org.sql2o.quirks.OracleQuirks
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 
 case class ProcessorId(private val _typePath: String, private val _id: String, private val _processorIdType: ProcessorIdType = FULL) {
 
@@ -186,26 +184,26 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
     promise.future
   }
 
-  override def saved(metadata: SnapshotMetadata): Unit = {
-    if (log.isDebugEnabled) {
-      log.debug("JdbcSnapshotStore - onSaved: successfully saved: " + metadata)
-    }
+
+
+  override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = {
+    Future.fromTry(Try {
+      if (log.isDebugEnabled) {
+        log.debug("JdbcSnapshotStore - doDelete: " + metadata)
+      }
+
+      repo().deleteSnapshot(metadata.persistenceId, metadata.sequenceNr, metadata.timestamp)
+    })
   }
 
-  override def delete(metadata: SnapshotMetadata): Unit = {
-    if (log.isDebugEnabled) {
-      log.debug("JdbcSnapshotStore - doDelete: " + metadata)
-    }
+  override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = {
+    Future.fromTry(Try {
+      if (log.isDebugEnabled) {
+        log.debug("JdbcSnapshotStore - doDelete: " + persistenceId + " criteria " + criteria)
+      }
 
-    repo().deleteSnapshot(metadata.persistenceId, metadata.sequenceNr, metadata.timestamp)
-  }
-
-  override def delete(processorId: String, criteria: SnapshotSelectionCriteria): Unit = {
-    if (log.isDebugEnabled) {
-      log.debug("JdbcSnapshotStore - doDelete: " + processorId + " criteria " + criteria)
-    }
-
-    repo().deleteSnapshotsMatching(processorId, criteria.maxSequenceNr, criteria.maxTimestamp)
+      repo().deleteSnapshotsMatching(persistenceId, criteria.maxSequenceNr, criteria.maxTimestamp)
+    })
   }
 }
 
@@ -216,26 +214,35 @@ case class JournalEntry(processorId: ProcessorId, payload: AnyRef) {
 
 // Need JacksonJsonSerializableButNotDeserializable since we're using JacksonJsonSerializer to generate
 // read-only-json with type-name-info, and if it has serializationVerification turned on,
-// This class will faile since it does not have type-info..
+// This class will fail since it does not have type-info..
 case class JsonObjectHolder(t:String, o:AnyRef) extends JacksonJsonSerializableButNotDeserializable
 
-class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
+class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
 
   import JdbcJournal._
 
   val serialization = SerializationExtension.get(context.system)
 
-  override def writeMessages(messages: Seq[PersistentRepr]): Unit = {
-    messages.foreach {
-      p =>
-        if (log.isDebugEnabled) {
-          log.debug("JdbcSyncWriteJournal doWriteMessages: persistentRepr: " + p)
-        }
 
-        val payloadJson = tryToExtractPayloadAsJson(p)
-        val entry = JournalEntryDto(processorIdSplitter().split(p.processorId), p.sequenceNr, serialization.serialize(p).get, p.deleted, p.redeliveries, payloadJson.getOrElse(null))
-        repo().updatePersistenRepr(entry)
-    }
+  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
+    val promise = Promise[Seq[Try[Unit]]]()
+    promise.success(messages.map {
+      atomicWrite =>
+        Try {
+          val dtoList: Seq[JournalEntryDto] = atomicWrite.payload.map {
+            p =>
+              if (log.isDebugEnabled) {
+                log.debug("JdbcAsyncWriteJournal doWriteMessages: persistentRepr: " + p)
+              }
+
+              val payloadJson = tryToExtractPayloadAsJson(p)
+              JournalEntryDto(processorIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, p.deleted, payloadJson.getOrElse(null))
+          }
+
+          repo().insertPersistentReprList(dtoList)
+        }
+    })
+    promise.future
   }
 
   def tryToExtractPayloadAsJson(p: PersistentRepr): Option[String] = {
@@ -253,26 +260,23 @@ class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
     }
   }
 
-  override def deleteMessagesTo(processorId: String, toSequenceNr: Long, permanent: Boolean): Unit = {
-    if (log.isDebugEnabled) {
-      log.debug("JdbcSyncWriteJournal doDeleteMessagesTo: processorId: " + processorId + " toSequenceNr=" + toSequenceNr + " permanent=" + permanent)
-    }
 
-    repo().deleteJournalEntryTo(processorIdSplitter().split(processorId), toSequenceNr, permanent)
+  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
+    Future.fromTry(Try {
+      if (log.isDebugEnabled) {
+        log.debug("JdbcAsyncWriteJournal doDeleteMessagesTo: processorId: " + persistenceId + " toSequenceNr=" + toSequenceNr)
+      }
+
+      repo().deleteJournalEntryTo(processorIdSplitter().split(persistenceId), toSequenceNr)
+    })
   }
-
-  @deprecated("deleteMessages will be removed.")
-  override def deleteMessages(messageIds: Seq[PersistentId], permanent: Boolean): Unit = throw new Exception("Method is deprecated and therefor not supported")
-
-  @deprecated("writeConfirmations will be removed, since Channels will be removed.")
-  override def writeConfirmations(confirmations: Seq[PersistentConfirmation]): Unit = throw new Exception("Method is deprecated and therefor not supported")
 
   override def asyncReadHighestSequenceNr(processorId: String, fromSequenceNr: Long): Future[Long] = {
     val promise = Promise[Long]()
 
     val highestSequenceNr = repo().findHighestSequenceNr(processorIdSplitter().split(processorId), fromSequenceNr)
     if (log.isDebugEnabled) {
-      log.debug("JdbcSyncWriteJournal doAsyncReadHighestSequenceNr: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " highestSequenceNr=" + highestSequenceNr)
+      log.debug("JdbcAsyncWriteJournal doAsyncReadHighestSequenceNr: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " highestSequenceNr=" + highestSequenceNr)
     }
     promise.success(highestSequenceNr)
 
@@ -297,7 +301,7 @@ class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
           maxRows = max - rowsRead
         }
         if (log.isDebugEnabled) {
-          log.debug("JdbcSyncWriteJournal doAsyncReplayMessages: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - maxRows=" + maxRows + " rowsReadSoFar=" + rowsRead + " nextFromSequenceNr=" + nextFromSequenceNr)
+          log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - maxRows=" + maxRows + " rowsReadSoFar=" + rowsRead + " nextFromSequenceNr=" + nextFromSequenceNr)
         }
         val entries: List[JournalEntryDto] = repo().loadJournalEntries(processorIdObject, nextFromSequenceNr, toSequenceNr, maxRows)
         rowsRead = rowsRead + entries.size
@@ -311,7 +315,7 @@ class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
             val persistentRepr = if (!processorIdObject.isFull()) {
               // Must create a new modified one..
               val newPayload = JournalEntry(processorIdSplitter().split(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
-              PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.processorId, sender = rawPersistentRepr.sender)
+              PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.persistenceId, sender = rawPersistentRepr.sender)
             } else {
               rawPersistentRepr
             }
@@ -327,7 +331,7 @@ class JdbcSyncWriteJournal extends SyncWriteJournal with ActorLogging {
         }
       }
       if (log.isDebugEnabled) {
-        log.debug("JdbcSyncWriteJournal doAsyncReplayMessages: DONE - processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
+        log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: DONE - processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
       }
       promise.success()
     }

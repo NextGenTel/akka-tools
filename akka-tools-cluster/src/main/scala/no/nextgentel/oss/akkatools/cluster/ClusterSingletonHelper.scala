@@ -1,27 +1,26 @@
 package no.nextgentel.oss.akkatools.cluster
 
-import akka.actor.{PoisonPill, ActorRef, Props, ActorContext}
-import akka.contrib.pattern.{ClusterSingletonProxy, ClusterSingletonManager}
+import akka.actor._
+import akka.cluster.singleton.{ClusterSingletonProxySettings, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonManager}
 
 object ClusterSingletonHelper {
 
-  def startClusterSingleton(context: ActorContext, props: Props, name: String): ActorRef = {
-    startClusterSingleton(context, props, name, PoisonPill)
+  def startClusterSingleton(system: ActorSystem, props: Props, name: String): ActorRef = {
+    startClusterSingleton(system, props, name, PoisonPill)
   }
 
-  def startClusterSingleton(context: ActorContext, props: Props, name: String, terminationMessage:Any): ActorRef = {
+  def startClusterSingleton(system: ActorSystem, props: Props, name: String, terminationMessage:Any): ActorRef = {
     val singletonManagerName = name + "ClusterSingleton"
-    context.actorOf(ClusterSingletonManager.props(
-      singletonProps = props,
-      singletonName = name,
-      terminationMessage = terminationMessage,
-      role = None
+    system.actorOf(ClusterSingletonManager.props(
+      props,
+      terminationMessage,
+      ClusterSingletonManagerSettings(system).withSingletonName(name)
     ), singletonManagerName)
 
     // Start the ClusterSingletonProxy-actor which we're going to use to access the single instance in our cluster
-    val proxyActor = context.actorOf(ClusterSingletonProxy.props(
-      singletonPath = s"/user/$singletonManagerName/$name",
-      role = None),
+    val proxyActor = system.actorOf(ClusterSingletonProxy.props(
+      s"/user/$singletonManagerName/$name",
+      ClusterSingletonProxySettings(system)),
       name = name + "ActorProxy")
 
     proxyActor

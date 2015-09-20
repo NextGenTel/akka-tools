@@ -1,7 +1,7 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor._
-import akka.contrib.pattern.ClusterSharding
+import akka.cluster.sharding.{ClusterShardingSettings, ClusterSharding}
 import akka.util.Timeout
 import no.nextgentel.oss.akkatools.utils.{ForwardToCachedActor, ActorCache}
 
@@ -44,7 +44,7 @@ class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
       case Some(f) => f.apply(dispatcher.path)
     }
 
-    ClusterSharding.get(actorSystem).start(name, props, messageExtractor)
+    ClusterSharding.get(actorSystem).start(name, props, ClusterShardingSettings(actorSystem), messageExtractor)
 
     // Now that the shard is created/started, we can configure the dispatcher
     dispatcher ! ClusterSharding.get(actorSystem).shardRegion(name)

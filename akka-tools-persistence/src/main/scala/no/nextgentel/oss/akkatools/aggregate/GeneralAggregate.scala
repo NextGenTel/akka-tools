@@ -1,7 +1,6 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor._
-import akka.contrib.pattern.ClusterSharding
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import no.nextgentel.oss.akkatools.persistence._
 
