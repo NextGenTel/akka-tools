@@ -236,7 +236,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
               }
 
               val payloadJson = tryToExtractPayloadAsJson(p)
-              JournalEntryDto(processorIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, p.deleted, payloadJson.getOrElse(null))
+              JournalEntryDto(processorIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null))
           }
 
           repo().insertPersistentReprList(dtoList)
@@ -310,7 +310,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
           entry: JournalEntryDto =>
             val rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
               .asInstanceOf[PersistentRepr]
-              .update(deleted = entry.deleted, sequenceNr = entry.sequenceNr)
+              .update(sequenceNr = entry.sequenceNr)
 
             val persistentRepr = if (!processorIdObject.isFull()) {
               // Must create a new modified one..

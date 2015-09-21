@@ -9,14 +9,12 @@ import org.sql2o.{Sql2oException, Query, Connection, Sql2o}
 
 import scala.concurrent.duration.FiniteDuration
 
-case class JournalEntryDto(processorId: ProcessorId, sequenceNr:Long, persistentRepr:Array[Byte], deleted:Boolean, payloadWriteOnly:String)
+case class JournalEntryDto(processorId: ProcessorId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String)
 case class SnapshotEntry(processorId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], snapshotClassname:String)
 
 
 trait StorageRepo {
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto])
-
-  def deleteJournalEntry(processorId: ProcessorId, sequenceNr: Long, permanent: Boolean)
 
   def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long)
 
@@ -55,7 +53,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
       "journalIndex"
     }
 
-    val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, deleted, redeliveries from $schemaName.t_journal where typePath = :typePath " +
+    val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, redeliveries from $schemaName.t_journal where typePath = :typePath " +
       (if (processorId.isFull) " and id = :id " else "") +
       s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr order by $sequenceNrColumnName) where rownum <= :max"
 
@@ -74,7 +72,6 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
               ProcessorId(r.getString("typePath"), r.getString("id")),
               r.getLong(sequenceNrColumnName),
               r.getObject("persistentRepr", classOf[Array[Byte]]),
-              r.getInteger("deleted") > 0,
               null)
         }
       } finally {
@@ -87,8 +84,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
       throw new RuntimeException("Can only write using ProcessorIdType.FULL")
     }
 
-    val sql = s"insert into $schemaName.t_journal (typePath, id, sequenceNr, journalIndex, persistentRepr, deleted, payload_write_only, updated) " +
-      s"values (:typePath, :id, :sequenceNr,$schemaName.s_journalIndex_seq.nextval, :persistentRepr, :deleted, :payload_write_only, sysdate)"
+    val sql = s"insert into $schemaName.t_journal (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
+      s"values (:typePath, :id, :sequenceNr,$schemaName.s_journalIndex_seq.nextval, :persistentRepr, :payload_write_only, sysdate)"
 
     // Insert the whole list in one transaction
     val c = sql2o.beginTransaction()
@@ -101,7 +98,6 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
             .addParameter("id", dto.processorId.id)
             .addParameter("sequenceNr", dto.sequenceNr)
             .addParameter("persistentRepr", dto.persistentRepr)
-            .addParameter("deleted", if (dto.deleted) 1 else 0)
             .addParameter("payload_write_only", dto.payloadWriteOnly)
 
           try {
@@ -122,16 +118,6 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
         throw e
     }
 
-  }
-
-  def deleteJournalEntry(processorId: ProcessorId, sequenceNr: Long, permanent: Boolean) {
-    val sql = if (permanent) {
-      "delete from " + schemaName + ".t_journal where typePath = :typePath and id = :id and sequenceNr = :sequenceNr"
-    } else {
-      "update " + schemaName + ".t_journal set deleted = 1 where typePath = :typePath and id = :id and sequenceNr = :sequenceNr and deleted = 0"
-    }
-
-    sql2o.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("sequenceNr", sequenceNr).executeUpdate
   }
 
   def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long) {

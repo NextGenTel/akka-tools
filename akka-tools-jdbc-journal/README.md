@@ -12,9 +12,8 @@ The following tables are needed, here described in liquibase-format:
       sequenceNr                              INT,
       journalIndex                            INT,
       persistentRepr                          BLOB,
-      deleted                                 Number(1), // TODO: Remove
       payload_write_only                      CLOB,
-      updated                                 TIMESTAMP, // TODO: Remove or?
+      updated                                 TIMESTAMP,
     
       PRIMARY KEY(typePath, id, sequenceNr)
     );
@@ -53,6 +52,7 @@ You need the following grants:
 If migrating from Akka 2.3.x to 2.4 you might want to apply the following db-change to remove a deprecated column (But it should still work if you leave it there). 
 
     ALTER TABLE t_journal DROP COLUMN redeliveries;
+    ALTER TABLE t_journal DROP COLUMN deleted;
     
 The payload of the events are written and read from the *persistentRepr*-column.
 
