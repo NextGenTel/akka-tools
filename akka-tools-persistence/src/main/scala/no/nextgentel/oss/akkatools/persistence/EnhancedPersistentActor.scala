@@ -183,7 +183,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   protected def persistAndApplyEvent(event:E):Unit = persist(event) { e => onApplyingLiveEvent(e) }
-  protected def persistAndApplyEvents(events: List[E]):Unit = persist(events) { e => onApplyingLiveEvent(e) }
+  protected def persistAndApplyEvents(events: List[E]):Unit = {
+    if (!events.isEmpty) {
+      persistAll(events) { e => onApplyingLiveEvent(e) }
+    }
+  }
 
   /**
    * Called when actor has been idle for too long..

@@ -4,6 +4,10 @@ NextGenTel - Akka Tools
 [![Coverage Status](https://coveralls.io/repos/NextGenTel/akka-tools/badge.svg?branch=master&service=github)](https://coveralls.io/github/NextGenTel/akka-tools?branch=master)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/no.nextgentel.oss.akka-tools/akka-tools-parent_2.11/badge.svg)](http://mvnrepository.com/artifact/no.nextgentel.oss.akka-tools/)
 
+
+**This branch is work-in-progress to make it compatible with Akka 2.4 - Not working yet**
+
+
 This project contains various addons to Akka useful when working with:
 
 * Cluster
@@ -13,7 +17,7 @@ This project contains various addons to Akka useful when working with:
 
 This code has turned out to be quite useful for NextGenTel and is used in production.
 
-The current version is **0.9.0-RC5**
+The current version is **1.0.0-SNAPSHOT**
 
 Below is a summary of the various modules
 
