@@ -65,9 +65,11 @@ object ProcessorIdSplitterLastSlashImpl {
   val WILDCARD: String = "*"
 }
 
-class ProcessorIdSplitterLastSlashImpl extends ProcessorIdSplitter {
+class ProcessorIdSplitterLastSlashImpl extends ProcessorIdSplitterLastSomethingImpl('/')
+
+class ProcessorIdSplitterLastSomethingImpl(something:Char) extends ProcessorIdSplitter {
   def split(processorId: String): ProcessorId = {
-    val i: Int = processorId.lastIndexOf('/')
+    val i: Int = processorId.lastIndexOf(something)
     if (i < 0) {
       return new ProcessorId(processorId, "")
     } else {
@@ -85,10 +87,10 @@ class ProcessorIdSplitterLastSlashImpl extends ProcessorIdSplitter {
 object JdbcJournalConfig {
 
   // Java helper
-  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler)
+  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(schemaName), fatalErrorHandler)
 }
 
-case class JdbcJournalConfig(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler, processorIdSplitter: ProcessorIdSplitter = new ProcessorIdSplitterLastSlashImpl(), maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
+case class JdbcJournalConfig(dataSource: DataSource, schemaName: Option[String], fatalErrorHandler: JdbcJournalErrorHandler, processorIdSplitter: ProcessorIdSplitter = new ProcessorIdSplitterLastSlashImpl(), maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
 
 object JdbcJournal {
   val DEFAULT_MAX_ROWS_PR_READ = 1000

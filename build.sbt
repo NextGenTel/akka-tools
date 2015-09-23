@@ -63,7 +63,8 @@ lazy val akkaToolsJsonSerializingDependencies = Seq(
 
 lazy val akkaToolsJdbcJournalDependencies = Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
-  "org.sql2o" % "sql2o" % "1.5.4"
+  "org.sql2o" % "sql2o" % "1.5.4",
+  "com.typesafe.akka" %% "akka-persistence-tck" % akkaVersion % "test"
 )
 
 lazy val akkaToolsClusterDependencies = Seq(
@@ -78,6 +79,12 @@ lazy val testDependencies = Seq(
   "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test"
+)
+
+lazy val testDbDependencies = Seq(
+  "org.liquibase" % "liquibase-core" % "3.4.1" % "test",
+  "com.mattbertolini" % "liquibase-slf4j" % "1.2.1" % "test",
+  "com.h2database" % "h2" % "1.4.189" % "test"
 )
 
 lazy val exampleAggregatesDependencies = Seq(
@@ -128,6 +135,8 @@ lazy val akkaToolsJdbcJournal = (project in file("akka-tools-jdbc-journal"))
   .dependsOn(akkaToolsCommon)
   .settings(commonSettings: _*)
   .settings(libraryDependencies ++= (akkaToolsJdbcJournalDependencies))
+  .settings(libraryDependencies ++= (testDbDependencies))
+  .settings(libraryDependencies ++= (testDependencies))
 
 lazy val akkaToolsCluster = (project in file("akka-tools-cluster"))
   .settings(name := "akka-tools-cluster")
