@@ -12,8 +12,6 @@ The following tables are needed, here described in liquibase-format:
       sequenceNr                              INT,
       journalIndex                            INT,
       persistentRepr                          BLOB,
-      deleted                                 Number(1),
-      redeliveries                            number(3),
       payload_write_only                      CLOB,
       updated                                 TIMESTAMP,
     
@@ -50,6 +48,11 @@ You need the following grants:
     GRANT SELECT                            ON LIQ_YOUR_SERVICE.s_journalIndex_seq TO APP_YOUR_SERVICE;
     GRANT SELECT, INSERT, UPDATE, DELETE    ON LIQ_YOUR_SERVICE.t_cluster_nodes TO APP_YOUR_SERVICE;
 
+
+If migrating from Akka 2.3.x to 2.4 you might want to apply the following db-change to remove a deprecated column (But it should still work if you leave it there). 
+
+    ALTER TABLE t_journal DROP COLUMN redeliveries;
+    ALTER TABLE t_journal DROP COLUMN deleted;
     
 The payload of the events are written and read from the *persistentRepr*-column.
 

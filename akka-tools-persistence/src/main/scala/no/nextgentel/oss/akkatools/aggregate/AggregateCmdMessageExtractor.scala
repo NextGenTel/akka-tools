@@ -1,15 +1,11 @@
 package no.nextgentel.oss.akkatools.aggregate
 
-import akka.contrib.pattern.ShardRegion
+import akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor
 import no.nextgentel.oss.akkatools.persistence.{DurableMessage, DurableMessageReceived}
 import org.slf4j.LoggerFactory
 
-class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2) extends ShardRegion.MessageExtractor {
+class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2, val shardsPrNode:Int = 10) extends HashCodeMessageExtractor(maxNumberOfNodes * shardsPrNode) {
   val log = LoggerFactory.getLogger(getClass)
-
-  protected def getNumberOfShards: Int = {
-    maxNumberOfNodes * 10
-  }
 
   private def extractId(x:AnyRef):String = {
     x match {
@@ -24,7 +20,7 @@ class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2) extends ShardRe
     }
   }
 
-  override def entryId(rawMessage: Any): String = {
+  override def entityId(rawMessage: Any): String = {
     rawMessage match {
       case dm:DurableMessage => extractId(dm.payload)
       case dmr:DurableMessageReceived =>
@@ -36,14 +32,5 @@ class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2) extends ShardRe
     }
   }
 
-  def shardId(message: Any): String = {
-    Option(entryId(message)).map {
-      entryId =>
-        (entryId.hashCode % getNumberOfShards).toString
-    }.getOrElse(null)
-  }
 
-  def entryMessage(message: Any): Any = {
-    return message
-  }
 }

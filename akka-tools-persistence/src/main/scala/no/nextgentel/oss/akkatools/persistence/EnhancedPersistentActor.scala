@@ -183,7 +183,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   protected def persistAndApplyEvent(event:E):Unit = persist(event) { e => onApplyingLiveEvent(e) }
-  protected def persistAndApplyEvents(events: List[E]):Unit = persist(events) { e => onApplyingLiveEvent(e) }
+  protected def persistAndApplyEvents(events: List[E]):Unit = {
+    if (!events.isEmpty) {
+      persistAll(events) { e => onApplyingLiveEvent(e) }
+    }
+  }
 
   /**
    * Called when actor has been idle for too long..
@@ -306,10 +310,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage) {
     if (isProcessingEvent) {
-      deliver(sendAsDurableMessage.destinationActor, {
+      deliver(sendAsDurableMessage.destinationActor) {
         deliveryId:Long =>
           DurableMessage(deliveryId, sendAsDurableMessage.payload, getDurableMessageSender(), sendAsDurableMessage.confirmationRoutingInfo)
-      })
+      }
     }
     else {
       val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDurableMessage.payload)
