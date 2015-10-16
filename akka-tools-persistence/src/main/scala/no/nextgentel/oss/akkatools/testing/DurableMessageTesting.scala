@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import no.nextgentel.oss.akkatools.persistence.{DurableMessageForwardAndConfirm, DurableMessage, DurableMessageReceived}
+import no.nextgentel.oss.akkatools.testing.TestingDurableMessageSendAndReceiver.Timeout
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Future, Promise}
@@ -46,9 +47,13 @@ class DurableMessageConfirmationChecker(futureResult:Future[Boolean], timeout:Fi
 
 
 
+object TestingDurableMessageSendAndReceiver {
+  case class Timeout()
+}
+
 class TestingDurableMessageSendAndReceiver private [testing] (promise:Promise[Boolean], dest:ActorRef, payload:AnyRef, sender:ActorRef, timeout:FiniteDuration, messageSentPromise:Promise[Unit]) extends Actor with ActorLogging {
 
-  case class Timeout()
+
   val messageId = UUID.randomUUID().toString
   implicit val ec = context.dispatcher
   val timer = context.system.scheduler.scheduleOnce(timeout, self, Timeout())
