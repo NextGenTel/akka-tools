@@ -74,7 +74,7 @@ object BookingAggregate {
 
 
 // Setting up the builder we're going to use for our BookingAggregate and view
-class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem, "booking", Some(BookingState.empty())) {
+class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem, "booking") {
 
   def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath): Unit = {
     withGeneralAggregateProps {
@@ -83,4 +83,6 @@ class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregate
     }
   }
 
+  // Override this method to create Initial states for views
+  override def createInitialState(aggregateId: String): BookingState = BookingState.empty()
 }

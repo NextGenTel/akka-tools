@@ -8,24 +8,11 @@ import no.nextgentel.oss.akkatools.utils.{ForwardToCachedActor, ActorCache}
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
-object GeneralAggregateBuilder {
-  protected lazy val defaultMessageExtractor = new AggregateCmdMessageExtractor()
-
-  def apply[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
-  (
-    actorSystem:ActorSystem,
-    name: String,
-    initialViewState:Option[S] = None,
-    messageExtractor:AggregateCmdMessageExtractor = GeneralAggregateBuilder.defaultMessageExtractor):GeneralAggregateBuilder[E,S] =
-    new GeneralAggregateBuilder[E,S](actorSystem, name, initialViewState, messageExtractor)
-}
-
 class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
   actorSystem:ActorSystem,
   name: String,
-  initialViewState:Option[S] = None,
-  messageExtractor:AggregateCmdMessageExtractor = GeneralAggregateBuilder.defaultMessageExtractor
+  messageExtractor:AggregateCmdMessageExtractor = new AggregateCmdMessageExtractor()
   ) {
 
   private val dispatcherName = name + "Dispatcher"
@@ -52,15 +39,18 @@ class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   private lazy val resolvedGuardianName:String = actorSystem.settings.config.getString("akka.contrib.cluster.sharding.guardian-name")
 
+  // Override this method to create Initial states for views
+  def createInitialState(aggregateId:String):S = {
+    throw new Exception("Cannot create view when initialViewState is not defined")
+  }
+
   // Creates props for view
   def createViewProps(aggregateId:String):Props = {
 
     // Should end up with the same base as our regular GeneralAggregates
     val persistenceIdBase = "/user/"+resolvedGuardianName+"/"+name+"/"
 
-    val initialState = initialViewState.getOrElse(throw new Exception("Cannot create view when initialViewState is not defined"))
-
-    Props(new GeneralAggregateView[E,S](persistenceIdBase, aggregateId, initialState))
+    Props(new GeneralAggregateView[E,S](persistenceIdBase, aggregateId, createInitialState(aggregateId)))
   }
 
   // Create an starts view-actor

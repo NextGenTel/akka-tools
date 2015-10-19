@@ -69,7 +69,7 @@ object TACAggregate {
 
 
 // Setting up the builder we're going to use for our BookingAggregate and view
-class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[TACEvent, TACState](actorSystem, "tac", Some(TACState.empty())) {
+class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[TACEvent, TACState](actorSystem, "tac") {
 
   def config(eSigningSystem:ActorPath,
              emailSystem:ActorPath,
@@ -80,4 +80,6 @@ class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuil
     }
   }
 
+  // Override this method to create Initial states for views
+  override def createInitialState(aggregateId: String): TACState = TACState.empty()
 }

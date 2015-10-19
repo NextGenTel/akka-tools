@@ -184,7 +184,6 @@ case class ResultingDurableMessages(list:List[SendAsDurableMessage])
 
 
 
-
 class GeneralAggregateView[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
   persistenceIdBase:String,
