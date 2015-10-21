@@ -1,6 +1,4 @@
 
-val publishLocallyOnly = false
-
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   organizationName := "NextGenTel AS",
@@ -10,15 +8,11 @@ lazy val commonSettings = Seq(
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
-    if (publishLocallyOnly)
-      Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
-    else {
-      val nexus = "https://oss.sonatype.org/"
-      if (isSnapshot.value)
-        Some("snapshots" at nexus + "content/repositories/snapshots")
-      else
-        Some("releases" at nexus + "service/local/staging/deploy/maven2")
-    }
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("releases" at nexus + "service/local/staging/deploy/maven2")
   },
   homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
   licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
