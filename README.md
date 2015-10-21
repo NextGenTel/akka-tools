@@ -16,13 +16,28 @@ This project contains various addons to Akka useful when working with:
 This code has turned out to be quite useful for NextGenTel and is used in production.
 
 Version-information:
+----------------------------
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.0-SNAPSHOT | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.0          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
+Changelog
+----------------------------
 
+Version 1.0.0 - 21/10-2015
+
+* Changed GeneralAggregateBuilder so that it is possible to initiate views with initialState based on aggregateId [commit](https://github.com/NextGenTel/akka-tools/commit/3b9cfea)
+* Added ActorWithDMSupport which makes it easy to implement regular Actors interacting with DMs [commit](https://github.com/NextGenTel/akka-tools/commit/1a8511d)
+* Using **Akka 2.4**
+* Added another example: Trust Account Creation System [commit](https://github.com/NextGenTel/akka-tools/commit/64671b)
+* Changed signature of onCmdToEvent to use AggregateCmd instead of AnyRef [commit](https://github.com/NextGenTel/akka-tools/commit/b0be41b)
+
+Version 0.9.0 - 23/9-2015
+
+* First released open-source version of the original internal NextGenTel project - using Akka 2.3
+ 
 
 
 Below is a summary of the various modules
