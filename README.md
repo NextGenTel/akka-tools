@@ -20,11 +20,15 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.0          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.1          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
+
+Version 1.0.1 - 23/10-2015
+
+* Fixes [#8](https://github.com/NextGenTel/akka-tools/issues/8) Explicit closing sql statements to prevent leakage [commit](https://github.com/NextGenTel/akka-tools/commit/95baa1)
 
 Version 1.0.0 - 21/10-2015
 
