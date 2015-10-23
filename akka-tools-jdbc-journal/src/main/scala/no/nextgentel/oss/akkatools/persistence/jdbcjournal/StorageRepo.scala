@@ -94,20 +94,22 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: String, errorHandler:JdbcJournal
       dtoList.foreach {
         dto =>
           val insert = c.createQuery(sql)
-            .addParameter("typePath", dto.processorId.typePath)
-            .addParameter("id", dto.processorId.id)
-            .addParameter("sequenceNr", dto.sequenceNr)
-            .addParameter("persistentRepr", dto.persistentRepr)
-            .addParameter("payload_write_only", dto.payloadWriteOnly)
-
           try {
-            insert.executeUpdate
+
+            insert.addParameter("typePath", dto.processorId.typePath)
+              .addParameter("id", dto.processorId.id)
+              .addParameter("sequenceNr", dto.sequenceNr)
+              .addParameter("persistentRepr", dto.persistentRepr)
+              .addParameter("payload_write_only", dto.payloadWriteOnly)
+              .executeUpdate
           } catch {
             case e: Sql2oException => {
               val exception = new Exception("Error updating journal for processorId=" + dto.processorId + " and sequenceNr=" + dto.sequenceNr + ": " + e.getMessage, e)
               errorHandler.onError(e)
               throw exception
             }
+          } finally {
+            insert.close()
           }
       }
 

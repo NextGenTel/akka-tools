@@ -225,6 +225,11 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
 
 
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
+
+    if (log.isDebugEnabled) {
+      log.debug("JdbcAsyncWriteJournal doWriteMessages messages: " + messages.size)
+    }
+
     val promise = Promise[Seq[Try[Unit]]]()
     promise.success(messages.map {
       atomicWrite =>
@@ -239,7 +244,13 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
               JournalEntryDto(processorIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null))
           }
 
-          repo().insertPersistentReprList(dtoList)
+          try {
+            repo().insertPersistentReprList(dtoList)
+          } catch {
+            case e:Exception =>
+              log.error(e, s"Error while persisting ${dtoList.size} PersistentReprs")
+              throw e
+          }
         }
     })
     promise.future

@@ -62,7 +62,7 @@ lazy val akkaToolsJsonSerializingDependencies = Seq(
 
 lazy val akkaToolsJdbcJournalDependencies = Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
-  "org.sql2o" % "sql2o" % "1.5.2"
+  "org.sql2o" % "sql2o" % "1.5.4"
 )
 
 lazy val akkaToolsClusterDependencies = Seq(
