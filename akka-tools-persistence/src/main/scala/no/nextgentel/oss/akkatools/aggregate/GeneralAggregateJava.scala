@@ -11,13 +11,8 @@ trait AggregateStateJava extends AggregateState[Any, AggregateStateJava]
 abstract class GeneralAggregateJava
   (
     initialState:AggregateStateJava,
-    idleTimeout:FiniteDuration,
     ourDispatcherActor:ActorPath
-  ) extends GeneralAggregate[Any, AggregateStateJava](idleTimeout, ourDispatcherActor) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
-
-  def this(
-    initialState:AggregateStateJava,
-    ourDispatcherActor:ActorPath) = this(initialState, EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS, ourDispatcherActor)
+  ) extends GeneralAggregate[Any, AggregateStateJava](ourDispatcherActor) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
 
   var state:AggregateStateJava = initialState
 

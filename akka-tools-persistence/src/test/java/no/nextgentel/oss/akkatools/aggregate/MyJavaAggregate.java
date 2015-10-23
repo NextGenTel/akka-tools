@@ -13,6 +13,10 @@ public class MyJavaAggregate extends GeneralAggregateJava {
         this.someDest = someDest;
     }
 
+    @Override
+    public String persistenceIdBase() {
+        return "java-";
+    }
 
     @Override
     public ResultingEvent<Object> onCmdToEvent(AggregateCmd cmd) {

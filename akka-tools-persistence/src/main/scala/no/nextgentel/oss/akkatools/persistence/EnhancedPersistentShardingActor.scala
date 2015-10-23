@@ -11,28 +11,36 @@ import scala.reflect.ClassTag
 
 abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : ClassTag]
 (
-  idleTimeout:FiniteDuration,
-  ourDispatcherActor:ActorPath
-  ) extends EnhancedPersistentActor[E, Ex](idleTimeout) {
+  myDispatcherActor:ActorPath
+  ) extends EnhancedPersistentActor[E, Ex] {
 
-  def this(ourDispatcherActor:ActorPath) = this(EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS, ourDispatcherActor)
+  // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
+  def persistenceIdBase():String
 
-  override def persistenceId: String = {
+  private lazy val resolvedPersistenceId:String = {
     // Same as in akka 2.3.3
     // We need to have it resolvable like this
     // Sharding is creating instances of these actors with no id in constructor, so we must resolve it from the path.
-    // Sharding IS giving eavh actor a unique name based on the (correct) id.
-    val pathWithoutAddress: String = self.path.toStringWithoutAddress
-    try {
+    // Sharding IS giving each actor a unique name based on the (correct) id.
+
+
+    // Must extract the id as the last part of the url
+    val rawIdFromPath = self.path.elements.last
+    val id = try {
       // Sharding urlencodes the last part of the path which is our id - therefor we must url-decode it
-      return URLDecoder.decode(pathWithoutAddress, "UTF-8")
+      URLDecoder.decode(rawIdFromPath, "UTF-8")
     }
     catch {
       case e: UnsupportedEncodingException => {
-        throw new RuntimeException("Error url-decoding persistenceId " + pathWithoutAddress, e)
+        throw new RuntimeException("Error url-decoding rawIdFromPath " + rawIdFromPath, e)
       }
     }
+
+    persistenceIdBase + id
+
   }
+
+  override def persistenceId: String = resolvedPersistenceId
 
   protected def onInactiveTimeout() {
     context.parent ! ShardRegion.Passivate(PoisonPill)
@@ -52,7 +60,7 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
   }
 
 
-  override protected def getDurableMessageSender(): ActorPath = ourDispatcherActor
+  override protected def getDurableMessageSender(): ActorPath = myDispatcherActor
 
   // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
   override protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath): Unit =
@@ -64,8 +72,6 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
   }
 }
 
-abstract class EnhancedPersistentShardingJavaActor[Ex <: Exception : ClassTag](idleTimeout:FiniteDuration, ourDispatcherActor:ActorPath) extends EnhancedPersistentShardingActor[AnyRef, Ex](idleTimeout, ourDispatcherActor) with EnhancedPersistentJavaActorLike {
-
-  def this(ourDispatcherActor:ActorPath) = this(EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS, ourDispatcherActor)
+abstract class EnhancedPersistentShardingJavaActor[Ex <: Exception : ClassTag](ourDispatcherActor:ActorPath) extends EnhancedPersistentShardingActor[AnyRef, Ex](ourDispatcherActor) with EnhancedPersistentJavaActorLike {
 
 }

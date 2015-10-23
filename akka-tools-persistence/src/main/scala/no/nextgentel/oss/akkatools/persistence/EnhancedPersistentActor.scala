@@ -17,9 +17,6 @@ object EnhancedPersistentActor {
 }
 
 abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
-(
-  idleTimeout:FiniteDuration = EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS
-  )
   extends Actor
   with PersistentActor
   with AtLeastOnceDelivery
@@ -65,9 +62,12 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeoutTimer = None
   }
 
+  // Override this one to set different timeout
+  def idleTimeout():FiniteDuration = EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS
+
   private def startTimeoutTimer(): Unit = {
     cancelTimeoutTimer()
-    timeoutTimer = Some(context.system.scheduler.scheduleOnce(idleTimeout, self, PersistentActorTimeout()))
+    timeoutTimer = Some(context.system.scheduler.scheduleOnce(idleTimeout(), self, PersistentActorTimeout()))
   }
 
   override def preStart(): Unit = {
@@ -369,9 +369,7 @@ trait MdcSupport[E] extends BeforeAndAfterEventAndCommand[E] {
 case class PersistentActorTimeout private [persistence] ()
 
 
-abstract class EnhancedPersistentJavaActor[Ex <: Exception : ClassTag](idleTimeout:FiniteDuration) extends EnhancedPersistentActor[AnyRef, Ex](idleTimeout) with EnhancedPersistentJavaActorLike {
-
-  def this() = this(EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS)
+abstract class EnhancedPersistentJavaActor[Ex <: Exception : ClassTag] extends EnhancedPersistentActor[AnyRef, Ex] with EnhancedPersistentJavaActorLike {
 
 }
 

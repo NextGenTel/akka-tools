@@ -15,6 +15,14 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
 
 }
 
+
+case class GeneralAggregateConfigX(val name:String, specialPersistenceIdBase:Option[String] = None) {
+
+  // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is constructed by Sharding-coordinator
+  def persistenceIdBase():String = specialPersistenceIdBase.getOrElse{ name + "/" }
+
+}
+
 /**
  * Dispatcher - When sending something to an ES, use its dispatcher
  * Command - Dispatchable message - When sent to the dispatcher, it will be sent to the correct ES.
@@ -44,11 +52,8 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
  */
 abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
-  idleTimeout:FiniteDuration,
-  ourDispatcherActor:ActorPath
-  ) extends EnhancedPersistentShardingActor[E, AggregateError](idleTimeout, ourDispatcherActor){
-
-  def this(ourDispatcherActor:ActorPath) = this(EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS, ourDispatcherActor)
+  myDispatcherActor:ActorPath
+  ) extends EnhancedPersistentShardingActor[E, AggregateError](myDispatcherActor) {
 
   var state:S
 

@@ -15,8 +15,12 @@ class TACAggregate
   eSigningSystem:ActorPath,
   emailSystem:ActorPath,
   trustAccountSystem:ActorPath
-) extends GeneralAggregate[TACEvent, TACState](FiniteDuration(60, TimeUnit.SECONDS), ourDispatcher) {
+) extends GeneralAggregate[TACEvent, TACState](ourDispatcher) {
 
+  override def persistenceIdBase() = TACAggregate.persistenceIdBase
+
+  // Override this one to set different timeout
+  override def idleTimeout() = FiniteDuration(60, TimeUnit.SECONDS)
 
   override var state = TACState.empty() // This is the state of our initial state (empty)
 
@@ -61,6 +65,8 @@ class TACAggregate
 
 object TACAggregate {
 
+  val persistenceIdBase = "TAC-"
+
   def props(ourDispatcher:ActorPath,
             eSigningSystem:ActorPath,
             emailSystem:ActorPath,
@@ -69,7 +75,10 @@ object TACAggregate {
 
 
 // Setting up the builder we're going to use for our BookingAggregate and view
-class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[TACEvent, TACState](actorSystem, "tac") {
+class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[TACEvent, TACState](actorSystem) {
+
+
+  override def persistenceIdBase() = TACAggregate.persistenceIdBase
 
   def config(eSigningSystem:ActorPath,
              emailSystem:ActorPath,

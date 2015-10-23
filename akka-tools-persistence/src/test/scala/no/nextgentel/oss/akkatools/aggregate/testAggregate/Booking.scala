@@ -16,7 +16,14 @@ case class CinemaNotification(seatsBooked:List[String])
 
 // Aggregate
 class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String] = List())
-  extends GeneralAggregate[BookingEvent, BookingState](FiniteDuration(60, TimeUnit.SECONDS), ourDispatcherActor) {
+  extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
+
+
+  // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
+  override def persistenceIdBase() = BookingAggregate.persistenceIdBase
+
+  // Override this one to set different timeout
+  override def idleTimeout() = FiniteDuration(60, TimeUnit.SECONDS)
 
   var state = BookingState.empty() // This is our initial state(Machine)
 
@@ -70,13 +77,19 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
 
 object BookingAggregate {
+
+  val persistenceIdBase = "booking-"
+
   def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]) =
     Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, predefinedSeatIds))
 }
 
 
 // Setting up the builder we're going to use for our BookingAggregate and view
-class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem, "booking") {
+class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem) {
+
+
+  override def persistenceIdBase() = BookingAggregate.persistenceIdBase
 
   def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]): Unit = {
     withGeneralAggregateProps {

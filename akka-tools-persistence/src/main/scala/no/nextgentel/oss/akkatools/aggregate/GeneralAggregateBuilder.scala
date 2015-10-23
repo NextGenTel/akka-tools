@@ -8,12 +8,17 @@ import no.nextgentel.oss.akkatools.utils.{ForwardToCachedActor, ActorCache}
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
-class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+abstract class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
-  actorSystem:ActorSystem,
-  name: String,
-  messageExtractor:AggregateCmdMessageExtractor = new AggregateCmdMessageExtractor()
+  actorSystem:ActorSystem
   ) {
+
+  private lazy val messageExtractor:AggregateCmdMessageExtractor = createAggregateCmdMessageExtractor()
+
+  def createAggregateCmdMessageExtractor() = new AggregateCmdMessageExtractor()
+
+
+  def name():String = getClass.getSimpleName
 
   private val dispatcherName = name + "Dispatcher"
   val dispatcher = actorSystem.actorOf(Props(new DispatcherActor(dispatcherName)), dispatcherName)
@@ -41,16 +46,16 @@ class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   // Override this method to create Initial states for views
   def createInitialState(aggregateId:String):S = {
-    throw new Exception("Cannot create view when initialViewState is not defined")
+    throw new Exception("You must override createInitialState()")
+  }
+
+  def persistenceIdBase():String = {
+    throw new Exception("You must override persistenceIdBase() - it MUST have the same value as the one used by the GeneralAggregate")
   }
 
   // Creates props for view
   def createViewProps(aggregateId:String):Props = {
-
-    // Should end up with the same base as our regular GeneralAggregates
-    val persistenceIdBase = "/user/"+resolvedGuardianName+"/"+name+"/"
-
-    Props(new GeneralAggregateView[E,S](persistenceIdBase, aggregateId, createInitialState(aggregateId)))
+    Props(new GeneralAggregateView[E,S](persistenceIdBase(), aggregateId, createInitialState(aggregateId)))
   }
 
   // Create an starts view-actor
