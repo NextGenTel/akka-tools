@@ -20,11 +20,15 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.1          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.2          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
+
+Version 1.0.2 - 26/10-2015
+
+* Fixing [#9](https://github.com/NextGenTel/akka-tools/issues/9) - Restructured how persistenceId's are resolved - Now using persitenceIdBase - Introduces some changes to the GeneralAggregate-API [commit](https://github.com/NextGenTel/akka-tools/commit/ab45697)
 
 Version 1.0.1 - 23/10-2015
 
