@@ -2,6 +2,7 @@ package no.nextgentel.oss.akkatools.example.booking
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.Status.Failure
 import akka.actor.{ActorPath, ActorSystem, Props}
@@ -14,30 +15,18 @@ import scala.concurrent.duration.FiniteDuration
 case class PrintTicketMessage(id:String)
 case class CinemaNotification(seatsBooked:List[String])
 
-trait SeatIdGenerator {
-  def generateNextSeatId():String
-}
-
-class DefaultSeatIdGenerator extends SeatIdGenerator {
-  override def generateNextSeatId(): String = UUID.randomUUID().toString
-}
 
 // Aggregate
 class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator)
   extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
 
-  override def persistenceIdBase() = BookingAggregate.persistenceIdBase
-
-  // Override this one to set different timeout
-  override def idleTimeout() = FiniteDuration(60, TimeUnit.SECONDS)
 
   var state = BookingState.empty() // This is our initial state(Machine)
 
 
-
   // transform command to event
   override def cmdToEvent = {
-    case c: OpenBookingCmd  =>  ResultingEvent(BookingOpenEvent(c.seats))
+    case c: OpenBookingCmd  => ResultingEvent(BookingOpenEvent(c.seats))
 
     case c: CloseBookingCmd => ResultingEvent(BookingClosedEvent())
 
@@ -51,7 +40,7 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
         .withErrorHandler ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
 
     case c: CancelSeatCmd =>
-      ResultingEvent(CancelationEvent(c.seatId))
+      ResultingEvent(CancellationEvent(c.seatId))
         .withSuccessHandler(       () => sender ! "ok")
         .withErrorHandler( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
@@ -59,15 +48,21 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
   override def generateResultingDurableMessages = {
     case e: BookingClosedEvent =>
       // The booking has now been closed and we need to send an important notification to the Cinema
-      val cinemaNotification = CinemaNotification(state.reservations.toList)
-      ResultingDurableMessages(cinemaNotification, cinemaNotifier)
+      val msg = CinemaNotification(state.reservations.toList)
+      ResultingDurableMessages(msg, cinemaNotifier)
 
     case e: ReservationEvent =>
       // The seat-reservation has been confirmed and we need to print the ticket
 
-      val printShopMessage = PrintTicketMessage(e.id)
-      ResultingDurableMessages(printShopMessage, ticketPrintShop)
+      val msg = PrintTicketMessage(e.id)
+      ResultingDurableMessages(msg, ticketPrintShop)
   }
+
+  override def persistenceIdBase() = BookingAggregate.persistenceIdBase
+
+  // Override this one to set different timeout
+  override def idleTimeout() = FiniteDuration(60, TimeUnit.SECONDS)
+
 }
 
 
@@ -78,6 +73,16 @@ object BookingAggregate {
 
   def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator = new DefaultSeatIdGenerator()) =
     Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, seatIdGenerator))
+}
+
+
+trait SeatIdGenerator {
+  def generateNextSeatId():String
+}
+
+class DefaultSeatIdGenerator extends SeatIdGenerator {
+  private val nextId = new AtomicInteger(0)
+  override def generateNextSeatId(): String = "seat-"+nextId.incrementAndGet()
 }
 
 

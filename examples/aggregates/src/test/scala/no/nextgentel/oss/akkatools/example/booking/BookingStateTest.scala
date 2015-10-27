@@ -28,7 +28,7 @@ class BookingStateTest extends FunSuite with Matchers {
     }
     assert(error.getMessage == "No more seats available")
 
-    s = s.transition(CancelationEvent("1"))
+    s = s.transition(CancellationEvent("1"))
     s = s.transition(ReservationEvent("3"))
     s = s.transition(BookingClosedEvent())
 

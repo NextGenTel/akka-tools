@@ -10,11 +10,11 @@ case class BookingOpenEvent(numberOfFreeSeats: Int) extends BookingEvent
 
 case class ReservationEvent(id: String) extends BookingEvent
 
-case class CancelationEvent(id: String) extends BookingEvent
+case class CancellationEvent(id: String) extends BookingEvent
 
 case class BookingClosedEvent() extends BookingEvent
 
-
+// Our generic Booking error
 case class BookingError(e: String) extends AggregateError(e)
 
 // State (machine)
@@ -28,10 +28,6 @@ object StateName extends Enumeration {
 
 import StateName._
 
-object BookingState {
-  def empty() = BookingState(NOT_OPEN, 0, Set())
-}
-
 case class BookingState
 (
   state: StateName,
@@ -44,7 +40,7 @@ case class BookingState
       case (NOT_OPEN, e:BookingOpenEvent)   => openBooking(e.numberOfFreeSeats)
       case (NOT_OPEN, _)                    => throw BookingError("Invalid event since Booking is not opened yet")
       case (OPEN,     e:ReservationEvent)   => addReservation(e.id)
-      case (OPEN,     e:CancelationEvent)   => cancelReservation(e.id)
+      case (OPEN,     e:CancellationEvent)  => cancelReservation(e.id)
       case (OPEN,     e:BookingClosedEvent) => closeBooking()
       case (CLOSED, _)                      => throw BookingError("Booking is closed")
 
@@ -72,4 +68,8 @@ case class BookingState
 
   def closeBooking() = this.copy(state = CLOSED)
 
+}
+
+object BookingState {
+  def empty() = BookingState(NOT_OPEN, 0, Set())
 }
