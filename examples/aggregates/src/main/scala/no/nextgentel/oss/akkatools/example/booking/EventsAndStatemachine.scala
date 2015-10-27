@@ -40,50 +40,36 @@ case class BookingState
   ) extends AggregateState[BookingEvent, BookingState] {
 
   override def transition(event: BookingEvent): BookingState = {
-    if (NOT_OPEN == state) {
-      transitionWhenBookingHasNotOpenedYet(event)
-    } else {
-      transitionWhenBookingHasOpened(event)
+    (state, event) match {
+      case (NOT_OPEN, e:BookingOpenEvent)   => openBooking(e.numberOfFreeSeats)
+      case (NOT_OPEN, _)                    => throw BookingError("Invalid event since Booking is not opened yet")
+      case (OPEN,     e:ReservationEvent)   => addReservation(e.id)
+      case (OPEN,     e:CancelationEvent)   => cancelReservation(e.id)
+      case (OPEN,     e:BookingClosedEvent) => closeBooking()
+      case (CLOSED, _)                      => throw BookingError("Booking is closed")
+
     }
   }
 
-  def transitionWhenBookingHasNotOpenedYet(event: BookingEvent): BookingState = {
-    // The only valid event now is to open the booking
-    event match {
-      case e: BookingOpenEvent =>
-        // we're opening the booking
-        BookingState(OPEN, e.numberOfFreeSeats, Set())
+  def openBooking(numberOfFreeSeats:Int) = BookingState(OPEN, numberOfFreeSeats, Set())
 
-      case e: BookingEvent => throw BookingError("Invalid event since Booking is not opened yet")
-    }
+  def addReservation(id:String) = {
+    // Do we have free seats?
+    if (reservations.size >= seats)
+      throw BookingError("No more seats available")
+    else // Add id to reservation-list
+      this.copy(reservations = this.reservations + id)
   }
 
-  def transitionWhenBookingHasOpened(event:BookingEvent): BookingState = {
-    // Booking has been opened, but is it closed?
-    if (CLOSED == state) throw BookingError("Booking is closed")
-
-    event match {
-      case e: ReservationEvent =>
-        // We must try to book
-        if (reservations.size >= seats)
-          throw BookingError("No more seats available")
-        else // Add id to reservation-list
-          copy(reservations = reservations + e.id)
-
-      case e: CancelationEvent =>
-        // Must verify that this is a valid booking to cancel
-        if (reservations.contains(e.id)) {
-          // Remove the booing
-          copy(reservations = reservations - e.id)
-        } else
-          throw BookingError("Not a valid booking")
-
-      case e: BookingClosedEvent =>
-        // Closing the booking
-        copy(state = CLOSED)
-
-      case e: BookingEvent =>
-        throw BookingError("Not a valid event for this open booking")
-    }
+  def cancelReservation(id:String) = {
+    // Must verify that this is a valid reservation to cancel
+    if (reservations.contains(id)) {
+      // Remove the reservation
+      this.copy(reservations = this.reservations - id)
+    } else
+      throw BookingError("Not a valid booking")
   }
+
+  def closeBooking() = this.copy(state = CLOSED)
+
 }

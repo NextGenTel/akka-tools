@@ -144,4 +144,4 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test"))
+    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion ))
