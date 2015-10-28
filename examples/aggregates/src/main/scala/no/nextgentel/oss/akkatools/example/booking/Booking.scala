@@ -26,21 +26,21 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
   // transform command to event
   override def cmdToEvent = {
-    case c: OpenBookingCmd  => ResultingEvent(BookingOpenEvent(c.seats))
+    case c: OpenBookingCmd  => ResultingEvent(BookingOpenedEvent(c.seats))
 
     case c: CloseBookingCmd => ResultingEvent(BookingClosedEvent())
 
     case c: ReserveSeatCmd  =>
       // Generate a random seatId
       val seatId = seatIdGenerator.generateNextSeatId()
-      val event = ReservationEvent(seatId)
+      val event = SeatReservedEvent(seatId)
 
       ResultingEvent(event)
         .withSuccessHandler(      () => sender ! seatId ) // Send the seatId back
         .withErrorHandler ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
 
     case c: CancelSeatCmd =>
-      ResultingEvent(CancellationEvent(c.seatId))
+      ResultingEvent(SeatCancelledEvent(c.seatId))
         .withSuccessHandler(       () => sender ! "ok")
         .withErrorHandler( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
@@ -51,7 +51,7 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
       val msg = CinemaNotification(state.reservations.toList)
       ResultingDurableMessages(msg, cinemaNotifier)
 
-    case e: ReservationEvent =>
+    case e: SeatReservedEvent =>
       // The seat-reservation has been confirmed and we need to print the ticket
 
       val msg = PrintTicketMessage(e.id)

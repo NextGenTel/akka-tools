@@ -7,7 +7,7 @@ class BookingStateTest extends FunSuite with Matchers {
   test("Booking before open should fail") {
     val s = BookingState.empty()
 
-    val e = ReservationEvent("id1")
+    val e = SeatReservedEvent("id1")
 
     val error = intercept[BookingError] {
       s.transition(e)
@@ -18,18 +18,18 @@ class BookingStateTest extends FunSuite with Matchers {
   test("Normal flow") {
     var s = BookingState.empty()
 
-    s = s.transition(BookingOpenEvent(2))
-    s = s.transition(ReservationEvent("1"))
-    s = s.transition(ReservationEvent("2"))
+    s = s.transition(BookingOpenedEvent(2))
+    s = s.transition(SeatReservedEvent("1"))
+    s = s.transition(SeatReservedEvent("2"))
 
     // This one should fail - no more roome
     val error = intercept[BookingError] {
-      s.transition(ReservationEvent("2"))
+      s.transition(SeatReservedEvent("2"))
     }
     assert(error.getMessage == "No more seats available")
 
-    s = s.transition(CancellationEvent("1"))
-    s = s.transition(ReservationEvent("3"))
+    s = s.transition(SeatCancelledEvent("1"))
+    s = s.transition(SeatReservedEvent("3"))
     s = s.transition(BookingClosedEvent())
 
     assert( s == BookingState(StateName.CLOSED, 2, Set("2", "3")))

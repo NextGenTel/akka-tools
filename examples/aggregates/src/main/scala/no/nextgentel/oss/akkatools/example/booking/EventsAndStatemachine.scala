@@ -6,11 +6,11 @@ import no.nextgentel.oss.akkatools.aggregate.{AggregateError, AggregateState}
 
 trait BookingEvent
 
-case class BookingOpenEvent(numberOfFreeSeats: Int) extends BookingEvent
+case class BookingOpenedEvent(numberOfFreeSeats: Int) extends BookingEvent
 
-case class ReservationEvent(id: String) extends BookingEvent
+case class SeatReservedEvent(id: String) extends BookingEvent
 
-case class CancellationEvent(id: String) extends BookingEvent
+case class SeatCancelledEvent(id: String) extends BookingEvent
 
 case class BookingClosedEvent() extends BookingEvent
 
@@ -37,10 +37,10 @@ case class BookingState
 
   override def transition(event: BookingEvent): BookingState = {
     (state, event) match {
-      case (NOT_OPEN, e:BookingOpenEvent)   => openBooking(e.numberOfFreeSeats)
+      case (NOT_OPEN, e:BookingOpenedEvent) => openBooking(e.numberOfFreeSeats)
       case (NOT_OPEN, _)                    => throw BookingError("Invalid event since Booking is not opened yet")
-      case (OPEN,     e:ReservationEvent)   => addReservation(e.id)
-      case (OPEN,     e:CancellationEvent)  => cancelReservation(e.id)
+      case (OPEN,     e:SeatReservedEvent)  => addReservation(e.id)
+      case (OPEN,     e:SeatCancelledEvent) => cancelReservation(e.id)
       case (OPEN,     e:BookingClosedEvent) => closeBooking()
       case (CLOSED, _)                      => throw BookingError("Booking is closed")
 
