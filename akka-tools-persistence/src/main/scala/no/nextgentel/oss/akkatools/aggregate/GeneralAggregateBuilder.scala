@@ -42,8 +42,6 @@ abstract class GeneralAggregateBuilder[E:ClassTag, S <: AggregateState[E, S]:Cla
     dispatcher ! ClusterSharding.get(actorSystem).shardRegion(name)
   }
 
-  private lazy val resolvedGuardianName:String = actorSystem.settings.config.getString("akka.contrib.cluster.sharding.guardian-name")
-
   // Override this method to create Initial states for views
   def createInitialState(aggregateId:String):S = {
     throw new Exception("You must override createInitialState()")
