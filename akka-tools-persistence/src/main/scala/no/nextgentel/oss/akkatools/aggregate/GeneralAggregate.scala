@@ -89,11 +89,13 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
               s.transition(e)
           }
 
-          // run the successHandler
-          Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
-
           // it was valid - we can persist it
-          persistAndApplyEvents(eventResult.events)
+          persistAndApplyEvents(eventResult.events,
+            successHandler = {
+              () =>
+                // run the successHandler
+                Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
+            })
         } catch {
           case error:AggregateError =>
             Option(eventResult.errorHandler).getOrElse(defaultErrorHandler).apply(error.getMessage)

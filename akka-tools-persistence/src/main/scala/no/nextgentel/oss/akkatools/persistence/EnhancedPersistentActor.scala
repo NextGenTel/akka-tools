@@ -182,10 +182,32 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     confirmDelivery(msg.deliveryId)
   }
 
-  protected def persistAndApplyEvent(event:E):Unit = persist(event) { e => onApplyingLiveEvent(e) }
-  protected def persistAndApplyEvents(events: List[E]):Unit = {
+  protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => Unit})
+
+  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = persist(event) {
+    e =>
+      onApplyingLiveEvent(e)
+      successHandler.apply()
+  }
+
+  protected def persistAndApplyEvents(events: List[E]):Unit = persistAndApplyEvents(events, { () => Unit})
+
+  // All events in events are persisted and onApplyingLiveEvent() is executed.
+  // When all events in list are successfully processed, we exeute the successHandler
+  protected def persistAndApplyEvents(events: List[E], successHandler: () => Unit):Unit = {
     if (!events.isEmpty) {
-      persistAll(events) { e => onApplyingLiveEvent(e) }
+      // We need to have a counter so that we can call successHandler when we have
+      // executed the last successfull persistAll-handler
+      var callbacksLeft = events.size
+      persistAll(events) {
+        e =>
+          callbacksLeft = callbacksLeft - 1
+          onApplyingLiveEvent(e)
+          if (callbacksLeft == 0) {
+            // This was the last time - we should call the successHandler
+            successHandler.apply()
+          }
+      }
     }
   }
 
