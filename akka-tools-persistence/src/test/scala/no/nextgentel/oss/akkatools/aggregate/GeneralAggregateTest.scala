@@ -24,7 +24,7 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
   val log = LoggerFactory.getLogger(getClass)
   private def generateId() = UUID.randomUUID().toString
 
-  val seatIds = List("s1","s2", "s3-This-id-is-going-to-be-discarded", "s4")
+  val seatIds = List("s1","id-used-in-Failed-in-onAfterValidationSuccess", "s2", "s3-This-id-is-going-to-be-discarded", "s4")
 
   trait TestEnv extends AggregateTesting[BookingState] {
     val id = generateId()
@@ -61,6 +61,14 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
       sender.expectMsg("s1") // make sure we got the seatId back
 
       printShop.expectMsg(PrintTicketMessage("s1")) // make sure the ticket was sent for printing
+
+      // make another booking which should fail in the afterValidationSuccessHandler
+      sendDMBlocking(main, ReserveSeatCmd(id, shouldFailIn_onAfterValidationSuccess = true), sender.ref)
+      // make sure our state has not been changed
+      assertState(BookingState(OPEN, maxSeats, Set("s1")))
+
+      // and we should get an error back to sender
+      assert(sender.expectMsgAnyClassOf(classOf[Failure]).cause.getMessage == "Failed in onAfterValidationSuccess")
 
       // send another booking
       sendDMBlocking(main, ReserveSeatCmd(id), sender.ref)
@@ -106,6 +114,39 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
       assert(sender.expectMsgAnyClassOf(classOf[Failure]).cause.getMessage == "Booking is closed")
 
     }
+  }
+}
+
+
+class ResultingEventTest extends FunSuite with Matchers {
+  test("old api") {
+    var msg = ""
+    val r = ResultingEvent("A")
+      .withErrorHandler( (errorMsg) => {msg = "error:"+errorMsg})
+      .withSuccessHandler(() => { msg = "success" })
+
+    r.successHandler.apply()
+    assert( msg == "success")
+
+    r.errorHandler.apply("X")
+    assert( msg == "error:X")
+  }
+
+  test("new api") {
+    var msg = ""
+    val r = ResultingEvent("A")
+      .onError( (errorMsg) => {msg = "error:"+errorMsg})
+      .onSuccess({ msg = "success" })
+      .onAfterValidationSuccess{ msg = "onAfterValidationSuccess" }
+
+    r.successHandler.apply()
+    assert( msg == "success")
+
+    r.afterValidationSuccessHandler.apply()
+    assert( msg == "onAfterValidationSuccess")
+
+    r.errorHandler.apply("X")
+    assert( msg == "error:X")
   }
 }
 

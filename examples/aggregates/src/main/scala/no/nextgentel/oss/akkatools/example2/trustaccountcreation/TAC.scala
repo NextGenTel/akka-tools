@@ -28,8 +28,8 @@ class TACAggregate
   override def cmdToEvent = {
     case c:CreateNewTACCmd        =>
       ResultingEvent( RegisteredEvent(c.info) )
-        .withSuccessHandler{ () => sender() ! "ok" }
-        .withErrorHandler{   (e) => sender() ! Failure(new Exception(s"Failed: $e"))}
+        .onSuccess{ sender() ! "ok" }
+        .onError{   (e) => sender() ! Failure(new Exception(s"Failed: $e"))}
 
     case c:ESigningFailedCmd      => ResultingEvent( ESigningFailedEvent() )
     case c:ESigningCompletedCmd   => ResultingEvent( ESigningCompletedEvent() )

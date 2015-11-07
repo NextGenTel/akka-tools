@@ -15,14 +15,6 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
 
 }
 
-
-case class GeneralAggregateConfigX(val name:String, specialPersistenceIdBase:Option[String] = None) {
-
-  // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is constructed by Sharding-coordinator
-  def persistenceIdBase():String = specialPersistenceIdBase.getOrElse{ name + "/" }
-
-}
-
 /**
  * Dispatcher - When sending something to an ES, use its dispatcher
  * Command - Dispatchable message - When sent to the dispatcher, it will be sent to the correct ES.
@@ -89,7 +81,11 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
               s.transition(e)
           }
 
-          // it was valid - we can persist it
+          // it was valid
+
+          Option(eventResult.afterValidationSuccessHandler).map(_.apply())
+
+          // we can persist it
           persistAndApplyEvents(eventResult.events,
             successHandler = {
               () =>
@@ -169,17 +165,35 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 }
 
 object ResultingEvent {
-  def apply[E](event:E):ResultingEvent[E] = ResultingEvent[E](List(event))
-  def empty[E]():ResultingEvent[E] = ResultingEvent[E](List(), null, null)
+  def apply[E](event:E):ResultingEvent[E] = new ResultingEvent[E](List(event), null, null, null)
+  def apply[E](events:List[E]):ResultingEvent[E] = new ResultingEvent[E](events, null, null, null)
+  def empty[E]():ResultingEvent[E] = new ResultingEvent[E](List(), null, null, null)
 }
 
 case class ResultingEvent[+E](
-                           events:List[E],
-                           errorHandler:(String)=>Unit = null,
-                           successHandler:()=>Unit = null) {
+                               events:List[E],
+                               errorHandler:(String)=>Unit,
+                               successHandler:()=>Unit,
+                               afterValidationSuccessHandler: () => Unit) {
 
-  def withErrorHandler(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
-  def withSuccessHandler(successHandler:()=>Unit) = copy(successHandler = successHandler)
+
+  @deprecated("Use onError instead", "1.0.3")
+  def withErrorHandler(errorHandler:(String)=>Unit) = onError(errorHandler)
+
+  @deprecated("Use onSuccess instead. IMPORTANT!! Note that the two methods are used differently: Before: '() => {your code}'  Now: '{your code}'", "1.0.3")
+  def withSuccessHandler(successHandler: ()=>Unit) = copy( successHandler = successHandler)
+
+
+  // Newer more fluent api
+
+  // Called whenever an AggregateError happens - either in state validation or withPostValidationHandler
+  def onError(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
+
+  // Called after a valid event is persisted
+  def onSuccess(handler: => Unit) = copy( successHandler = () => handler)
+
+  // Called after event is validated as success but before it is persisted
+  def onAfterValidationSuccess(handler: => Unit) = copy(afterValidationSuccessHandler = () => handler)
 }
 
 object ResultingDurableMessages {

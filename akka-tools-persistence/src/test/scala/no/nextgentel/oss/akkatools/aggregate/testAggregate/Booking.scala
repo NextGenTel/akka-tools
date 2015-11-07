@@ -51,13 +51,19 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
       val event = ReservationEvent(seatId)
 
       ResultingEvent(event)
-        .withSuccessHandler(      () => sender ! seatId ) // Send the seatId back
-        .withErrorHandler ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
+        .onSuccess{
+          sender ! seatId } // Send the seatId back
+        .onError ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
+        .onAfterValidationSuccess{
+          if (c.shouldFailIn_onAfterValidationSuccess) {
+            throw BookingError("Failed in onAfterValidationSuccess")
+          }
+        }
 
     case c: CancelSeatCmd =>
       ResultingEvent(CancelationEvent(c.seatId))
-        .withSuccessHandler(       () => sender ! "ok")
-        .withErrorHandler( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
+        .onSuccess( sender ! "ok")
+        .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
   override def generateResultingDurableMessages = {

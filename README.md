@@ -26,6 +26,11 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.3-SNAPSHOT    - Not released yet
+
+* Improved ResultingEvents-API
+* successHandler is now executed at the right time - after all events are actually persisted
+
 Version 1.0.2 - 26/10-2015
 
 * Fixing [#9](https://github.com/NextGenTel/akka-tools/issues/9) - Restructured how persistenceId's are resolved - Now using persitenceIdBase - Introduces some changes to the GeneralAggregate-API [commit](https://github.com/NextGenTel/akka-tools/commit/ab45697)

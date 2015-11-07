@@ -11,7 +11,7 @@ trait BookingCmd extends AggregateCmd {
 
 case class OpenBookingCmd(bookingId: String, seats: Int) extends BookingCmd
 
-case class ReserveSeatCmd(bookingId: String) extends BookingCmd
+case class ReserveSeatCmd(bookingId: String, shouldFailIn_onAfterValidationSuccess:Boolean = false) extends BookingCmd
 
 case class CancelSeatCmd(bookingId: String, seatId: String) extends BookingCmd
 
