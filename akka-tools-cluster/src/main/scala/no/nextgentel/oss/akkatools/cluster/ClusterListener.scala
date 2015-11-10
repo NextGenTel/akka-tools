@@ -19,11 +19,22 @@ case class DoHousekeeping()
 
 
 object ClusterListener {
+
+  def props(clusterConfig: AkkaClusterConfig,
+            repo: ClusterNodeRepo,
+            fatalClusterErrorHandler: FatalClusterErrorHandler):Props =
+    props(
+      clusterConfig,
+      repo,
+      fatalClusterErrorHandler,
+      FiniteDuration(5, TimeUnit.SECONDS),
+      FiniteDuration(20, TimeUnit.SECONDS))
+
   def props(clusterConfig: AkkaClusterConfig,
             repo: ClusterNodeRepo,
             fatalClusterErrorHandler: FatalClusterErrorHandler,
-            writeClusterNodeAliveInterval: FiniteDuration = FiniteDuration(5, TimeUnit.SECONDS),
-            clusterNodesAliveSinceCheck: FiniteDuration = FiniteDuration(20, TimeUnit.SECONDS)) = Props(
+            writeClusterNodeAliveInterval: FiniteDuration,
+            clusterNodesAliveSinceCheck: FiniteDuration) = Props(
     new ClusterListener(
       clusterConfig,
       repo,
