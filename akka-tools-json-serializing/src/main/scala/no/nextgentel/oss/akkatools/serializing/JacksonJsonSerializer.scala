@@ -3,10 +3,8 @@ package no.nextgentel.oss.akkatools.serializing
 import java.io.IOException
 
 import akka.serialization.Serializer
-import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer._
 import org.slf4j.LoggerFactory
 
 object JacksonJsonSerializer {
@@ -17,19 +15,29 @@ object JacksonJsonSerializer {
   // When true, all objects being serialized are also deserialized and compared
   private var verifySerialization: Boolean = false
 
+  @Deprecated //For Java-compiler
+  @deprecated("Use setObjectMapper() - NB! You now have to configure objectMapper your self!! - and setVerifySerialization() instead")
   def init(m:ObjectMapper, verifySerialization:Boolean = false): Unit = {
-    _objectMapper = Some(configureObjectMapper(m.copy()))
+    def configureObjectMapper(mapper:ObjectMapper):ObjectMapper = {
+      mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+      mapper.registerModule(new DefaultScalaModule)
+      mapper
+    }
+
+    setObjectMapper(configureObjectMapper(m.copy()))
+    setVerifySerialization(verifySerialization)
+  }
+
+  def setObjectMapper(preConfiguredObjectMapper:ObjectMapper):Unit = {
+    _objectMapper = Some(preConfiguredObjectMapper)
+  }
+
+  def setVerifySerialization(verifySerialization:Boolean): Unit = {
     this.verifySerialization = verifySerialization
     if (verifySerialization) {
       val logger = LoggerFactory.getLogger(getClass)
       logger.warn("*** Performance-warning: All objects being serialized are also deserialized and compared. Should only be used during testing")
     }
-  }
-
-  def configureObjectMapper(mapper:ObjectMapper):ObjectMapper = {
-    mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
-    mapper.registerModule(new DefaultScalaModule)
-    mapper
   }
 
   protected def objectMapper():ObjectMapper = {
