@@ -65,7 +65,7 @@ public class JavaTest extends JUnitSuite {
             assertEquals(new JavaState(1), state.getState());
 
             // Make sure the successHandler sent back a response
-            //sender.expectMsg("ok");
+            sender.expectMsg("ok");
 
             // assert that durableMessage is sent
             someDest.expectMsg("We are incrementing from 0");

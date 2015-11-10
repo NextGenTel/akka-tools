@@ -3,8 +3,9 @@ package no.nextgentel.oss.akkatools.aggregate
 import akka.actor._
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import no.nextgentel.oss.akkatools.persistence._
-
+import java.util.{List => JList}
 import scala.concurrent.duration.FiniteDuration
+import scala.collection.JavaConversions._
 import scala.reflect._
 
 class AggregateError(errorMsg:String) extends RuntimeException(errorMsg)
@@ -85,13 +86,21 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
           Option(eventResult.afterValidationSuccessHandler).map(_.apply())
 
-          // we can persist it
-          persistAndApplyEvents(eventResult.events,
-            successHandler = {
-              () =>
-                // run the successHandler
-                Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
-            })
+          val runTheSuccessHandler = () => Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
+
+
+          if (eventResult.events.isEmpty) {
+            // We have no events to persist - run the successHandler any way
+            runTheSuccessHandler.apply()
+          } else {
+            // we can persist it
+            persistAndApplyEvents(eventResult.events,
+              successHandler = {
+                () =>
+                  // run the successHandler
+                  runTheSuccessHandler.apply()
+              })
+          }
         } catch {
           case error:AggregateError =>
             Option(eventResult.errorHandler).getOrElse(defaultErrorHandler).apply(error.getMessage)
@@ -102,7 +111,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
 
-  final def onEvent = {
+  def onEvent = {
     case e:E =>
       val newState = state.transition(e)
       val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)

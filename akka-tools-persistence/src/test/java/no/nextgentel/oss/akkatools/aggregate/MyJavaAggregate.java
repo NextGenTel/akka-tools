@@ -4,7 +4,7 @@ package no.nextgentel.oss.akkatools.aggregate;
 import akka.actor.ActorPath;
 import no.nextgentel.oss.akkatools.persistence.SendAsDurableMessage;
 
-public class MyJavaAggregate extends GeneralAggregateJava {
+public class MyJavaAggregate extends GeneralAggregateJava<JavaState> {
 
     private final ActorPath someDest;
 
@@ -19,12 +19,13 @@ public class MyJavaAggregate extends GeneralAggregateJava {
     }
 
     @Override
-    public ResultingEvent<Object> onCmdToEvent(AggregateCmd cmd) {
+    public ResultingEventJava onCmdToEvent(AggregateCmd cmd) {
+        int currentCounterValue = getState().counter;
         if ( cmd instanceof IncrementCmd ) {
-            return ResultingEvent.apply( new IncrementEvent() );
-                    //.withSuccessHandler( () -> sender().tell("ok", self()));
+            return ResultingEventJava.single( new IncrementEvent() )
+                    .onSuccess(() -> sender().tell("ok", self()));
         } else if ( cmd instanceof DecrementCmd ) {
-            return ResultingEvent.apply( new DecrementEvent() );
+            return ResultingEventJava.single( new DecrementEvent() );
         } else {
             throw new JavaError("Unknown cmd");
         }
