@@ -68,6 +68,10 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
 
   override def generateResultingDurableMessages = {
     case e: BookingClosedEvent =>
+
+      // We're just testing the nextState()-functionality
+      assert( nextState() == state.transition(e))
+
       // The booking has now been closed and we need to send an important notification to the Cinema
       val cinemaNotification = CinemaNotification(state.reservations.toList)
       ResultingDurableMessages(cinemaNotification, cinemaNotifier)

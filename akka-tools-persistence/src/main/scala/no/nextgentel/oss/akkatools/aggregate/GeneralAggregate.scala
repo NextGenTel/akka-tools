@@ -50,6 +50,11 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   var state:S
 
+  // This one is only valid when we're in the process of applying an event inside generateResultingDurableMessages
+  private var _nextState:Option[S] = None
+
+  def nextState():S = _nextState.getOrElse(throw new Exception("nextState can only be used from inside generateResultingDurableMessages"))
+
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
@@ -113,9 +118,13 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   def onEvent = {
     case e:E =>
-      val newState = state.transition(e)
+
+      // Store nextState - the state we're in the processes of applying into - so that it is available
+      // through nextState() from inside generateResultingDurableMessages
+      _nextState = Some(state.transition(e))
       val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)
-      state = newState
+      state = _nextState.get // pop the nextState and make it current
+      _nextState = None // clear next state
 
       // From java resultingDurableMessages might be null.. Wrap it optional
       Option(resultingDurableMessages).map {
