@@ -28,6 +28,7 @@ Changelog
 
 Version 1.0.3-SNAPSHOT    - Not released yet
 
+* More fluent api when using ActorWithDMSupport
 * Introduced nextState() which holds the soon-to-be state when inside generateResultingDurableMessages()
 * Improved ResultingEvents-API
 * successHandler is now executed at the right time - after all events are actually persisted
