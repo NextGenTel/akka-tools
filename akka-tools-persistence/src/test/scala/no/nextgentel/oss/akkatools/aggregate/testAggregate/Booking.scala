@@ -95,19 +95,16 @@ object BookingAggregate {
 }
 
 
-// Setting up the builder we're going to use for our BookingAggregate and view
-class BookingAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[BookingEvent, BookingState](actorSystem) {
+class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", system) with AggregateViewStarter {
 
-
-  override def persistenceIdBase() = BookingAggregate.persistenceIdBase
-
-  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]): Unit = {
-    withGeneralAggregateProps {
-      ourDispatcher: ActorPath =>
-        BookingAggregate.props(ourDispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds)
+  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]):BookingStarter = {
+    setAggregatePropsCreator{
+      dispatcher =>
+        BookingAggregate.props(dispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds)
     }
+    this
   }
 
-  // Override this method to create Initial states for views
-  override def createInitialState(aggregateId: String): BookingState = BookingState.empty()
+  override def createViewProps(aggregateId: String): Props =
+    Props( new GeneralAggregateView[BookingEvent, BookingState](BookingAggregate.persistenceIdBase, aggregateId, BookingState.empty(), true))
 }

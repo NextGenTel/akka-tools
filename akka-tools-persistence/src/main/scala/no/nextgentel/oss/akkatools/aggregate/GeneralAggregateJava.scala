@@ -63,6 +63,17 @@ case class ResultingEventJava(events:JList[Any], successHandler: Runnable, after
 
 }
 
+class GeneralAggregateViewJava
+(
+  persistenceIdBase:String,
+  id:String,
+  initialState:AggregateStateJava,
+  collectHistory:Boolean = true
+) extends GeneralAggregateView[Any, AggregateStateJava](persistenceIdBase, id, initialState, collectHistory) {
+
+}
+
+@deprecated("Use AggregateStarter and AggregateViewStarter with GeneralAggregateViewJava instead", "1.0.3")
 class GeneralAggregateBuilderJava
 (
    actorSystem: ActorSystem

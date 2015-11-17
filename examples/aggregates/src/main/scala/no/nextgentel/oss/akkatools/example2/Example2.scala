@@ -107,7 +107,7 @@ class Example2System(system: ActorSystem) {
   implicit val ec = system.dispatcher
   implicit val timeout = Timeout(20, TimeUnit.SECONDS)
 
-  private val tac = new TACAggregateBuilder(system)
+  private val tac = new TACStarter(system)
 
   private val emailSystem = system.actorOf(Props(new EmailSystem), "email-system")
   private val eSigningSystem = system.actorOf(Props(new ESigningSystem(tac.dispatcher)), "E-SigningSystem")
@@ -131,20 +131,7 @@ class Example2System(system: ActorSystem) {
     val trustAccountId = "TA-"+new Random().nextInt(9999)
     tac.dispatcher ! CompletedCmd(id, trustAccountId)
   }
-/*
-  def openBooking(bookingId:String, seats:Int): Unit = {
-    booking.dispatcher ! OpenBookingCmd(bookingId, seats)
-  }
 
-  def cancelBooking(bookingId:String, seatId:String): Unit = {
-    val msg = CancelSeatCmd(bookingId, seatId)
-    Await.result(ask(booking.dispatcher, msg), timeout.duration)
-  }
-
-  def closeBooking(bookingId:String): Unit = {
-    booking.dispatcher ! CloseBookingCmd(bookingId)
-  }
-*/
 
   def getTACHistory(id:String):List[EventAndState] = {
     val f = tac.askView(id, GetEventAndStateHistory()).mapTo[List[EventAndState]]
