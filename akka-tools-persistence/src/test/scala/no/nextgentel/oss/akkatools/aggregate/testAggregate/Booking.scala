@@ -22,9 +22,6 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
   override def persistenceIdBase() = BookingAggregate.persistenceIdBase
 
-  // Override this one to set different timeout
-  override def idleTimeout() = FiniteDuration(60, TimeUnit.SECONDS)
-
   var state = BookingState.empty() // This is our initial state(Machine)
 
   def generateNextSeatId():String = {

@@ -13,7 +13,11 @@ import scala.reflect._
 case class SendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
 
 object EnhancedPersistentActor {
-  val DEFAULT_IDLE_TIMEOUT_IN_SECONDS = FiniteDuration(240, TimeUnit.SECONDS)
+  // Before we calculated the timeout based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts,
+  // This timeout used to be 240 seconds.
+  // 215 seconds results in the same default timeout when using default config since
+  // 240 - ( redeliverInterval(default 5 secs) * warnAfterNumberOfUnconfirmedAttempts(default 5) ) == 215
+  val DEFAULT_TIME_TO_WAIT_AFTER_MAX_REDELIVER_ATTEMPTS_BEFORE_TIMEOUT = FiniteDuration(215, TimeUnit.SECONDS)
 }
 
 abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
@@ -45,6 +49,12 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // Used to turn on or of processing of UnconfirmedWarnings
   protected def doUnconfirmedWarningProcessing() = true
 
+  protected lazy val idleTimeoutValueToUse = {
+    val timeout = idleTimeout()
+    log.debug(s"Using idleTimeout=${timeout.toSeconds}s")
+    timeout
+  }
+
   /**
    * @param eventLogLevelInfo Used when processing events live - not recovering
    * @param recoveringEventLogLevelInfo Used when recovering events
@@ -62,12 +72,17 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeoutTimer = None
   }
 
+  protected def defaultTimeToWaitAfterMaxRedeliverAttemptsBeforeTimeout():FiniteDuration = EnhancedPersistentActor.DEFAULT_TIME_TO_WAIT_AFTER_MAX_REDELIVER_ATTEMPTS_BEFORE_TIMEOUT
+
   // Override this one to set different timeout
-  def idleTimeout():FiniteDuration = EnhancedPersistentActor.DEFAULT_IDLE_TIMEOUT_IN_SECONDS
+  def idleTimeout():FiniteDuration = {
+    val durationUntilAllRetryAttemptsHasBeenTried = redeliverInterval.mul(warnAfterNumberOfUnconfirmedAttempts)
+    durationUntilAllRetryAttemptsHasBeenTried + defaultTimeToWaitAfterMaxRedeliverAttemptsBeforeTimeout()
+  }
 
   private def startTimeoutTimer(): Unit = {
     cancelTimeoutTimer()
-    timeoutTimer = Some(context.system.scheduler.scheduleOnce(idleTimeout(), self, PersistentActorTimeout()))
+    timeoutTimer = Some(context.system.scheduler.scheduleOnce(idleTimeoutValueToUse, self, PersistentActorTimeout()))
   }
 
   override def preStart(): Unit = {

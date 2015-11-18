@@ -28,6 +28,7 @@ Changelog
 
 Version 1.0.3-SNAPSHOT    - Not released yet
 
+* Improved default idleTimeout - It is now calculated based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts  
 * Improved bootstrapping of Aggregates using AggregateStarter [commit](https://github.com/NextGenTel/akka-tools/commit/448bd1)
 * More fluent api when using ActorWithDMSupport
 * Introduced nextState() which holds the soon-to-be state when inside generateResultingDurableMessages()
