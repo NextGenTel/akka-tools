@@ -16,7 +16,7 @@ object JacksonJsonSerializer {
   private var verifySerialization: Boolean = false
 
   @Deprecated //For Java-compiler
-  @deprecated("Use setObjectMapper() - NB! You now have to configure objectMapper your self!! - and setVerifySerialization() instead")
+  @deprecated("Use setObjectMapper() - NB! You now have to configure objectMapper your self!! - and setVerifySerialization() instead", "1.0.3")
   def init(m:ObjectMapper, verifySerialization:Boolean = false): Unit = {
     def configureObjectMapper(mapper:ObjectMapper):ObjectMapper = {
       mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)

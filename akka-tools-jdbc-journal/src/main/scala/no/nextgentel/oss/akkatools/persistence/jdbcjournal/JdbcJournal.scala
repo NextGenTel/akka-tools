@@ -172,7 +172,7 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
           metadata.timestamp,
           bytes,
           snapshot.getClass.getName))
-      promise.success()
+      promise.success(Unit)
     } catch {
       case e: Exception => {
         val errorMessage: String = "Error storing snapshot"
@@ -344,7 +344,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
       if (log.isDebugEnabled) {
         log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: DONE - processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
       }
-      promise.success()
+      promise.success(Unit)
     }
     catch {
       case e: Exception => {

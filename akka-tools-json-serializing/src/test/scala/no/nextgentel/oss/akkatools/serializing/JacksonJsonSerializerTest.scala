@@ -3,16 +3,19 @@ package no.nextgentel.oss.akkatools.serializing
 import akka.actor.ActorSystem
 import akka.serialization.SerializationExtension
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{ConfigFactory, Config}
 import org.scalatest.{Matchers, FunSuite}
 
 class JacksonJsonSerializerTest extends FunSuite with Matchers {
 
   val objectMapper = new ObjectMapper()
+  objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+  objectMapper.registerModule(new DefaultScalaModule)
 
   test("serializer") {
-    JacksonJsonSerializer.init(objectMapper)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
     val serializer = new JacksonJsonSerializer()
     val a = Animal("our cat", 12, Cat("black", true))
     val bytes = serializer.toBinary(a)
@@ -21,24 +24,25 @@ class JacksonJsonSerializerTest extends FunSuite with Matchers {
   }
 
   test("Registering the serializer works") {
-    JacksonJsonSerializer.init(objectMapper)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
     val system = ActorSystem("JacksonJsonSerializerTest", ConfigFactory.load("akka-tools-json-serializing.conf"))
 
     val serialization = SerializationExtension.get(system)
     assert( classOf[JacksonJsonSerializer] ==  serialization.serializerFor(classOf[Animal]).getClass)
 
-    system.shutdown()
+    system.terminate()
   }
 
   test("DepricatedTypeWithMigrationInfo") {
-    JacksonJsonSerializer.init(objectMapper)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
     val serializer = new JacksonJsonSerializer()
     val bytes = serializer.toBinary(OldType("12"))
     assert(NewType(12) == serializer.fromBinary(bytes, classOf[OldType]))
   }
 
   test("verifySerialization - no error") {
-    JacksonJsonSerializer.init(objectMapper, true)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
+    JacksonJsonSerializer.setVerifySerialization(true)
     val serializer = new JacksonJsonSerializer()
     val a = Animal("our cat", 12, Cat("black", true))
     val ow = ObjectWrapperWithTypeInfo(a)
@@ -46,7 +50,8 @@ class JacksonJsonSerializerTest extends FunSuite with Matchers {
   }
 
   test("verifySerialization - with error") {
-    JacksonJsonSerializer.init(objectMapper, true)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
+    JacksonJsonSerializer.setVerifySerialization(true)
     val serializer = new JacksonJsonSerializer()
     val a = Animal("our cat", 12, Cat("black", true))
     val ow = ObjectWrapperWithoutTypeInfo(a)
@@ -56,7 +61,8 @@ class JacksonJsonSerializerTest extends FunSuite with Matchers {
   }
 
   test("verifySerialization - disabled") {
-    JacksonJsonSerializer.init(objectMapper, true)
+    JacksonJsonSerializer.setObjectMapper(objectMapper)
+    JacksonJsonSerializer.setVerifySerialization(true)
     val serializer = new JacksonJsonSerializer()
     val a = Animal("our cat", 12, Cat("black", true))
     val ow = ObjectWrapperWithoutTypeInfoOverrided(a)

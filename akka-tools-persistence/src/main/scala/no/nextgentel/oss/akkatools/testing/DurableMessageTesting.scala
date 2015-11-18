@@ -61,7 +61,7 @@ class TestingDurableMessageSendAndReceiver private [testing] (promise:Promise[Bo
   log.debug(s"Sending durableMessage with payload=$payload with messageId=$messageId to dest=$dest")
 
   dest.tell(DurableMessage(0L, payload, self.path), sender)
-  messageSentPromise.success()
+  messageSentPromise.success(Unit)
 
 
   def receive = {
