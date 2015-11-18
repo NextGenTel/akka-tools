@@ -28,6 +28,7 @@ Changelog
 
 Version 1.0.3-SNAPSHOT    - Not released yet
 
+* Improved bootstrapping of Aggregates using AggregateStarter [commit](https://github.com/NextGenTel/akka-tools/commit/448bd1)
 * More fluent api when using ActorWithDMSupport
 * Introduced nextState() which holds the soon-to-be state when inside generateResultingDurableMessages()
 * Improved ResultingEvents-API
