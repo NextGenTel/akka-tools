@@ -295,9 +295,13 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         val errorMsg: String = "Not getting message-confirmation from: " + ud.destination + " - giving up"
         log.error(s"$errorMsg: $ud")
 
-        // invoke the handler for this ud
+        // invoke the handler for the payload
         try {
-          durableMessageNotDeliveredHandler(ud.message, errorMsg)
+          val originalPayload = ud.message match {
+            case dm:DurableMessage => dm.payload // extract the original payload
+            case x:Any             => x // Not a dm (??) - Use it as it is
+          }
+          durableMessageNotDeliveredHandler(originalPayload, errorMsg)
         } catch {
           case e: Exception => {
             if (isExpectedError(e)) {
