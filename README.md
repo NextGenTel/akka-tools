@@ -20,13 +20,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.2          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.3          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.3-SNAPSHOT    - Not released yet
+Version 1.0.3 - 18/11-2015
 
 * Improved default idleTimeout - It is now calculated based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts  
 * Improved bootstrapping of Aggregates using AggregateStarter [commit](https://github.com/NextGenTel/akka-tools/commit/448bd1)
