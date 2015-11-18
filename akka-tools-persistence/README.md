@@ -142,7 +142,7 @@ and store the new current state.
 ([example-application: Booking.scala which extends GeneralAggregate](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example/booking/Booking.scala))
 ([example2-application: TAC.scala which extends GeneralAggregate](../examples/aggregates/src/main/scala/no/nextgentel/oss/akkatools/example2/trustaccountcreation/TAC.scala))
 
-GeneralAggregateBuilder can be used when bootstrapping your GeneralAggregates.
+AggregateStarter can be used when bootstrapping your GeneralAggregates.
 It knows how to start it using Sharding and contains a lazy initialized dispatcher that can be passed along - even before the
 sharding is started.
 
@@ -152,7 +152,7 @@ Since we are using cluster and sharding we 'do not know' where our Aggregate exi
 So when sending Commands to an Aggregate it must be sent to the sharding-mechanism.
 The akka sharding-mechanism is available first after we have started it.
 Since there might be situations where you need to refere to an Aggregate before it is "started",
-GeneralAggregateBuilder provides a lazy configured dispatcher.
+AggregateStarter provides a lazy configured dispatcher.
 
 By using this lazy configured dispatcher you can configure and start two different Aggregates which is able to send Commands to each other once started. 
 

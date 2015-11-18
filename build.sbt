@@ -31,6 +31,7 @@ lazy val commonSettings = Seq(
       </developers>),
   compileOrder in Test := CompileOrder.Mixed,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
+  scalacOptions ++= Seq("-unchecked", "-deprecation"),
   resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
 )
 

@@ -146,7 +146,7 @@ class ExampleSystem(system: ActorSystem) {
   implicit val ec = system.dispatcher
   implicit val timeout = Timeout(20, TimeUnit.SECONDS)
 
-  private val booking = new BookingAggregateBuilder(system)
+  private val booking = new BookingStarter(system)
 
   private val cinema = system.actorOf(Props(new Cinema), "cinema")
   private val ticketPrinter = system.actorOf(Props(new TicketPrinter), "ticketPrintger")

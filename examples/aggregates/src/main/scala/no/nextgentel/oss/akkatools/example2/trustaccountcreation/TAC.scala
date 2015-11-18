@@ -74,21 +74,18 @@ object TACAggregate {
 }
 
 
-// Setting up the builder we're going to use for our BookingAggregate and view
-class TACAggregateBuilder(actorSystem: ActorSystem) extends GeneralAggregateBuilder[TACEvent, TACState](actorSystem) {
-
-
-  override def persistenceIdBase() = TACAggregate.persistenceIdBase
+class TACStarter(system:ActorSystem) extends AggregateStarter("tac", system) with AggregateViewStarter {
 
   def config(eSigningSystem:ActorPath,
              emailSystem:ActorPath,
-             trustAccountSystem:ActorPath): Unit = {
-    withGeneralAggregateProps {
-      ourDispatcher: ActorPath =>
-        TACAggregate.props(ourDispatcher, eSigningSystem, emailSystem, trustAccountSystem)
+             trustAccountSystem:ActorPath):TACStarter = {
+    setAggregatePropsCreator{
+      dispatcher =>
+        TACAggregate.props(dispatcher, eSigningSystem, emailSystem, trustAccountSystem)
     }
+    this
   }
 
-  // Override this method to create Initial states for views
-  override def createInitialState(aggregateId: String): TACState = TACState.empty()
+  override def createViewProps(aggregateId: String): Props =
+    Props( new GeneralAggregateView[TACEvent, TACState](TACAggregate.persistenceIdBase, aggregateId, TACState.empty(), true))
 }
