@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.4-SNAPSHOT (Not released yet)  
+
+* Fixing regression in 1.0.3 caused by 'successHandler is now executed at the right time' - Now inbound DM cleanup is performed AFTER success-handler has been executed
+
 Version 1.0.3 - 18/11-2015
 
 * Improved default idleTimeout - It is now calculated based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts  
