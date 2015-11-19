@@ -15,7 +15,7 @@ case class PrintTicketMessage(id:String)
 case class CinemaNotification(seatsBooked:List[String])
 
 // Aggregate
-class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String] = List())
+class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath)
   extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
 
 
@@ -39,6 +39,9 @@ class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath
   // transform command to event
   override def cmdToEvent = {
     case c: OpenBookingCmd  =>  ResultingEvent(BookingOpenEvent(c.seats))
+      .onSuccess {
+        sendAsDurableMessage("OpenBookingCmd-ok", onSuccessDmForwardReceiver)
+      }
 
     case c: CloseBookingCmd => ResultingEvent(BookingClosedEvent())
 
@@ -87,17 +90,17 @@ object BookingAggregate {
 
   val persistenceIdBase = "booking-"
 
-  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]) =
-    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, predefinedSeatIds))
+  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath) =
+    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver))
 }
 
 
 class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", system) with AggregateViewStarter {
 
-  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String]):BookingStarter = {
+  def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath):BookingStarter = {
     setAggregatePropsCreator{
       dispatcher =>
-        BookingAggregate.props(dispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds)
+        BookingAggregate.props(dispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver)
     }
     this
   }

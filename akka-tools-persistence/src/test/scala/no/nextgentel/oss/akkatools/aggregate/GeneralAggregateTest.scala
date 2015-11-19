@@ -31,7 +31,8 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
     val ourDispatcher = TestProbe()
     val printShop = TestProbe()
     val cinema = TestProbe()
-    val main = system.actorOf(BookingAggregate.props(ourDispatcher.ref.path, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds), "BookingAggregate-" + id)
+    val onSuccessDmForwardReceiver = TestProbe()
+    val main = system.actorOf(BookingAggregate.props(ourDispatcher.ref.path, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds, dmForwardAndConfirm(onSuccessDmForwardReceiver.ref).path), "BookingAggregate-" + id)
 
     def assertState(correctState:BookingState): Unit = {
       assert(getState() == correctState)
@@ -52,8 +53,13 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
       val maxSeats = 2
       val sender = TestProbe()
       // Open the booking
+      println("1")
       sendDMBlocking(main, OpenBookingCmd(id, maxSeats), sender.ref)
+      println("2")
       assertState(BookingState(OPEN, maxSeats, Set()))
+
+      // Make sure the DM forwarding with new payload called in onSuccess worked.
+      onSuccessDmForwardReceiver.expectMsg("OpenBookingCmd-ok")
 
       // send first booking
       sendDMBlocking(main, ReserveSeatCmd(id), sender.ref)

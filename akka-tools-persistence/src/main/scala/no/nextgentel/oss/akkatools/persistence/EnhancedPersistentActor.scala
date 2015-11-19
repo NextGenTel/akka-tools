@@ -46,6 +46,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // Will be set using the correct logLevel when starting to do something
   protected var currentLogLevelInfo = eventLogLevelInfo
 
+  private var prevLogLevelTryCommand: Boolean = currentLogLevelInfo
+  private var persistAndApplyEventHasBeenCalled = false
+
   // Used to turn on or of processing of UnconfirmedWarnings
   protected def doUnconfirmedWarningProcessing() = true
 
@@ -199,10 +202,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => Unit})
 
-  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = persist(event) {
-    e =>
-      onApplyingLiveEvent(e)
-      successHandler.apply()
+  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = {
+    persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
+    persist(event) {
+      e =>
+        onApplyingLiveEvent(e)
+        successHandler.apply()
+        // Now we can do the last DM cleanup
+        doTryCommandCleanupAndConfirmDMIfSuccess(true)
+    }
   }
 
   protected def persistAndApplyEvents(events: List[E]):Unit = persistAndApplyEvents(events, { () => Unit})
@@ -213,6 +221,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     if (!events.isEmpty) {
       // We need to have a counter so that we can call successHandler when we have
       // executed the last successfull persistAll-handler
+
+      persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
+
       var callbacksLeft = events.size
       persistAll(events) {
         e =>
@@ -221,6 +232,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           if (callbacksLeft == 0) {
             // This was the last time - we should call the successHandler
             successHandler.apply()
+
+            // Now we can do the last DM cleanup
+            doTryCommandCleanupAndConfirmDMIfSuccess(true)
           }
       }
     }
@@ -254,7 +268,14 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   private def tryCommandInternal(rawCommand: AnyRef) {
 
-    val prevLogLevel: Boolean = currentLogLevelInfo
+    // We will set persistAndApplyEventHasBeenCalled=true IF persistAndApplyEvent
+    // has been called during tryCommand-processing...
+    // If it has, we have to wait until its successHandlers have been called
+    // before we know if we should confirm incomming DM or not.... It might be "used" (withNewPayload)
+    // in that successhandler, and then we should not confirm it.
+    persistAndApplyEventHasBeenCalled = false
+
+    prevLogLevelTryCommand = currentLogLevelInfo
     currentLogLevelInfo = cmdLogLevelInfo
     cancelTimeoutTimer
     pendingDurableMessage = None
@@ -276,23 +297,42 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         tryCommand.apply(command)
       }
 
-      pendingDurableMessage.map {dm => dm.confirm(context, self)}
+      if (!persistAndApplyEventHasBeenCalled) {
+        // Since processing of this cmd resulting in no events being persisted,
+        // we should not wait to cleanup DM
+        doTryCommandCleanupAndConfirmDMIfSuccess(true)
+      }
 
     }
     catch {
       case e:Exception =>
         if (isExpectedError(e)) {
           log.warning("Error processing:  '{}' : {}", toStringForLogging(command), e.getMessage)
-          pendingDurableMessage.map {dm => dm.confirm(context, self)}
+          doTryCommandCleanupAndConfirmDMIfSuccess(true)
         } else {
           log.error(e, "Error processing: " + toStringForLogging(command))
+          doTryCommandCleanupAndConfirmDMIfSuccess(false)
         }
-    } finally {
-      afterTryCommand()
-      currentLogLevelInfo = prevLogLevel
-      pendingDurableMessage = None
     }
     startTimeoutTimer
+  }
+
+  private def doTryCommandCleanupAndConfirmDMIfSuccess(confirm:Boolean): Unit = {
+
+    if ( confirm) {
+      pendingDurableMessage match {
+        case Some(dm) =>
+          dm.confirm(context, self)
+          log.debug("Inbound-DM-cleanup: DM confirmed")
+        case None     =>
+          log.debug("Inbound-DM-cleanup: No inbound DM")
+      }
+    } else {
+      log.debug("Inbound-DM-cleanup: Not confirming")
+    }
+    pendingDurableMessage = None
+    currentLogLevelInfo = prevLogLevelTryCommand
+    afterTryCommand()
   }
 
   /**
