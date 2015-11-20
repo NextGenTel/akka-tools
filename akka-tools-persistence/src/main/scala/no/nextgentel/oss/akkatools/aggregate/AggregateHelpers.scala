@@ -54,7 +54,7 @@ abstract class AggregateStarter(val name:String, val system:ActorSystem) extends
        Props( new MyAggregateActor(dispatcher, someOtherParam1, param2)
   }.start()
 */
-class AggregateStarterSimple(system:ActorSystem) extends AggregateStarter(getClass.getSimpleName, system) {
+class AggregateStarterSimple(name:String, system:ActorSystem) extends AggregateStarter(name, system) {
 
   def withAggregatePropsCreator(creator:AggregatePropsCreator):AggregateStarterSimple = {
     aggregatePropsCreator = Some(creator)
@@ -64,7 +64,7 @@ class AggregateStarterSimple(system:ActorSystem) extends AggregateStarter(getCla
 
 object AggregateStarterSimple {
   // This method lets you skip "new" if using GeneralAggregateStarter
-  def apply(actorSystem:ActorSystem):AggregateStarterSimple = new AggregateStarterSimple(actorSystem)
+  def apply(name:String, actorSystem:ActorSystem):AggregateStarterSimple = new AggregateStarterSimple(name, actorSystem)
 }
 
 

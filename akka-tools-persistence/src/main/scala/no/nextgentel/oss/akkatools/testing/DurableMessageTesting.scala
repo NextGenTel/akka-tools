@@ -83,7 +83,8 @@ trait AggregateTesting[S] extends DurableMessageTesting {
 
   val main:ActorRef
 
-  def getState()(implicit system:ActorSystem):S = AggregateStateGetter[Any](main).getState().asInstanceOf[S]
+  def getState()(implicit system:ActorSystem):S = AggregateStateGetter[Any](main).getState(None).asInstanceOf[S]
+  def getState(aggregateId:String)(implicit system:ActorSystem):S = AggregateStateGetter[Any](main).getState(Some(aggregateId)).asInstanceOf[S]
 
   def dmForwardAndConfirm(dest:ActorRef, onlyAcceptDurableMessages:Boolean = false)(implicit system:ActorSystem) = DurableMessageForwardAndConfirm(dest, onlyAcceptDurableMessages)
 }

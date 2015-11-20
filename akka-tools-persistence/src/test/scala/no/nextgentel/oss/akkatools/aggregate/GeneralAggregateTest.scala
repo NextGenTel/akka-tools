@@ -127,6 +127,7 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
 class ResultingEventTest extends FunSuite with Matchers {
   test("old api") {
     var msg = ""
+    //noinspection ScalaDeprecation
     val r = ResultingEvent("A")
       .withErrorHandler( (errorMsg) => {msg = "error:"+errorMsg})
       .withSuccessHandler(() => { msg = "success" })

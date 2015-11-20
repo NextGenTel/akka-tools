@@ -21,10 +21,15 @@ import AggregateStateGetter._
 
 class AggregateStateGetter[S:ClassTag](system:ActorSystem, aggregateActorRef:ActorRef, timeout:Duration) {
 
-  def getState():S = {
+  def getState():S = getState(None)
+  def getState(aggregateId:Option[String]):S = {
     implicit val ec = system.dispatcher
     implicit val t = Timeout(timeout.toMillis, TimeUnit.MILLISECONDS)
-    val f = ask(aggregateActorRef, GetState()).mapTo[S]
+    val getStateMsg = aggregateId match {
+      case Some(id) => GetState(id)
+      case None     => GetState()
+    }
+    val f = ask(aggregateActorRef, getStateMsg).mapTo[S]
     Await.result(f, timeout)
   }
 
