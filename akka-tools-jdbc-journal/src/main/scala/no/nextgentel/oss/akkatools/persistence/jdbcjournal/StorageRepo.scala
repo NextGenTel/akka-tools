@@ -130,8 +130,12 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long) {
     val sql = s"delete from ${schemaPrefix}t_journal where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
-
-    sql2o.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
+    val c = sql2o.open()
+    try {
+      c.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
+    } finally {
+      c.close()
+    }
   }
 
   def findHighestSequenceNr(processorId: ProcessorId, fromSequenceNr: Long): Long = {
@@ -149,8 +153,9 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   def writeSnapshot(e: SnapshotEntry) {
     val sql = s"insert into ${schemaPrefix}t_snapshot (processorId,sequenceNr,timestamp,snapshot,snapshotClassname,updated) values (:processorId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,sysdate)"
+    val c = sql2o.open()
     try {
-      sql2o.createQuery(sql)
+      c.createQuery(sql)
         .addParameter("processorId", e.processorId)
         .addParameter("sequenceNr", e.sequenceNr)
         .addParameter("timestamp", e.timestamp)
@@ -162,6 +167,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
         errorHandler.onError(ex)
         throw ex
       }
+    } finally {
+      c.close()
     }
   }
 
@@ -190,12 +197,22 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   def deleteSnapshot(processorId: String, sequenceNr: Long, timestamp: Long) {
     val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
-    sql2o.createQuery(sql).addParameter("processorId", processorId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
+    val c = sql2o.open()
+    try {
+      c.createQuery(sql).addParameter("processorId", processorId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
+    } finally {
+      c.close()
+    }
   }
 
   def deleteSnapshotsMatching(processorId: String, maxSequenceNr: Long, maxTimestamp: Long) {
     val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
-    sql2o.createQuery(sql).addParameter("processorId", processorId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
+    val c = sql2o.open()
+    try {
+      c.createQuery(sql).addParameter("processorId", processorId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
+    } finally {
+      c.close()
+    }
   }
 
   def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime) {
@@ -203,18 +220,33 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
     val updatedRows: Int = sql2o.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate.getResult
     if (updatedRows == 0) {
       sql = s"insert into ${schemaPrefix}t_cluster_nodes(nodeName, lastSeen) values (:nodeName, :timestamp)"
-      sql2o.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate
+      val c = sql2o.open()
+      try {
+        c.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate
+      } finally {
+        c.close()
+      }
     }
   }
 
   def removeClusterNodeAlive(nodeName: String) {
     val sql: String = s"delete from ${schemaPrefix}t_cluster_nodes where nodeName = :nodeName"
-    sql2o.createQuery(sql).addParameter("nodeName", nodeName).executeUpdate.getResult
+    val c = sql2o.open()
+    try {
+      c.createQuery(sql).addParameter("nodeName", nodeName).executeUpdate.getResult
+    } finally {
+      c.close()
+    }
   }
 
   def findAliveClusterNodes(clusterNodesAliveSinceCheck: FiniteDuration): List[String] = {
     val aliveAfter = OffsetDateTime.now.minusSeconds(clusterNodesAliveSinceCheck.toSeconds.toInt)
     val sql = s"select nodeName from ${schemaPrefix}t_cluster_nodes where lastSeen >= :aliveAfter"
-    return sql2o.createQuery(sql).addParameter("aliveAfter", Date.from(aliveAfter.toInstant)).executeScalarList(classOf[String]).toList
+    val c = sql2o.open()
+    try {
+      c.createQuery(sql).addParameter("aliveAfter", Date.from(aliveAfter.toInstant)).executeScalarList(classOf[String]).toList
+    } finally {
+      c.close()
+    }
   }
 }
