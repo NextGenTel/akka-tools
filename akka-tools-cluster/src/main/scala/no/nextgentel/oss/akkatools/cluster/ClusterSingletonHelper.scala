@@ -12,16 +12,16 @@ object ClusterSingletonHelper {
   def startClusterSingleton(system: ActorSystem, props: Props, name: String, terminationMessage:Any): ActorRef = {
     val singletonManagerName = name + "ClusterSingleton"
     system.actorOf(ClusterSingletonManager.props(
-      props,
-      terminationMessage,
-      ClusterSingletonManagerSettings(system).withSingletonName(name)
-    ), singletonManagerName)
+      singletonProps = props,
+      terminationMessage = terminationMessage,
+      settings = ClusterSingletonManagerSettings(system).withSingletonName(name)),
+      name = singletonManagerName)
 
     // Start the ClusterSingletonProxy-actor which we're going to use to access the single instance in our cluster
     val proxyActor = system.actorOf(ClusterSingletonProxy.props(
-      s"/user/$singletonManagerName/$name",
-      ClusterSingletonProxySettings(system)),
-      name = name + "ActorProxy")
+      singletonManagerPath  = s"/user/$singletonManagerName",
+      settings = ClusterSingletonProxySettings(system).withSingletonName(name)),
+      name = name + "ClusterSingletonProxy")
 
     proxyActor
   }

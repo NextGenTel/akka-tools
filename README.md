@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.4-SNAPSHOT - Not released yet
+
+* Fixing issue with proxying to clusterSingleton created by ClusterSingletonHelper
+
 Version 1.0.3.1 - 19/11-2015
 
 * Fixing regression in 1.0.3 caused by 'successHandler is now executed at the right time' - Now inbound DM cleanup is performed AFTER success-handler has been executed
