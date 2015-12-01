@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.3.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.3.2        | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.4-SNAPSHOT - Not released yet
+Version 1.0.3.2 - 01/12-2015
 
 * Fixing issue with proxying to clusterSingleton created by ClusterSingletonHelper
 
