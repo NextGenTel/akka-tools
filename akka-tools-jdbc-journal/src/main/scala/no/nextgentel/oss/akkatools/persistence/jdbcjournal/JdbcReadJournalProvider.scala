@@ -10,6 +10,7 @@ import akka.persistence.query.javadsl.{ReadJournal => JavaReadJournal}
 import akka.serialization.SerializationExtension
 import akka.stream.actor.ActorPublisher
 import akka.stream.actor.ActorPublisherMessage.{Cancel, Request}
+import akka.stream.javadsl
 import akka.stream.scaladsl.Source
 import com.typesafe.config.Config
 
@@ -30,8 +31,26 @@ object JdbcReadJournal {
   val identifier = "akka.persistence.query.jdbc-read-journal"
 }
 
-class JavaJdbcReadJournal(system: ExtendedActorSystem, config: Config) extends JavaReadJournal {
+class JavaJdbcReadJournal(system: ExtendedActorSystem, config: Config) extends JavaReadJournal
+with akka.persistence.query.javadsl.EventsByPersistenceIdQuery
+with akka.persistence.query.javadsl.CurrentEventsByPersistenceIdQuery
+with akka.persistence.query.javadsl.EventsByTagQuery
+with akka.persistence.query.javadsl.CurrentEventsByTagQuery {
 
+
+  val scalaJdbcReadJournal = new JdbcReadJournal(system, config)
+
+  override def eventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): javadsl.Source[EventEnvelope, Unit] =
+    scalaJdbcReadJournal.eventsByPersistenceId(persistenceId, fromSequenceNr, toSequenceNr).asJava
+
+  override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): javadsl.Source[EventEnvelope, Unit] =
+    scalaJdbcReadJournal.currentEventsByPersistenceId(persistenceId, fromSequenceNr, toSequenceNr).asJava
+
+  override def eventsByTag(tag: String, offset: Long): javadsl.Source[EventEnvelope, Unit] =
+    scalaJdbcReadJournal.eventsByTag(tag, offset).asJava
+
+  override def currentEventsByTag(tag: String, offset: Long): javadsl.Source[EventEnvelope, Unit] =
+    scalaJdbcReadJournal.currentEventsByTag(tag, offset).asJava
 }
 
 class JdbcReadJournal(system: ExtendedActorSystem, config: Config) extends ScalaReadJournal
