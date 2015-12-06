@@ -36,7 +36,9 @@ class JavaJdbcReadJournal(system: ExtendedActorSystem, config: Config) extends J
 
 class JdbcReadJournal(system: ExtendedActorSystem, config: Config) extends ScalaReadJournal
 with akka.persistence.query.scaladsl.EventsByPersistenceIdQuery
-with akka.persistence.query.scaladsl.CurrentEventsByPersistenceIdQuery{
+with akka.persistence.query.scaladsl.CurrentEventsByPersistenceIdQuery
+with akka.persistence.query.scaladsl.EventsByTagQuery
+with akka.persistence.query.scaladsl.CurrentEventsByTagQuery {
 
   val refreshInterval: FiniteDuration = {
     val millis = config.getDuration("refresh-interval", TimeUnit.MILLISECONDS)
@@ -50,6 +52,26 @@ with akka.persistence.query.scaladsl.CurrentEventsByPersistenceIdQuery{
 
   override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, Unit] = {
     val props = Props(new JdbcEventsByPersistenceIdActor(false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
+  }
+
+  private def generatePersistenceIdForEventByTag(tag:String):String = {
+    // Must generate a persistenceId using the proper splitChar for the selected ProcessorIdSplitter so that
+    // we get ALL events for this tag/type..
+    val splitChar:Char = JdbcJournal.processorIdSplitter().splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a processorIdSplitter not using a splitChar"))
+    tag + splitChar + ProcessorIdSplitterLastSlashImpl.WILDCARD
+  }
+
+  // Tag is defined to be the type-part used with processorIdSplitter
+  override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, Unit] = {
+    val persistenceId = generatePersistenceIdForEventByTag(tag)
+    val props = Props(new JdbcEventsByPersistenceIdActor(true, refreshInterval, persistenceId, offset, Long.MaxValue))
+    Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
+  }
+
+  override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, Unit] = {
+    val persistenceId = generatePersistenceIdForEventByTag(tag)
+    val props = Props(new JdbcEventsByPersistenceIdActor(false, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 }
@@ -96,7 +118,7 @@ class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDurati
             val persistentRepr = serializer.fromBinary(entry.persistentRepr).asInstanceOf[PersistentRepr]
             nextFromSequenceNr = entry.sequenceNr +1
 
-            EventEnvelope(entry.sequenceNr, persistenceId, entry.sequenceNr, persistentRepr.payload)
+            EventEnvelope(entry.sequenceNr, persistentRepr.persistenceId, entry.sequenceNr, persistentRepr.payload)
 
         }.toVector
 

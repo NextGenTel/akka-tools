@@ -53,23 +53,33 @@ case class ProcessorId(private val _typePath: String, private val _id: String, p
 
 trait ProcessorIdSplitter {
   def split(processorId: String): ProcessorId
+  def splitChar():Option[Char]
 }
 
+
+// This is an impl not using the the split-functionality.
+// It does no splitting at all
 class ProcessorIdSplitterDefaultAkkaImpl extends ProcessorIdSplitter {
   def split(processorId: String): ProcessorId = {
     return new ProcessorId(processorId, "")
   }
+
+  override def splitChar(): Option[Char] = None
 }
 
 object ProcessorIdSplitterLastSlashImpl {
   val WILDCARD: String = "*"
 }
 
+// Splits on the last slash
+// Nice to use when persistenceId's looks like URLs
 class ProcessorIdSplitterLastSlashImpl extends ProcessorIdSplitterLastSomethingImpl('/')
 
-class ProcessorIdSplitterLastSomethingImpl(something:Char) extends ProcessorIdSplitter {
+
+// Splits on the last occurrence of '_splitChar'
+class ProcessorIdSplitterLastSomethingImpl(_splitChar:Char) extends ProcessorIdSplitter {
   def split(processorId: String): ProcessorId = {
-    val i: Int = processorId.lastIndexOf(something)
+    val i: Int = processorId.lastIndexOf(_splitChar)
     if (i < 0) {
       return new ProcessorId(processorId, "")
     } else {
@@ -82,6 +92,8 @@ class ProcessorIdSplitterLastSomethingImpl(something:Char) extends ProcessorIdSp
       }
     }
   }
+
+  override def splitChar(): Option[Char] = Some(_splitChar)
 }
 
 object JdbcJournalConfig {
