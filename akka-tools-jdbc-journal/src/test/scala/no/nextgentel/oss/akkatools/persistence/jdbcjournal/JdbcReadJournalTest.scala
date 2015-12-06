@@ -29,9 +29,17 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
 
   val halfRefreshIntervalInMills:Long = readJournal.refreshInterval.toMillis/2
 
-  test("query") {
+  var nextIdValue = 1
 
-    val persistenceId = "pa-1"
+  def uniquePersistenceId():String = {
+    val id = s"pa-$nextIdValue"
+    nextIdValue = nextIdValue + 1
+    id
+  }
+
+  test("EventsByPersistenceIdQuery") {
+
+    val persistenceId = uniquePersistenceId()
     val pa = system.actorOf(Props(new TestPersistentActor(persistenceId)))
 
     val source: Source[EventEnvelope, Unit] =
@@ -70,6 +78,45 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
       EventEnvelope(4, persistenceId, 4, TestEvent("d")))
+
+  }
+
+  test("currentEventsByPersistenceId") {
+    val persistenceId = uniquePersistenceId()
+    val pa = system.actorOf(Props(new TestPersistentActor(persistenceId)))
+
+    pa ! TestCmd("a")
+    pa ! TestCmd("b")
+    pa ! TestCmd("c")
+
+    Thread.sleep(halfRefreshIntervalInMills) // Skip to next read cycle
+
+    val source: Source[EventEnvelope, Unit] =
+      readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
+
+
+    val streamResult = TestProbe()
+
+    // materialize stream, consuming events
+    implicit val mat = ActorMaterializer()
+    source.runForeach {
+      event =>
+        println("Stream received Event: " + event)
+        streamResult.ref ! event
+    }
+
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
+    streamResult.expectMsgAllOf(
+      EventEnvelope(1, persistenceId, 1, TestEvent("a")),
+      EventEnvelope(2, persistenceId, 2, TestEvent("b")),
+      EventEnvelope(3, persistenceId, 3, TestEvent("c")))
+
+    pa ! TestCmd("x")
+
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
+    streamResult.expectNoMsg() // The stream should have stopped
 
   }
 

@@ -35,7 +35,8 @@ class JavaJdbcReadJournal(system: ExtendedActorSystem, config: Config) extends J
 }
 
 class JdbcReadJournal(system: ExtendedActorSystem, config: Config) extends ScalaReadJournal
-with akka.persistence.query.scaladsl.EventsByPersistenceIdQuery {
+with akka.persistence.query.scaladsl.EventsByPersistenceIdQuery
+with akka.persistence.query.scaladsl.CurrentEventsByPersistenceIdQuery{
 
   val refreshInterval: FiniteDuration = {
     val millis = config.getDuration("refresh-interval", TimeUnit.MILLISECONDS)
@@ -43,14 +44,18 @@ with akka.persistence.query.scaladsl.EventsByPersistenceIdQuery {
   }
 
   override def eventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, Unit] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
-    Source.actorPublisher[EventEnvelope](props)
-      .mapMaterializedValue(_ ⇒ ())
+    val props = Props(new JdbcEventsByPersistenceIdActor(true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
+  }
+
+  override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, Unit] = {
+    val props = Props(new JdbcEventsByPersistenceIdActor(false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 }
 
 
-class JdbcEventsByPersistenceIdActor(refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
+class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
   extends ActorPublisher[EventEnvelope] with ActorLogging {
 
   private case object Continue
@@ -94,6 +99,12 @@ class JdbcEventsByPersistenceIdActor(refreshInterval: FiniteDuration, persistenc
             EventEnvelope(entry.sequenceNr, persistenceId, entry.sequenceNr, persistentRepr.payload)
 
         }.toVector
+
+        if ( !live && buf.isEmpty) {
+          log.debug(s"Stopping none-live stream for persistenceId=$persistenceId")
+          onCompleteThenStop()
+        }
+
 
       } catch {
         case e: Exception ⇒
