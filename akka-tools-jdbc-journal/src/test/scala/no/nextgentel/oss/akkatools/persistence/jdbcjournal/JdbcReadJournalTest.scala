@@ -11,8 +11,11 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfter, Matchers, BeforeAndAfterAll, FunSuiteLike}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
-class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with BeforeAndAfter with Matchers {
+
+class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with BeforeAndAfter with BeforeAndAfterAll with Matchers {
 
   def this() = this(ActorSystem("JdbcReadJournalTest", ConfigFactory.load("application-test.conf")))
 
@@ -33,6 +36,12 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     // Need a new datasource for each test to make sure the global db counter/sequenceNo starts on 0
     val dataSource = DataSourceUtil.createDataSource("MyJournalSpec-"+System.currentTimeMillis(), "akka-tools-jdbc-journal-liquibase.sql")
     JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new ProcessorIdSplitterLastSomethingImpl('-')))
+  }
+
+
+  override protected def afterAll(): Unit = {
+    val f = system.terminate()
+    Await.ready(f, Duration("2s"))
   }
 
   def uniquePersistenceId(tag:String):String = {
