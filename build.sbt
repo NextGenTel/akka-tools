@@ -36,8 +36,8 @@ lazy val commonSettings = Seq(
 )
 
 
-val akkaVersion = "2.4.0"
-val akkaPersistenceInMemoryVersion = "1.1.3"
+val akkaVersion = "2.4.1"
+val akkaPersistenceInMemoryVersion = "1.1.5"
 val jacksonVersion = "2.4.6"
 val jacksonScalaModuleVersion = "2.4.5"
 val slf4jVersion = "1.7.7"
@@ -63,6 +63,7 @@ lazy val akkaToolsJsonSerializingDependencies = Seq(
 
 lazy val akkaToolsJdbcJournalDependencies = Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence-query-experimental" % akkaVersion,
   "org.sql2o" % "sql2o" % "1.5.4",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVersion % "test"
 )

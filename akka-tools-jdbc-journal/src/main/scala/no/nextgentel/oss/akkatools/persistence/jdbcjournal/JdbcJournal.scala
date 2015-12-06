@@ -321,6 +321,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
         maybeMoreData = (entries.size == maxRows) && (maxRows > 0)
         entries.foreach {
           entry: JournalEntryDto =>
+
             val rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
               .asInstanceOf[PersistentRepr]
               .update(sequenceNr = entry.sequenceNr)

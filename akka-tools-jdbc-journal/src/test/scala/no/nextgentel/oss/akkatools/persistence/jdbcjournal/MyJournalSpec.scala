@@ -1,5 +1,6 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
+import akka.persistence.CapabilityFlag
 import akka.persistence.journal.JournalSpec
 import akka.persistence.snapshot.SnapshotStoreSpec
 import com.typesafe.config.ConfigFactory
@@ -16,8 +17,11 @@ class MyJournalSpec extends JournalSpec (
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
+
+
   JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new ProcessorIdSplitterLastSomethingImpl('-')))
 
+  override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = false
 }
 
 class MySnapshotStoreSpec extends SnapshotStoreSpec (
