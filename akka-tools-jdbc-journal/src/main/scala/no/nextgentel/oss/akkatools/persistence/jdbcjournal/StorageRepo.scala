@@ -61,7 +61,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
     val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr from ${schemaPrefix}t_journal where typePath = :typePath " +
       (if (processorId.isFull) " and id = :id " else "") +
-      s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr order by $sequenceNrColumnName) where rownum <= :max"
+      s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
 
       // Must use open due to clob/blob
       val conn = sql2o.open
@@ -128,8 +128,10 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   }
 
+  // Since we need to keep track of the highest sequenceNr even after we have deleted an entry,
+  // This method only clears the columns persistentRepr and payload_write_only to save space
   def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long) {
-    val sql = s"delete from ${schemaPrefix}t_journal where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
+    val sql = s"update ${schemaPrefix}t_journal set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
       c.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
@@ -138,17 +140,23 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
     }
   }
 
+  // This one both looks at existing once and 'delete once' (with persistentRepr = null)
   def findHighestSequenceNr(processorId: ProcessorId, fromSequenceNr: Long): Long = {
     val sql = s"select max(sequenceNr) from ${schemaPrefix}t_journal where typePath = :typePath and id = :id and sequenceNr>=:fromSequenceNr"
-    val table = sql2o.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("fromSequenceNr", fromSequenceNr).executeAndFetchTable
-    if (table.rows.size == 0) {
-      return Math.max(fromSequenceNr, 0L)
+    val c = sql2o.open()
+    try {
+      val table = c.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("fromSequenceNr", fromSequenceNr).executeAndFetchTable
+      if (table.rows.size == 0) {
+        return Math.max(fromSequenceNr, 0L)
+      }
+      val number = Option(table.rows.get(0).getLong(0))
+      if (number.isEmpty) {
+        return Math.max(fromSequenceNr, 0L)
+      }
+      return Math.max(fromSequenceNr, number.get)
+    } finally {
+      c.close()
     }
-    val number = Option(table.rows.get(0).getLong(0))
-    if (number.isEmpty) {
-      return Math.max(fromSequenceNr, 0L)
-    }
-    return Math.max(fromSequenceNr, number.get)
   }
 
   def writeSnapshot(e: SnapshotEntry) {
@@ -217,15 +225,15 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime) {
     var sql = s"update ${schemaPrefix}t_cluster_nodes set lastSeen = :timestamp where nodeName = :nodeName"
-    val updatedRows: Int = sql2o.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate.getResult
-    if (updatedRows == 0) {
-      sql = s"insert into ${schemaPrefix}t_cluster_nodes(nodeName, lastSeen) values (:nodeName, :timestamp)"
-      val c = sql2o.open()
-      try {
+    val c = sql2o.open()
+    try {
+      val updatedRows: Int = c.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate.getResult
+      if (updatedRows == 0) {
+        sql = s"insert into ${schemaPrefix}t_cluster_nodes(nodeName, lastSeen) values (:nodeName, :timestamp)"
         c.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate
-      } finally {
-        c.close()
       }
+    } finally {
+      c.close()
     }
   }
 
