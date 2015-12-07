@@ -25,6 +25,11 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.4-SNAPSHOT - Not released yet
+
+* Fixed bug related to Journal TCK's testcase 'not reset highestSequenceNr after message deletion'
+* Upgraded to Akka 2.4.1
+
 Version 1.0.3.2 - 01/12-2015
 
 * Fixing issue with proxying to clusterSingleton created by ClusterSingletonHelper

@@ -37,39 +37,49 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
   test("journal operations") {
 
+    // Must remove bytearray to please the case class equals
+    def fix(dtos:List[JournalEntryDto]):List[JournalEntryDto] = {
+      dtos.map {
+        d =>
+          d.copy(persistentRepr = null)
+      }
+    }
+
     val pid1 = ProcessorId("pId", getNextId())
 
     assert( 0 == repo.findHighestSequenceNr(pid1, 0))
 
-    val dto1 = JournalEntryDto(pid1, 1L, null, null)
+    val dummyPersistentRepr = Array[Byte]()
+
+    val dto1 = JournalEntryDto(pid1, 1L, dummyPersistentRepr, null)
 
     repo.insertPersistentReprList(Seq(dto1))
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
-    assert( List(dto1) == repo.loadJournalEntries(pid1, 0, 1, 10))
-    assert( List(dto1) == repo.loadJournalEntries(pid1, 0, 2, 10))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
     assert( List() == repo.loadJournalEntries(pid1, 0, 1, 0))
 
     assert( 1 == repo.findHighestSequenceNr(pid1, 0))
 
-    val dto2 = JournalEntryDto(pid1, 2L, null, null)
+    val dto2 = JournalEntryDto(pid1, 2L, dummyPersistentRepr, null)
     repo.insertPersistentReprList(Seq(dto2))
 
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
-    assert( List(dto1) == repo.loadJournalEntries(pid1, 0, 1, 10))
-    assert( List(dto1, dto2) == repo.loadJournalEntries(pid1, 0, 2, 10))
-    assert( List(dto2) == repo.loadJournalEntries(pid1, 2, 2, 10))
-    assert( List(dto1) == repo.loadJournalEntries(pid1, 0, 2, 1))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
+    assert( fix(List(dto1, dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
+    assert( fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 2, 2, 10)))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 1)))
 
     assert( 2 == repo.findHighestSequenceNr(pid1, 0))
 
     repo.deleteJournalEntryTo(pid1, 1)
 
-    assert( List(dto2) == repo.loadJournalEntries(pid1, 0, 2, 10))
+    assert( fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
 
     repo.deleteJournalEntryTo(pid1, 2)
     assert( List() == repo.loadJournalEntries(pid1, 0, 2, 10))
 
-    assert( 0 == repo.findHighestSequenceNr(pid1, 0))
+    assert( 2 == repo.findHighestSequenceNr(pid1, 0))
   }
 
   // TODO: Write tests for snapshot- and cluster-code
