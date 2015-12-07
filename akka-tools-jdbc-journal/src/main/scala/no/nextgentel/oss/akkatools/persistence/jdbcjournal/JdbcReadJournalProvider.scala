@@ -75,13 +75,13 @@ with akka.persistence.query.scaladsl.CurrentEventsByTagQuery {
   }
 
   private def generatePersistenceIdForEventByTag(tag:String):String = {
-    // Must generate a persistenceId using the proper splitChar for the selected ProcessorIdSplitter so that
+    // Must generate a persistenceId using the proper splitChar for the selected PersistenceIdSplitter so that
     // we get ALL events for this tag/type..
-    val splitChar:Char = JdbcJournal.processorIdSplitter().splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a processorIdSplitter not using a splitChar"))
-    tag + splitChar + ProcessorIdSplitterLastSlashImpl.WILDCARD
+    val splitChar:Char = JdbcJournal.persistenceIdSplitter().splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a persistenceIdSplitter not using a splitChar"))
+    tag + splitChar + PersistenceIdSplitterLastSlashImpl.WILDCARD
   }
 
-  // Tag is defined to be the type-part used with processorIdSplitter
+  // Tag is defined to be the type-part used with persistenceIdSplitter
   override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, Unit] = {
     val persistenceId = generatePersistenceIdForEventByTag(tag)
     val props = Props(new JdbcEventsByPersistenceIdActor(true, refreshInterval, persistenceId, offset, Long.MaxValue))
@@ -104,7 +104,7 @@ class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDurati
   import JdbcJournal._
 
   val serializer = SerializationExtension.get(context.system).serializerFor(classOf[PersistentRepr])
-  val processorIdObject: ProcessorId = processorIdSplitter().split(persistenceId)
+  val persistenceIdObject: PersistenceId = persistenceIdSplitter().split(persistenceId)
   private var nextFromSequenceNr = fromSequenceNr
   var buf = Vector.empty[EventEnvelope]
 
@@ -130,7 +130,7 @@ class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDurati
       try {
 
         log.debug(s"Reading entries for persistenceId=$persistenceId - nextFromSequenceNr=$nextFromSequenceNr, toSequenceNr=$toSequenceNr")
-        val entries: List[JournalEntryDto] = repo().loadJournalEntries(processorIdObject, nextFromSequenceNr, toSequenceNr, maxRowsPrRead)
+        val entries: List[JournalEntryDto] = repo().loadJournalEntries(persistenceIdObject, nextFromSequenceNr, toSequenceNr, maxRowsPrRead)
         buf = entries.map {
           entry: JournalEntryDto =>
 

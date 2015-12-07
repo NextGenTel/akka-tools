@@ -35,7 +35,7 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
   before {
     // Need a new datasource for each test to make sure the global db counter/sequenceNo starts on 0
     val dataSource = DataSourceUtil.createDataSource("MyJournalSpec-"+System.currentTimeMillis(), "akka-tools-jdbc-journal-liquibase.sql")
-    JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new ProcessorIdSplitterLastSomethingImpl('-')))
+    JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
   }
 
 

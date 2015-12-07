@@ -19,7 +19,7 @@ class MyJournalSpec extends JournalSpec (
 
 
 
-  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new ProcessorIdSplitterLastSomethingImpl('-')))
+  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
 
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = false
 }
@@ -34,7 +34,7 @@ class MySnapshotStoreSpec extends SnapshotStoreSpec (
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new ProcessorIdSplitterLastSomethingImpl('-')))
+  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
 
 
 

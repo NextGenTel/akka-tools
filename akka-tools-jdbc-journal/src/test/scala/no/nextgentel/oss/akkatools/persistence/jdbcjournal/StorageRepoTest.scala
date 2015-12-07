@@ -23,7 +23,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
   def getNextId():String = nextId.incrementAndGet().toString
 
   test("writing and loading one dto") {
-    val pid1 = ProcessorId("pId", getNextId())
+    val pid1 = PersistenceId("pId", getNextId())
     val dto1 = JournalEntryDto(pid1, 1L, "persistentRepr".getBytes, "This is the payload")
 
     repo.insertPersistentReprList(Seq(dto1))
@@ -45,7 +45,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
       }
     }
 
-    val pid1 = ProcessorId("pId", getNextId())
+    val pid1 = PersistenceId("pId", getNextId())
 
     assert( 0 == repo.findHighestSequenceNr(pid1, 0))
 
