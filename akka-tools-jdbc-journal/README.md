@@ -2,6 +2,34 @@ Akka-persistence journal for JDBC (Oracle)
 ================================================
 
 When used with Akka Persistence, all events and snapshots are written to Oracle.
+
+A nice feature with this Journal-implementation is that, if used with the JacksonJsonSerializer, it will also write the events as human-readable json.
+ 
+To enable this persistence-plugin, add the following to your akka *application.conf*-file:
+
+    include classpath("akka-tools-json-serializing")
+
+Before start using it, you have to initialize it with a working DataSource, schemaName and an fatalErrorHandler:
+
+    import no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcJournal
+    
+    val fatalErrorHandler = new JdbcJournalErrorHandler {
+        override def onError(e: Exception): Unit = {
+          log.error("Something bad happened", e)
+          // Quit or restart the node..
+        }
+    }
+    
+    JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) )
+
+PersistenceIdSplitter
+------------------------
+
+
+Database schema
+-------------------------
+ 
+**Note: The name 'processorId' is, for historical reasons (Akka 2.3), the same as persistenceId**
  
 The following tables are needed, here described in liquibase-format:
 
@@ -61,16 +89,8 @@ a json-string-representation of the payload is also written to *payload_write_on
 for readability and is never read/used in this code.
 
 
-To enable this persistence-plugin, add the following to your akka *application.conf*-file:
-
-    include classpath("akka-tools-json-serializing")
-    
-
 It would be a good idea to use this with the *JacksonJsonSerializer*-module, but it is not mandatory.
 
-You have to initialize it with a working DataSource, schemaName and an objectMapper by calling this method before use:
-
-    no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) );
     
 
 Special PersistentView-feature

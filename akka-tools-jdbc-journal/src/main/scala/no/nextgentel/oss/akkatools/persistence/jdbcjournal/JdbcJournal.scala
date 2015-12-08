@@ -102,7 +102,13 @@ object JdbcJournalConfig {
   def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(schemaName), fatalErrorHandler)
 }
 
-case class JdbcJournalConfig(dataSource: DataSource, schemaName: Option[String], fatalErrorHandler: JdbcJournalErrorHandler, persistenceIdSplitter: PersistenceIdSplitter = new PersistenceIdSplitterLastSlashImpl(), maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
+case class JdbcJournalConfig
+(
+  dataSource: DataSource,
+  schemaName: Option[String],
+  fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happend - like getting unique PK key errors - Which is probably a symptom of split brain
+  persistenceIdSplitter: PersistenceIdSplitter = new PersistenceIdSplitterLastSlashImpl(),
+  maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
 
 object JdbcJournal {
   val DEFAULT_MAX_ROWS_PR_READ = 1000
