@@ -2,6 +2,89 @@ Akka-persistence journal for JDBC (Oracle)
 ================================================
 
 When used with Akka Persistence, all events and snapshots are written to Oracle.
+
+A nice feature with this Journal-implementation is that, if used with the JacksonJsonSerializer, it will also write the events as human-readable json.
+ 
+To enable this persistence-plugin, add the following to your akka *application.conf*-file:
+
+    include classpath("akka-tools-json-serializing")
+
+Before start using it, you have to initialize it with a working DataSource, schemaName and an fatalErrorHandler:
+
+    import no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcJournal
+    
+    val fatalErrorHandler = new JdbcJournalErrorHandler {
+        override def onError(e: Exception): Unit = {
+          log.error("Something bad happened", e)
+          // Quit or restart the node..
+        }
+    }
+    
+    JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) )
+    
+Persistence Query
+----------------------------
+This journal also includes a Persistence Query Read Journal
+
+This is how you can get a reference to the read journal:
+    
+    val readJournal = PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
+    
+Get a live stream of all events for a specific persistenceId:
+
+    val source = readJournal.eventsByPersistenceId(persistenceId, 0, Long.MaxValue)
+    // materialize stream, consuming events
+    implicit val mat = ActorMaterializer()
+    source.runForeach {
+      event =>
+        println("Stream received Event: " + event)
+    }
+    
+    
+Get a stream of all events for a specific persistenceId - which stops when all current events are read:
+
+    val source = readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
+    
+Get a live stream of all events for a specific type/tag of aggregates/PersistentActors
+(Look at PersistenceIdSplitter to understand how this works)
+
+    val source = readJournal.eventsByTag("booking", 0)
+    
+Get a stream of all events for a specific type/tag of aggregates/PersistentActors - which stops when all current events are read
+(Look at PersistenceIdSplitter to understand how this works) 
+
+    val source = readJournal.currentEventsByTag(tag, 0)
+       
+       
+PersistenceIdSplitter
+------------------------
+
+Akka's PersistentActor-support only cares about the unique persistenceId of one specific Aggregate/PersistentActor.
+It has no concept of the type.
+
+akka-tools-jdbc-journal uses a PersistenceIdSplitter which knows how to split the persistenceId into both
+type and unique Id. The default impl uses the last '/' as the separator.
+
+So if the your persistenceId looks like this:
+
+    booking/12
+    
+Then this would result in type/tag = 'booking' and id = '12'
+
+The journal write these two values into separate columns in the database.
+
+This makes it possible to ask for all events for 'booking' or
+
+If using PersistentView, you achieve this by asking for persistenceId = 'booking/*'
+
+If using Persistence Query's eventsByTag, your ask for the tag = 'booking'
+
+
+
+Database schema
+-------------------------
+ 
+**Note: The name 'processorId' is, for historical reasons (Akka 2.3), the same as persistenceId**
  
 The following tables are needed, here described in liquibase-format:
 
@@ -61,16 +144,8 @@ a json-string-representation of the payload is also written to *payload_write_on
 for readability and is never read/used in this code.
 
 
-To enable this persistence-plugin, add the following to your akka *application.conf*-file:
-
-    include classpath("akka-tools-json-serializing")
-    
-
 It would be a good idea to use this with the *JacksonJsonSerializer*-module, but it is not mandatory.
 
-You have to initialize it with a working DataSource, schemaName and an objectMapper by calling this method before use:
-
-    no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) );
     
 
 Special PersistentView-feature

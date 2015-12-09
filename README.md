@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.4-SNAPSHOT - Not released yet
 
+* Added **Persistence Query**-support to the [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
 * Fixed bug related to Journal TCK's testcase 'not reset highestSequenceNr after message deletion'
 * Upgraded to Akka 2.4.1
 
@@ -106,9 +107,8 @@ akka-tools-jdbc-journal
 [akka-tools-jdbc-journal](akka-tools-jdbc-journal/README.md) is a JDBC journal-plugin for Akka Persistence.
 
 When used together with **akka-tools-json-serializing**, it also writes the json as 'plain-text' so that a human can understand the written data.
- 
-It also has a special feature which allows a PersistentView to read events not just from one PersistentActor-instance,
-but **read all events from a group of PersistentActors**.
+
+It supports **Persistence Query** with **EventsByTagQuery** amongst others
 
 
 akka-tools-cluster

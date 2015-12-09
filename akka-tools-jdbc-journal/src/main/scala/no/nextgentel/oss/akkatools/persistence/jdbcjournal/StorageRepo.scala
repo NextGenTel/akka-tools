@@ -9,26 +9,26 @@ import org.sql2o.{Sql2oException, Query, Connection, Sql2o}
 
 import scala.concurrent.duration.FiniteDuration
 
-case class JournalEntryDto(processorId: ProcessorId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String)
-case class SnapshotEntry(processorId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], snapshotClassname:String)
+case class JournalEntryDto(persistenceId: PersistenceId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String)
+case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], snapshotClassname:String)
 
 
 trait StorageRepo {
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto])
 
-  def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long)
+  def deleteJournalEntryTo(persistenceId: PersistenceId, toSequenceNr: Long)
 
-  def loadJournalEntries(processorId: ProcessorId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto]
+  def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto]
 
-  def findHighestSequenceNr(processorId: ProcessorId, fromSequenceNr: Long): Long
+  def findHighestSequenceNr(persistenceId: PersistenceId, fromSequenceNr: Long): Long
 
   def writeSnapshot(snapshotEntry: SnapshotEntry)
 
-  def findSnapshotEntry(processorId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry]
+  def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry]
 
-  def deleteSnapshot(processorId: String, sequenceNr: Long, timestamp: Long)
+  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long)
 
-  def deleteSnapshotsMatching(processorId: String, maxSequenceNr: Long, maxTimestamp: Long)
+  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long)
 }
 
 trait JdbcJournalErrorHandler {
@@ -52,30 +52,30 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   lazy val schemaPrefix = schemaName.map( s => s + ".").getOrElse("")
 
-  def loadJournalEntries(processorId: ProcessorId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
-    val sequenceNrColumnName = if (processorId.isFull) {
+  def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
+    val sequenceNrColumnName = if (persistenceId.isFull) {
       "sequenceNr"
     } else {
       "journalIndex"
     }
 
     val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr from ${schemaPrefix}t_journal where typePath = :typePath " +
-      (if (processorId.isFull) " and id = :id " else "") +
+      (if (persistenceId.isFull) " and id = :id " else "") +
       s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
 
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
-        val query = conn.createQuery(sql).addParameter("typePath", processorId.typePath)
-        if (processorId.isFull) {
-          query.addParameter("id", processorId.id)
+        val query = conn.createQuery(sql).addParameter("typePath", persistenceId.typePath)
+        if (persistenceId.isFull) {
+          query.addParameter("id", persistenceId.id)
         }
         query.addParameter("fromSequenceNr", fromSequenceNr).addParameter("toSequenceNr", toSequenceNr).addParameter("max", max)
         val table = query.executeAndFetchTable
         table.rows.toList.map{
           r:Row =>
             JournalEntryDto(
-              ProcessorId(r.getString("typePath"), r.getString("id")),
+              PersistenceId(r.getString("typePath"), r.getString("id")),
               r.getLong(sequenceNrColumnName),
               r.getObject("persistentRepr", classOf[Array[Byte]]),
               null)
@@ -86,8 +86,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
   }
 
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
-    if (dtoList.find( dto => !dto.processorId.isFull() ).isDefined ) {
-      throw new RuntimeException("Can only write using ProcessorIdType.FULL")
+    if (dtoList.find( dto => !dto.persistenceId.isFull() ).isDefined ) {
+      throw new RuntimeException("Can only write using PersistenceIdType.FULL")
     }
 
     val sql = s"insert into ${schemaPrefix}t_journal (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
@@ -102,15 +102,15 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
           val insert = c.createQuery(sql)
           try {
 
-            insert.addParameter("typePath", dto.processorId.typePath)
-              .addParameter("id", dto.processorId.id)
+            insert.addParameter("typePath", dto.persistenceId.typePath)
+              .addParameter("id", dto.persistenceId.id)
               .addParameter("sequenceNr", dto.sequenceNr)
               .addParameter("persistentRepr", dto.persistentRepr)
               .addParameter("payload_write_only", dto.payloadWriteOnly)
               .executeUpdate
           } catch {
             case e: Sql2oException => {
-              val exception = new Exception("Error updating journal for processorId=" + dto.processorId + " and sequenceNr=" + dto.sequenceNr + ": " + e.getMessage, e)
+              val exception = new Exception("Error updating journal for persistenceId=" + dto.persistenceId + " and sequenceNr=" + dto.sequenceNr + ": " + e.getMessage, e)
               errorHandler.onError(e)
               throw exception
             }
@@ -130,22 +130,22 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   // Since we need to keep track of the highest sequenceNr even after we have deleted an entry,
   // This method only clears the columns persistentRepr and payload_write_only to save space
-  def deleteJournalEntryTo(processorId: ProcessorId, toSequenceNr: Long) {
+  def deleteJournalEntryTo(persistenceId: PersistenceId, toSequenceNr: Long) {
     val sql = s"update ${schemaPrefix}t_journal set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
+      c.createQuery(sql).addParameter("typePath", persistenceId.typePath).addParameter("id", persistenceId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
     } finally {
       c.close()
     }
   }
 
   // This one both looks at existing once and 'delete once' (with persistentRepr = null)
-  def findHighestSequenceNr(processorId: ProcessorId, fromSequenceNr: Long): Long = {
+  def findHighestSequenceNr(persistenceId: PersistenceId, fromSequenceNr: Long): Long = {
     val sql = s"select max(sequenceNr) from ${schemaPrefix}t_journal where typePath = :typePath and id = :id and sequenceNr>=:fromSequenceNr"
     val c = sql2o.open()
     try {
-      val table = c.createQuery(sql).addParameter("typePath", processorId.typePath).addParameter("id", processorId.id).addParameter("fromSequenceNr", fromSequenceNr).executeAndFetchTable
+      val table = c.createQuery(sql).addParameter("typePath", persistenceId.typePath).addParameter("id", persistenceId.id).addParameter("fromSequenceNr", fromSequenceNr).executeAndFetchTable
       if (table.rows.size == 0) {
         return Math.max(fromSequenceNr, 0L)
       }
@@ -164,7 +164,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
     val c = sql2o.open()
     try {
       c.createQuery(sql)
-        .addParameter("processorId", e.processorId)
+        .addParameter("processorId", e.persistenceId)
         .addParameter("sequenceNr", e.sequenceNr)
         .addParameter("timestamp", e.timestamp)
         .addParameter("snapshot", e.snapshot)
@@ -180,12 +180,12 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
     }
   }
 
-  def findSnapshotEntry(processorId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry] = {
+  def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry] = {
     val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by timestamp desc) where rownum <= 1"
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
-        val t = conn.createQuery(sql).addParameter("processorId", processorId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeAndFetchTable
+        val t = conn.createQuery(sql).addParameter("processorId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeAndFetchTable
         if (t.rows.isEmpty) {
           None
         } else {
@@ -203,21 +203,21 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
       }
   }
 
-  def deleteSnapshot(processorId: String, sequenceNr: Long, timestamp: Long) {
+  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long) {
     val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("processorId", processorId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
+      c.createQuery(sql).addParameter("processorId", persistenceId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
     } finally {
       c.close()
     }
   }
 
-  def deleteSnapshotsMatching(processorId: String, maxSequenceNr: Long, maxTimestamp: Long) {
+  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long) {
     val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("processorId", processorId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
+      c.createQuery(sql).addParameter("processorId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
     } finally {
       c.close()
     }

@@ -1,7 +1,7 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
-object ProcessorIdType extends Enumeration {
-  type ProcessorIdType = Value
+object PersistenceIdType extends Enumeration {
+  type PersistenceIdType = Value
   val FULL = Value
   val ONLY_TYPE = Value
 }
@@ -9,7 +9,7 @@ object ProcessorIdType extends Enumeration {
 import java.nio.charset.Charset
 import javax.sql.DataSource
 
-import ProcessorIdType._
+import PersistenceIdType._
 import akka.actor.ActorLogging
 import akka.persistence.AtomicWrite
 import akka.persistence.PersistentRepr
@@ -29,59 +29,71 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Try
 
-case class ProcessorId(private val _typePath: String, private val _id: String, private val _processorIdType: ProcessorIdType = FULL) {
+case class PersistenceId(private val _typePath: String, private val _id: String, private val _persistenceIdType: PersistenceIdType = FULL) {
 
-  def processorIdType() = _processorIdType
+  def persistenceIdType() = _persistenceIdType
 
   def typePath() = _typePath
 
   def id(): String = {
     if (!isFull()) {
-      throw new RuntimeException("Cannot get Id-part when processorIdType is not FULL")
+      throw new RuntimeException("Cannot get Id-part when persistenceIdType is not FULL")
     } else {
       _id
     }
   }
 
-  def isFull() = FULL == _processorIdType
+  def isFull() = FULL == _persistenceIdType
 
   override def toString: String = {
-    "ProcessorId{" + "typePath='" + typePath + '\'' + (if (isFull) (", id='" + id + '\'') else "") + '}'
+    "PersistenceId{" + "typePath='" + typePath + '\'' + (if (isFull) (", id='" + id + '\'') else "") + '}'
   }
 
 }
 
-trait ProcessorIdSplitter {
-  def split(processorId: String): ProcessorId
+trait PersistenceIdSplitter {
+  def split(persistenceId: String): PersistenceId
+  def splitChar():Option[Char]
 }
 
-class ProcessorIdSplitterDefaultAkkaImpl extends ProcessorIdSplitter {
-  def split(processorId: String): ProcessorId = {
-    return new ProcessorId(processorId, "")
+
+// This is an impl not using the the split-functionality.
+// It does no splitting at all
+class PersistenceIdSplitterDefaultAkkaImpl extends PersistenceIdSplitter {
+  def split(persistenceId: String): PersistenceId = {
+    return new PersistenceId(persistenceId, "")
   }
+
+  override def splitChar(): Option[Char] = None
 }
 
-object ProcessorIdSplitterLastSlashImpl {
+object PersistenceIdSplitterLastSlashImpl {
   val WILDCARD: String = "*"
 }
 
-class ProcessorIdSplitterLastSlashImpl extends ProcessorIdSplitterLastSomethingImpl('/')
+// Splits on the last slash
+// Nice to use when persistenceId's looks like URLs
+class PersistenceIdSplitterLastSlashImpl extends PersistenceIdSplitterLastSomethingImpl('/')
 
-class ProcessorIdSplitterLastSomethingImpl(something:Char) extends ProcessorIdSplitter {
-  def split(processorId: String): ProcessorId = {
-    val i: Int = processorId.lastIndexOf(something)
+
+// Splits on the last occurrence of '_splitChar'
+class PersistenceIdSplitterLastSomethingImpl(_splitChar:Char) extends PersistenceIdSplitter {
+  def split(persistenceId: String): PersistenceId = {
+    val i: Int = persistenceId.lastIndexOf(_splitChar)
     if (i < 0) {
-      return new ProcessorId(processorId, "")
+      return new PersistenceId(persistenceId, "")
     } else {
-      val typePath: String = processorId.substring(0, i + 1)
-      val id: String = processorId.substring(i + 1, processorId.length)
-      if (ProcessorIdSplitterLastSlashImpl.WILDCARD == id) {
-        return ProcessorId(typePath, null, ONLY_TYPE)
+      val typePath: String = persistenceId.substring(0, i + 1)
+      val id: String = persistenceId.substring(i + 1, persistenceId.length)
+      if (PersistenceIdSplitterLastSlashImpl.WILDCARD == id) {
+        return PersistenceId(typePath, null, ONLY_TYPE)
       } else {
-        return ProcessorId(typePath, id)
+        return PersistenceId(typePath, id)
       }
     }
   }
+
+  override def splitChar(): Option[Char] = Some(_splitChar)
 }
 
 object JdbcJournalConfig {
@@ -90,12 +102,18 @@ object JdbcJournalConfig {
   def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(schemaName), fatalErrorHandler)
 }
 
-case class JdbcJournalConfig(dataSource: DataSource, schemaName: Option[String], fatalErrorHandler: JdbcJournalErrorHandler, processorIdSplitter: ProcessorIdSplitter = new ProcessorIdSplitterLastSlashImpl(), maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
+case class JdbcJournalConfig
+(
+  dataSource: DataSource,
+  schemaName: Option[String],
+  fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happend - like getting unique PK key errors - Which is probably a symptom of split brain
+  persistenceIdSplitter: PersistenceIdSplitter = new PersistenceIdSplitterLastSlashImpl(),
+  maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
 
 object JdbcJournal {
   val DEFAULT_MAX_ROWS_PR_READ = 1000
   private var _repo: Option[StorageRepo] = None
-  private var _processorIdSplitter: Option[ProcessorIdSplitter] = None
+  private var _persistenceIdSplitter: Option[PersistenceIdSplitter] = None
   var maxRowsPrRead = DEFAULT_MAX_ROWS_PR_READ
 
   val jacksonJsonSerializer_className = "no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer"
@@ -104,13 +122,13 @@ object JdbcJournal {
   def init(config: JdbcJournalConfig): Unit = {
     val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(config.fatalErrorHandler)
     _repo = Some(new StorageRepoImpl(new Sql2o(config.dataSource, new OracleQuirks()), config.schemaName, errorHandler))
-    _processorIdSplitter = Some(config.processorIdSplitter)
+    _persistenceIdSplitter = Some(config.persistenceIdSplitter)
   }
 
   def repo(): StorageRepo = _repo.getOrElse(throw new Exception("JdbcJournal not configured yet"))
   def clusterNodeRepo() = repo().asInstanceOf[ClusterNodeRepo]
 
-  def processorIdSplitter(): ProcessorIdSplitter = _processorIdSplitter.getOrElse(throw new Exception("JdbcJournal not configured yet"))
+  def persistenceIdSplitter(): PersistenceIdSplitter = _persistenceIdSplitter.getOrElse(throw new Exception("JdbcJournal not configured yet"))
 }
 
 class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
@@ -119,17 +137,17 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
 
   val serialization = SerializationExtension.get(context.system)
 
-  override def loadAsync(processorId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
+  override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
     if (log.isDebugEnabled) {
-      log.debug("JdbcSnapshotStore - doLoadAsync: " + processorId + " criteria: " + criteria)
+      log.debug("JdbcSnapshotStore - doLoadAsync: " + persistenceId + " criteria: " + criteria)
     }
 
     val promise = Promise[Option[SelectedSnapshot]]()
     try {
-      repo().findSnapshotEntry(processorId, criteria.maxSequenceNr, criteria.maxTimestamp) match {
+      repo().findSnapshotEntry(persistenceId, criteria.maxSequenceNr, criteria.maxTimestamp) match {
         case None =>
           if (log.isDebugEnabled) {
-            log.debug("JdbcSnapshotStore - doLoadAsync: Not found - " + processorId + " criteria: " + criteria)
+            log.debug("JdbcSnapshotStore - doLoadAsync: Not found - " + persistenceId + " criteria: " + criteria)
           }
           promise.success(None)
         case Some(e: SnapshotEntry) =>
@@ -139,7 +157,7 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
 
           val selectedSnapshot = SelectedSnapshot(
             new SnapshotMetadata(
-              e.processorId,
+              e.persistenceId,
               e.sequenceNr,
               e.timestamp),
             snapshot)
@@ -148,7 +166,7 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
       }
     } catch {
       case e: Exception =>
-        val errorMessage = "Error loading snapshot " + processorId + " - " + criteria
+        val errorMessage = "Error loading snapshot " + persistenceId + " - " + criteria
         log.error(e, errorMessage)
         promise.failure(new Exception(errorMessage, e));
     }
@@ -209,7 +227,7 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
   }
 }
 
-case class JournalEntry(processorId: ProcessorId, payload: AnyRef) {
+case class JournalEntry(persistenceId: PersistenceId, payload: AnyRef) {
   def payloadAs[T](): T = payload.asInstanceOf[T]
 }
 
@@ -243,7 +261,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
               }
 
               val payloadJson = tryToExtractPayloadAsJson(p)
-              JournalEntryDto(processorIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null))
+              JournalEntryDto(persistenceIdSplitter().split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null))
           }
 
           try {
@@ -277,26 +295,26 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
     Future.fromTry(Try {
       if (log.isDebugEnabled) {
-        log.debug("JdbcAsyncWriteJournal doDeleteMessagesTo: processorId: " + persistenceId + " toSequenceNr=" + toSequenceNr)
+        log.debug("JdbcAsyncWriteJournal doDeleteMessagesTo: persistenceId: " + persistenceId + " toSequenceNr=" + toSequenceNr)
       }
 
-      repo().deleteJournalEntryTo(processorIdSplitter().split(persistenceId), toSequenceNr)
+      repo().deleteJournalEntryTo(persistenceIdSplitter().split(persistenceId), toSequenceNr)
     })
   }
 
-  override def asyncReadHighestSequenceNr(processorId: String, fromSequenceNr: Long): Future[Long] = {
+  override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
     val promise = Promise[Long]()
 
-    val highestSequenceNr = repo().findHighestSequenceNr(processorIdSplitter().split(processorId), fromSequenceNr)
+    val highestSequenceNr = repo().findHighestSequenceNr(persistenceIdSplitter().split(persistenceId), fromSequenceNr)
     if (log.isDebugEnabled) {
-      log.debug("JdbcAsyncWriteJournal doAsyncReadHighestSequenceNr: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " highestSequenceNr=" + highestSequenceNr)
+      log.debug("JdbcAsyncWriteJournal doAsyncReadHighestSequenceNr: persistenceId=" + persistenceId + " fromSequenceNr=" + fromSequenceNr + " highestSequenceNr=" + highestSequenceNr)
     }
     promise.success(highestSequenceNr)
 
     promise.future
   }
 
-  override def asyncReplayMessages(processorId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
 
     val promise = Promise[Unit]()
 
@@ -306,7 +324,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
     var numberOfReads: Long = 0
 
     try {
-      val processorIdObject: ProcessorId = processorIdSplitter().split(processorId)
+      val persistenceIdObject: PersistenceId = persistenceIdSplitter().split(persistenceId)
       while (maybeMoreData && (rowsRead < max)) {
         numberOfReads = numberOfReads + 1
         var maxRows: Long = maxRowsPrRead
@@ -314,20 +332,21 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
           maxRows = max - rowsRead
         }
         if (log.isDebugEnabled) {
-          log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - maxRows=" + maxRows + " rowsReadSoFar=" + rowsRead + " nextFromSequenceNr=" + nextFromSequenceNr)
+          log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: persistenceId=" + persistenceId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - maxRows=" + maxRows + " rowsReadSoFar=" + rowsRead + " nextFromSequenceNr=" + nextFromSequenceNr)
         }
-        val entries: List[JournalEntryDto] = repo().loadJournalEntries(processorIdObject, nextFromSequenceNr, toSequenceNr, maxRows)
+        val entries: List[JournalEntryDto] = repo().loadJournalEntries(persistenceIdObject, nextFromSequenceNr, toSequenceNr, maxRows)
         rowsRead = rowsRead + entries.size
         maybeMoreData = (entries.size == maxRows) && (maxRows > 0)
         entries.foreach {
           entry: JournalEntryDto =>
+
             val rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
               .asInstanceOf[PersistentRepr]
               .update(sequenceNr = entry.sequenceNr)
 
-            val persistentRepr = if (!processorIdObject.isFull()) {
+            val persistentRepr = if (!persistenceIdObject.isFull()) {
               // Must create a new modified one..
-              val newPayload = JournalEntry(processorIdSplitter().split(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
+              val newPayload = JournalEntry(persistenceIdSplitter().split(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
               PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.persistenceId, sender = rawPersistentRepr.sender)
             } else {
               rawPersistentRepr
@@ -344,7 +363,7 @@ class JdbcAsyncWriteJournal extends AsyncWriteJournal with ActorLogging {
         }
       }
       if (log.isDebugEnabled) {
-        log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: DONE - processorId=" + processorId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
+        log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: DONE - persistenceId=" + persistenceId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
       }
       promise.success(Unit)
     }
