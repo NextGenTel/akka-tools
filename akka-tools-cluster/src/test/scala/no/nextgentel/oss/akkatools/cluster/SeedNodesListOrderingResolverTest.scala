@@ -26,6 +26,18 @@ class SeedNodesListOrderingResolverTest extends FunSuite with Matchers {
       SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host2"), 9999, List("host2:9999", "host1:9999"))))
   }
 
+  test("This node is not a seedNode - with alive Nodes") {
+    val repo = new OurClusterNodeRepo(List("akka.tcp://MobilityService@host1:9999", "akka.tcp://MobilityService@host2:9999"))
+    assert(AkkaClusterConfig(Some("host3"), 9999, List("host1:9999", "host2:9999")) ==
+      SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host3"), 9999, List("host1:9999", "host2:9999"))))
+  }
+
+  test("This node is not a seedNode - with no alive Nodes") {
+    val repo = new OurClusterNodeRepo(List())
+    assert(AkkaClusterConfig(Some("host3"), 9999, List("host2:9999", "host1:9999")) ==
+      SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host3"), 9999, List("host2:9999", "host1:9999"))))
+  }
+
   class OurClusterNodeRepo(aliveClusterNodes:List[String]) extends ClusterNodeRepo {
     // Writes to db that this clusterNode is alive
     override def writeClusterNodeAlive(nodeNameAndPort: String, timestamp: OffsetDateTime): Unit = {}

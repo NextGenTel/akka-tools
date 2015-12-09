@@ -11,13 +11,19 @@ object SeedNodesListOrderingResolver {
   val log = LoggerFactory.getLogger(getClass)
   def resolveSeedNodesList(repo:ClusterNodeRepo, clusterConfig:AkkaClusterConfig, maxAliveAge:FiniteDuration = FiniteDuration(20, TimeUnit.SECONDS)):AkkaClusterConfig = {
 
-    val ourSeedNode = clusterConfig.thisHostnameAndPort()
+    val ourNode = clusterConfig.thisHostnameAndPort()
 
     // Since we're starting up, just make sure that we do not find info about ourself from our last run
-    log.debug(s"removeClusterNodeAlive for $ourSeedNode")
-    repo.removeClusterNodeAlive(ourSeedNode)
+    log.debug(s"removeClusterNodeAlive for $ourNode")
+    repo.removeClusterNodeAlive(ourNode)
 
     val allSeedNodes = clusterConfig.seedNodes
+
+    val weAreSeedNode = allSeedNodes.contains(ourNode)
+    if ( !weAreSeedNode) {
+      log.info("We are NOT a seedNode")
+    }
+
     val aliveNodes = repo.findAliveClusterNodes(maxAliveAge).map {
       node =>
         // alive nodes are listed on this form:
@@ -28,19 +34,34 @@ object SeedNodesListOrderingResolver {
     }
 
     val seedNodeListToUse = if ( aliveNodes.isEmpty ) {
-      val allNodesExceptOur = allSeedNodes.filter( n => n != ourSeedNode)
-      val list = List(ourSeedNode) ++ allNodesExceptOur
+      if (weAreSeedNode) {
+        val allNodesExceptOur = allSeedNodes.filter(n => n != ourNode)
+        val list = List(ourNode) ++ allNodesExceptOur
 
-      log.info("No other clusterNodes found as alive - We must be first seed node - seedNodeListToUse: " + list)
-      list
+        log.info("No other clusterNodes found as alive - We must be first seed node - seedNodeListToUse: " + list)
+        list
+      } else {
+        log.info("No other clusterNodes found as alive - Since we're not a seedNode, we're using the list as is - seedNodeListToUse: " + allSeedNodes)
+        allSeedNodes
+      }
     } else {
 
-      val allNodesExceptOurAndAliveOnes = allSeedNodes.filter( n => n != ourSeedNode && !aliveNodes.contains(n))
+      if (weAreSeedNode) {
+        val allNodesExceptOurAndAliveOnes = allSeedNodes.filter(n => n != ourNode && !aliveNodes.contains(n))
 
-      val list = aliveNodes ++ List(ourSeedNode) ++ allNodesExceptOurAndAliveOnes
+        val list = aliveNodes ++ List(ourNode) ++ allNodesExceptOurAndAliveOnes
 
-      log.info("Found other alive clusterNodes - we should not be first seed node. Alive cluster nodes: " + aliveNodes.mkString(",") + " - seedNodeListToUse: " + list)
-      list
+        log.info("Found other alive clusterNodes - we should not be first seed node. Alive cluster nodes: " + aliveNodes.mkString(",") + " - seedNodeListToUse: " + list)
+        list
+      } else {
+        val allNodesExceptAliveOnes = allSeedNodes.filter(n => !aliveNodes.contains(n))
+
+        val list = aliveNodes ++ allNodesExceptAliveOnes
+
+        log.info("Found other alive clusterNodes - Alive cluster nodes: " + aliveNodes.mkString(",") + " - seedNodeListToUse: " + list)
+        list
+
+      }
     }
 
     clusterConfig.withSeedNodeList(seedNodeListToUse)
