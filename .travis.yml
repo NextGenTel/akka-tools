@@ -12,3 +12,4 @@ script:
 - sbt clean coverage test
 after_success:
 - "[[ $TRAVIS_BRANCH == \"master\" ]] && { sbt publish; };"
+- sbt coverageReport && sbt coverageAggregate && sbt coveralls
