@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.4-SNAPSHOT - Not released yet
 
+* Improving Java 8 support by introducing AbstractGeneralAggregate - Similar to AbstractActor
 * Added **Persistence Query**-support to the [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
 * Fixed bug related to Journal TCK's testcase 'not reset highestSequenceNr after message deletion'
 * Upgraded to Akka 2.4.1

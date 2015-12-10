@@ -2,7 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import java.util.function.Consumer
 
-import akka.actor.{ActorSystem, ActorPath}
+import akka.actor.{IllegalActorStateException, ActorSystem, ActorPath}
 import java.util.{List => JList}
 import scala.collection.JavaConversions._
 import no.nextgentel.oss.akkatools.persistence.EnhancedPersistentActor
@@ -31,6 +31,48 @@ abstract class GeneralAggregateJava[S]
 
   override def generateResultingDurableMessages: PartialFunction[Any, ResultingDurableMessages] = {
     case e:Any => onGenerateResultingDurableMessages(e)
+  }
+
+}
+
+/**
+  *
+  * Inspired by akka.actor.AbstractActor
+  *
+  * Use CmdToEventBuilder the same way you use ReceiveBuilder
+  */
+abstract class AbstractGeneralAggregate[S]
+(
+  initialState:AggregateStateJava,
+  ourDispatcherActor:ActorPath
+) extends GeneralAggregate[Any, AggregateStateJava](ourDispatcherActor) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
+
+  private var _cmdToEvent:PartialFunction[AggregateCmd, ResultingEventJava] = null
+  private var _generateResultingDurableMessages:PartialFunction[Any, ResultingDurableMessages] = Map.empty
+
+  var state:AggregateStateJava = initialState
+
+  def getState():S = state.asInstanceOf[S]
+
+
+  def cmdToEvent(_cmdToEvent:PartialFunction[AggregateCmd, ResultingEventJava]): Unit ={
+    this._cmdToEvent = _cmdToEvent
+  }
+
+  override def cmdToEvent: PartialFunction[AggregateCmd, ResultingEvent[Any]] = {
+    if (_cmdToEvent != null) _cmdToEvent.andThen {
+      resultingEventJava =>
+        resultingEventJava.asResultingEvent()
+    }
+    else throw new RuntimeException("cmdToEvent behavior has not been set with cmdToEvent(...)")
+  }
+
+  def generateResultingDurableMessages(_generateResultingDurableMessages:PartialFunction[Any, ResultingDurableMessages]): Unit ={
+    this._generateResultingDurableMessages = _generateResultingDurableMessages
+  }
+
+  override def generateResultingDurableMessages: PartialFunction[Any, ResultingDurableMessages] = {
+    _generateResultingDurableMessages
   }
 
 }
