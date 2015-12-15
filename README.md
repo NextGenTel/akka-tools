@@ -27,8 +27,11 @@ Changelog
 
 Version 1.0.4-SNAPSHOT - Not released yet
 
+* It is now optional to implement generateResultingDurableMessages()
 * Improving Java 8 support by introducing AbstractGeneralAggregate - Similar to AbstractActor
+* Removed some old naming: Using 'persistenceId' instead of old 'processorId' almost everywhere now
 * Added **Persistence Query**-support to the [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
+* Fixing bug in SeedNodesListOrderingResolver when ourNode is not listed in the seedNode-list and should therefor not be in the ordered seedNode-list
 * Fixed bug related to Journal TCK's testcase 'not reset highestSequenceNr after message deletion'
 * Upgraded to Akka 2.4.1
 

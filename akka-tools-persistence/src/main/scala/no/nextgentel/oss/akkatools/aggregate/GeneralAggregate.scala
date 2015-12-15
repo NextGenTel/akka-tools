@@ -65,7 +65,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
-  def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages]
+  def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages] = Map.empty
 
 
   final override protected def stateInfo(): String = state.toString
