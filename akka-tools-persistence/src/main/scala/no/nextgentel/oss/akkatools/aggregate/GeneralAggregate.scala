@@ -74,7 +74,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages] = Map.empty
 
 
-  final override protected def stateInfo(): String = state.toString
+  override protected def stateInfo(): String = state.toString
 
   final def tryCommand = {
     case x:AggregateCmd =>
