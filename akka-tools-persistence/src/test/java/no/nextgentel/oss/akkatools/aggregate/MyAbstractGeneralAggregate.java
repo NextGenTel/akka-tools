@@ -3,12 +3,12 @@ package no.nextgentel.oss.akkatools.aggregate;
 import akka.actor.ActorPath;
 import no.nextgentel.oss.akkatools.persistence.SendAsDurableMessage;
 
-public class MyAbstractGeneralAggregate extends AbstractGeneralAggregate<JavaEvent> {
+public class MyAbstractGeneralAggregate extends AbstractGeneralAggregate<JavaState> {
 
     private final ActorPath someDest;
 
-    public MyAbstractGeneralAggregate(ActorPath ourDispatcherActor, ActorPath someDest) {
-        super(JavaState.empty, ourDispatcherActor);
+    public MyAbstractGeneralAggregate(ActorPath dmSelf, ActorPath someDest) {
+        super(JavaState.empty, dmSelf);
         this.someDest = someDest;
 
         cmdToEvent(CmdToEventBuilder.

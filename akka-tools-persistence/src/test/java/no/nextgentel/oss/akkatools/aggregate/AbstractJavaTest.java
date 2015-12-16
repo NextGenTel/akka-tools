@@ -41,12 +41,11 @@ public class AbstractJavaTest extends JUnitSuite {
         new JavaTestKit(system) {{
 
             final TestProbe someDest = new TestProbe(system);
-            final TestProbe ourDispatcher = new TestProbe(system);
             final TestProbe sender = new TestProbe(system);
 
             final Props props = Props.create(MyAbstractGeneralAggregate.class, () -> {
                 return new MyAbstractGeneralAggregate(
-                        ourDispatcher.ref().path(),
+                        null,
                         DurableMessageForwardAndConfirm.apply(someDest.ref(), true, system).path());
             });
             final ActorRef main = system.actorOf(props);

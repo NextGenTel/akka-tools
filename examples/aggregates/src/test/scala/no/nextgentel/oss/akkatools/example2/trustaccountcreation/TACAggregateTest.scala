@@ -27,12 +27,11 @@ class TACAggregateTest (_system:ActorSystem) extends TestKit(_system) with FunSu
 
   trait TestEnv extends AggregateTesting[TACState] {
     val id = generateId()
-    val ourDispatcher      = TestProbe()
     val eSigningSystem     = TestProbe()
     val emailSystem        = TestProbe()
     val trustAccountSystem = TestProbe()
     val sender             = TestProbe()
-    val main = system.actorOf(TACAggregate.props(ourDispatcher.ref.path, dmForwardAndConfirm(eSigningSystem.ref).path, dmForwardAndConfirm(emailSystem.ref).path, dmForwardAndConfirm(trustAccountSystem.ref).path), id)
+    val main = system.actorOf(TACAggregate.props(null, dmForwardAndConfirm(eSigningSystem.ref).path, dmForwardAndConfirm(emailSystem.ref).path, dmForwardAndConfirm(trustAccountSystem.ref).path), id)
 
     def assertState(correctState:TACState): Unit = {
       assert(correctState == getState())

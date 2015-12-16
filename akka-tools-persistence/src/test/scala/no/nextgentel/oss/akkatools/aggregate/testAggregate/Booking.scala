@@ -15,8 +15,8 @@ case class PrintTicketMessage(id:String)
 case class CinemaNotification(seatsBooked:List[String])
 
 // Aggregate
-class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath)
-  extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
+class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath)
+  extends GeneralAggregate[BookingEvent, BookingState](dmSelf) {
 
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
@@ -90,8 +90,8 @@ object BookingAggregate {
 
   val persistenceIdBase = "booking-"
 
-  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath) =
-    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver))
+  def props(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath) =
+    Props(new BookingAggregate(dmSelf, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver))
 }
 
 
@@ -99,8 +99,8 @@ class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", sys
 
   def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath):BookingStarter = {
     setAggregatePropsCreator{
-      dispatcher =>
-        BookingAggregate.props(dispatcher, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver)
+      dmSelf =>
+        BookingAggregate.props(dmSelf, ticketPrintShop, cinemaNotifier, predefinedSeatIds, onSuccessDmForwardReceiver)
     }
     this
   }

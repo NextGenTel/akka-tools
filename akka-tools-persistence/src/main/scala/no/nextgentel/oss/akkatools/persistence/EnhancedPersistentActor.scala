@@ -20,6 +20,11 @@ object EnhancedPersistentActor {
   val DEFAULT_TIME_TO_WAIT_AFTER_MAX_REDELIVER_ATTEMPTS_BEFORE_TIMEOUT = FiniteDuration(215, TimeUnit.SECONDS)
 }
 
+/**
+  *
+  * @tparam E     Superclass/trait representing your events
+  * @tparam Ex    Exception-type representing a "known error" - not a failure
+  */
 abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   extends Actor
   with PersistentActor
@@ -377,7 +382,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     }
   }
 
-  protected def getDurableMessageSender(): ActorPath = {
+  // This is used as 'self' when sending DMs.. When receiver is confirming DM, the confirmation is sent to this actor.
+  protected def getDMSelf(): ActorPath = {
     return self.path
   }
 
@@ -393,7 +399,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     if (isProcessingEvent) {
       deliver(sendAsDurableMessage.destinationActor) {
         deliveryId:Long =>
-          DurableMessage(deliveryId, sendAsDurableMessage.payload, getDurableMessageSender(), sendAsDurableMessage.confirmationRoutingInfo)
+          DurableMessage(deliveryId, sendAsDurableMessage.payload, getDMSelf(), sendAsDurableMessage.confirmationRoutingInfo)
       }
     }
     else {

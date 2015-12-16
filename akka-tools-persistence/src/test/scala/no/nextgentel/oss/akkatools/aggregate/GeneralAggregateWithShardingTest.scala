@@ -39,8 +39,8 @@ class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_sys
     val onSuccessDmForwardReceiver = TestProbe()
 
     val starter = new AggregateStarterSimple("booking", system).withAggregatePropsCreator {
-      ourDispatcher =>
-        BookingAggregate.props(ourDispatcher, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds, dmForwardAndConfirm(onSuccessDmForwardReceiver.ref).path)
+      dmSelf =>
+        BookingAggregate.props(dmSelf, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds, dmForwardAndConfirm(onSuccessDmForwardReceiver.ref).path)
     }
 
     val main = starter.dispatcher

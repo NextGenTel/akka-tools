@@ -12,11 +12,19 @@ import scala.concurrent.duration.FiniteDuration
 
 trait AggregateStateJava extends AggregateState[Any, AggregateStateJava]
 
-abstract class GeneralAggregateJava[S]
+/**
+  *
+  * @param initialState The initial value your state should start with - before anything has happened
+  * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  *               In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+  *               If null, we'll fallback to self - useful when testing
+  * @tparam S     The type representing your state
+  */
+abstract class GeneralAggregateJava[S <: AggregateStateJava]
   (
     initialState:AggregateStateJava,
-    ourDispatcherActor:ActorPath
-  ) extends GeneralAggregate[Any, AggregateStateJava](ourDispatcherActor) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
+    dmSelf:ActorPath
+  ) extends GeneralAggregate[Any, AggregateStateJava](dmSelf) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
 
   var state:AggregateStateJava = initialState
 
@@ -40,12 +48,18 @@ abstract class GeneralAggregateJava[S]
   * Inspired by akka.actor.AbstractActor
   *
   * Use CmdToEventBuilder the same way you use ReceiveBuilder
+  *
+  * @param initialState he initial value your state should start with - before anything has happened
+  * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  *               In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+  *               If null, we'll fallback to self - useful when testing
+  * @tparam S     The type representing your state
   */
-abstract class AbstractGeneralAggregate[S]
+abstract class AbstractGeneralAggregate[S <: AggregateStateJava]
 (
   initialState:AggregateStateJava,
-  ourDispatcherActor:ActorPath
-) extends GeneralAggregate[Any, AggregateStateJava](ourDispatcherActor) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
+  dmSelf:ActorPath
+) extends GeneralAggregate[Any, AggregateStateJava](dmSelf) { ////(scala.reflect.ClassTag.apply(eventClass), scala.reflect.ClassTag.apply(stateClass))
 
   private var _cmdToEvent:PartialFunction[AggregateCmd, ResultingEventJava] = null
   private var _generateResultingDurableMessages:PartialFunction[Any, ResultingDurableMessages] = Map.empty

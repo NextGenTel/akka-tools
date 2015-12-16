@@ -41,12 +41,11 @@ public class JavaTest extends JUnitSuite {
         new JavaTestKit(system) {{
 
             final TestProbe someDest = new TestProbe(system);
-            final TestProbe ourDispatcher = new TestProbe(system);
             final TestProbe sender = new TestProbe(system);
 
             final Props props = Props.create(MyJavaAggregate.class, () -> {
                 return new MyJavaAggregate(
-                        ourDispatcher.ref().path(),
+                        null,
                         DurableMessageForwardAndConfirm.apply(someDest.ref(), true, system).path());
             });
             final ActorRef main = system.actorOf(props);

@@ -28,10 +28,9 @@ class BookingTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLik
 
   trait TestEnv extends AggregateTesting[BookingState] {
     val id = generateId()
-    val ourDispatcher = TestProbe()
     val printShop = TestProbe()
     val cinema = TestProbe()
-    val main = system.actorOf(BookingAggregate.props(ourDispatcher.ref.path, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIdGenerator), "BookingAggregate-" + id)
+    val main = system.actorOf(BookingAggregate.props(null, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIdGenerator), "BookingAggregate-" + id)
 
     def assertState(correctState:BookingState): Unit = {
       assert(getState() == correctState)

@@ -17,8 +17,8 @@ case class CinemaNotification(seatsBooked:List[String])
 
 
 // Aggregate
-class BookingAggregate(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator)
-  extends GeneralAggregate[BookingEvent, BookingState](ourDispatcherActor) {
+class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator)
+  extends GeneralAggregate[BookingEvent, BookingState](dmSelf) {
 
 
   var state = BookingState.empty() // This is our initial state(Machine)
@@ -71,8 +71,8 @@ object BookingAggregate {
 
   val persistenceIdBase = "booking-"
 
-  def props(ourDispatcherActor: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator = new DefaultSeatIdGenerator()) =
-    Props(new BookingAggregate(ourDispatcherActor, ticketPrintShop, cinemaNotifier, seatIdGenerator))
+  def props(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator = new DefaultSeatIdGenerator()) =
+    Props(new BookingAggregate(dmSelf, ticketPrintShop, cinemaNotifier, seatIdGenerator))
 }
 
 
@@ -90,8 +90,8 @@ class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", sys
 
   def config(ticketPrintShop: ActorPath, cinemaNotifier: ActorPath):BookingStarter = {
      setAggregatePropsCreator{
-      dispatcher =>
-        BookingAggregate.props(dispatcher, ticketPrintShop, cinemaNotifier)
+      dmSelf =>
+        BookingAggregate.props(dmSelf, ticketPrintShop, cinemaNotifier)
     }
     this
   }

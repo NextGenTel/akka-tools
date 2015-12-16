@@ -28,11 +28,10 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
 
   trait TestEnv extends AggregateTesting[BookingState] {
     val id = generateId()
-    val ourDispatcher = TestProbe()
     val printShop = TestProbe()
     val cinema = TestProbe()
     val onSuccessDmForwardReceiver = TestProbe()
-    val main = system.actorOf(BookingAggregate.props(ourDispatcher.ref.path, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds, dmForwardAndConfirm(onSuccessDmForwardReceiver.ref).path), "BookingAggregate-" + id)
+    val main = system.actorOf(BookingAggregate.props(null, dmForwardAndConfirm(printShop.ref).path, dmForwardAndConfirm(cinema.ref).path, seatIds, dmForwardAndConfirm(onSuccessDmForwardReceiver.ref).path), "BookingAggregate-" + id)
 
     def assertState(correctState:BookingState): Unit = {
       assert(getState() == correctState)

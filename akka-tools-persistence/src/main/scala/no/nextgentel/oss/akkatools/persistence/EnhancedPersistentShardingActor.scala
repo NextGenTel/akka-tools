@@ -9,9 +9,20 @@ import akka.cluster.sharding.ShardRegion
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
+/**
+  *
+  * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  *               In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+  *               If null, we'll fallback to self - useful when testing
+  * @tparam E     Superclass/trait representing your events
+  * @tparam Ex    Exception-type representing a "known error" - not a failure
+  */
 abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : ClassTag]
 (
-  myDispatcherActor:ActorPath
+  // dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  // In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+  // If null, we'll fallback to self - useful when testing
+  dmSelf:ActorPath
   ) extends EnhancedPersistentActor[E, Ex] {
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
@@ -60,7 +71,11 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
   }
 
 
-  override protected def getDurableMessageSender(): ActorPath = myDispatcherActor
+  // If dmSelf is missing, we're fallbacking to super-impl which is self.
+  // When running in a sharded environment, we cannot use our real actors self.
+  // We must use our dispatcher, which knows about the sharding mechanism.
+  // This has to be like this to make sure the DM confirmation-message is received by the correct sharded instance of our actor.
+  override protected def getDMSelf(): ActorPath = Option(dmSelf).getOrElse(super.getDMSelf())
 
   // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
   override protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath): Unit =
@@ -72,6 +87,12 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
   }
 }
 
-abstract class EnhancedPersistentShardingJavaActor[Ex <: Exception : ClassTag](ourDispatcherActor:ActorPath) extends EnhancedPersistentShardingActor[AnyRef, Ex](ourDispatcherActor) with EnhancedPersistentJavaActorLike {
+abstract class EnhancedPersistentShardingJavaActor[Ex <: Exception : ClassTag]
+(
+  // dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  // In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+  // If null, we'll fallback to self - useful when testing
+  dmSelf:ActorPath
+) extends EnhancedPersistentShardingActor[AnyRef, Ex](dmSelf) with EnhancedPersistentJavaActorLike {
 
 }

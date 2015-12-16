@@ -42,11 +42,17 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
  *        change our current state (by calling state.transition() and keeping the result )
  *
  *
+ *
+ * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
+ *               In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
+ *               If null, we'll fallback to self - useful when testing
+ * @tparam E     Superclass/trait representing your events
+ * @tparam S     The type representing your state
  */
 abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
-  myDispatcherActor:ActorPath
-  ) extends EnhancedPersistentShardingActor[E, AggregateError](myDispatcherActor) {
+  dmSelf:ActorPath
+  ) extends EnhancedPersistentShardingActor[E, AggregateError](dmSelf) {
 
   var state:S
 

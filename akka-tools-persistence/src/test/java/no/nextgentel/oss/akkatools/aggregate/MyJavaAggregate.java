@@ -8,8 +8,8 @@ public class MyJavaAggregate extends GeneralAggregateJava<JavaState> {
 
     private final ActorPath someDest;
 
-    public MyJavaAggregate(ActorPath ourDispatcherActor, ActorPath someDest) {
-        super(JavaState.empty, ourDispatcherActor);
+    public MyJavaAggregate(ActorPath dmSelf, ActorPath someDest) {
+        super(JavaState.empty, dmSelf);
         this.someDest = someDest;
     }
 

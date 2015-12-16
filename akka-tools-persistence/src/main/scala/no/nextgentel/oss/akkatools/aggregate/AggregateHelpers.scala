@@ -10,6 +10,12 @@ import scala.concurrent.Future
 import scala.reflect.ClassTag
 
 object AggregateStarter {
+  /**
+    * A function which given the input dispatcher ActorPath, creates the Props-object which is needed to
+    * create an instance of your aggregate actor.
+    *
+    * This dispatcher can/should be used as the dmSelf-parameter
+    */
   type AggregatePropsCreator = (ActorPath) => Props
 
 }
@@ -50,8 +56,8 @@ abstract class AggregateStarter(val name:String, val system:ActorSystem) extends
  Use this class if you would like to start your aggregate like this:
 
   new GeneralAggregateStarter().withAggregatePropsCreator {
-    dispatcher =>
-       Props( new MyAggregateActor(dispatcher, someOtherParam1, param2)
+    dmSelf =>
+       Props( new MyAggregateActor(dmSelf, someOtherParam1, param2)
   }.start()
 */
 class AggregateStarterSimple(name:String, system:ActorSystem) extends AggregateStarter(name, system) {

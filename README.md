@@ -25,6 +25,12 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.5-SNAPSHOT - *Not released yet*
+
+* Improved some tests which sometimes failed
+* GeneralAggregate's *myDispatcher* is now using the more describing name **dmSelf**. You can now use dmSelf = null to fallback to self() which will make dm.confirm() work as expected in testing.
+
+
 Version 1.0.4 - 15/12-2015
 
 * It is now optional to implement generateResultingDurableMessages()

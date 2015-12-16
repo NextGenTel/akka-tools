@@ -11,11 +11,11 @@ import scala.concurrent.duration.FiniteDuration
 
 class TACAggregate
 (
-  ourDispatcher:ActorPath,
+  dmSelf:ActorPath,
   eSigningSystem:ActorPath,
   emailSystem:ActorPath,
   trustAccountSystem:ActorPath
-) extends GeneralAggregate[TACEvent, TACState](ourDispatcher) {
+) extends GeneralAggregate[TACEvent, TACState](dmSelf) {
 
   override def persistenceIdBase() = TACAggregate.persistenceIdBase
 
@@ -67,10 +67,10 @@ object TACAggregate {
 
   val persistenceIdBase = "TAC-"
 
-  def props(ourDispatcher:ActorPath,
+  def props(dmSelf:ActorPath,
             eSigningSystem:ActorPath,
             emailSystem:ActorPath,
-            trustAccountSystem:ActorPath) = Props(new TACAggregate(ourDispatcher, eSigningSystem, emailSystem ,trustAccountSystem))
+            trustAccountSystem:ActorPath) = Props(new TACAggregate(dmSelf, eSigningSystem, emailSystem ,trustAccountSystem))
 }
 
 
@@ -80,8 +80,8 @@ class TACStarter(system:ActorSystem) extends AggregateStarter("tac", system) wit
              emailSystem:ActorPath,
              trustAccountSystem:ActorPath):TACStarter = {
     setAggregatePropsCreator{
-      dispatcher =>
-        TACAggregate.props(dispatcher, eSigningSystem, emailSystem, trustAccountSystem)
+      dmSelf =>
+        TACAggregate.props(dmSelf, eSigningSystem, emailSystem, trustAccountSystem)
     }
     this
   }

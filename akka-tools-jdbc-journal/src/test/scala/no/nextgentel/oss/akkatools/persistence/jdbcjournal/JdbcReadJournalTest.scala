@@ -166,9 +166,9 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     Thread.sleep(halfRefreshIntervalInMills)
 
     pa1 ! TestCmd("a1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("a2")
-    Thread.sleep(50)
+    Thread.sleep(100)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
@@ -177,11 +177,11 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
       EventEnvelope(2, id2, 2, TestEvent("a2")))
 
     pa1 ! TestCmd("b1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("b2")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa1 ! TestCmd("c1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("c2")
 
 
@@ -194,7 +194,7 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
       EventEnvelope(6, id2, 6, TestEvent("c2")))
 
     pa1 ! TestCmd("d1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("d2")
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
@@ -213,11 +213,11 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     Thread.sleep(halfRefreshIntervalInMills)
 
     pa1 ! TestCmd("a1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("a2")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa1 ! TestCmd("b1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("b2")
 
     Thread.sleep(halfRefreshIntervalInMills)
@@ -244,7 +244,7 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
       EventEnvelope(4, id2, 4, TestEvent("b2")))
 
     pa1 ! TestCmd("c1")
-    Thread.sleep(50)
+    Thread.sleep(100)
     pa2 ! TestCmd("c2")
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
