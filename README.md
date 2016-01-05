@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.5-SNAPSHOT - *Not released yet*
 
+* GeneralAggregate.stateInfo() is no longer final - it can now be overridden
 * Improved some tests which sometimes failed
 * GeneralAggregate's *myDispatcher* is now using the more describing name **dmSelf**. You can now use dmSelf = null to fallback to self() which will make dm.confirm() work as expected in testing.
 
