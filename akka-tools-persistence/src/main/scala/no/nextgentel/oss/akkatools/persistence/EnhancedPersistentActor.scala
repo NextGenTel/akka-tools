@@ -492,6 +492,19 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:
 
   def applyEventToState(event:E)
 
+  private def internalApplyEventToState(event:E): Unit = {
+    try {
+      applyEventToState(event)
+    } catch {
+      case e:Exception =>
+        handleEventException(e, event)
+    }
+  }
+
+  def handleEventException(e:Exception, event:E):Unit = {
+    log.error(e, s"Error applying event, ignoring it: $event" )
+  }
+
 
   override def persistenceId: String = persistenceIdBase + id
 
@@ -509,7 +522,7 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:
       if (classTag[E].runtimeClass.isInstance(x) ) {
         val event = x.asInstanceOf[E]
         log.debug(s"Applying event to state: $event")
-        applyEventToState(event)
+        internalApplyEventToState(event)
         history = history :+ EventAndState(event.getClass.getName, event.asInstanceOf[AnyRef], currentState().asInstanceOf[AnyRef])
       } else {
         onCmd.applyOrElse(x, {
