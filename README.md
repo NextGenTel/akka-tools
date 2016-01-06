@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.4          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.4.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.5-SNAPSHOT - *Not released yet*
+Version 1.0.4.1 - 06/01-2016
 
 * Fixing [#14](https://github.com/NextGenTel/akka-tools/issues/14) Exceptions when applying events in EnhancedPersistentActor are now only logged - preventing infinit retrying
 * GeneralAggregate.stateInfo() is no longer final - it can now be overridden
