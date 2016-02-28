@@ -120,6 +120,17 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
 
     }
   }
+
+  test("Errorhandling in code that generates events") {
+
+    new TestEnv {
+      val error = "XXXX"
+      val sender = TestProbe()
+      sendDMBlocking(main, CmdThatFailsWhenGeneratingEvent(id, error), sender.ref)
+      // and we should get an error back to sender
+      assert(sender.expectMsgAnyClassOf(classOf[Failure]).cause.getMessage.contains(error))
+    }
+  }
 }
 
 

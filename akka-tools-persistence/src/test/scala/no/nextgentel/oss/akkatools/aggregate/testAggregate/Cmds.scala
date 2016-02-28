@@ -16,3 +16,5 @@ case class ReserveSeatCmd(bookingId: String, shouldFailIn_onAfterValidationSucce
 case class CancelSeatCmd(bookingId: String, seatId: String) extends BookingCmd
 
 case class CloseBookingCmd(bookingId: String) extends BookingCmd
+
+case class CmdThatFailsWhenGeneratingEvent(bookingId: String, error:String) extends BookingCmd

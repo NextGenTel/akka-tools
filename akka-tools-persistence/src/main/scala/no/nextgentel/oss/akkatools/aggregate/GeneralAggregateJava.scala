@@ -110,10 +110,10 @@ case class ResultingEventJava(events:JList[Any], successHandler: Runnable, after
 
   def asResultingEvent():ResultingEvent[Any] = {
     ResultingEvent(
-    events.toList,
-    Option(errorHandler).map( h => (e:String) => h.accept(e)).getOrElse(null),
-    Option(successHandler).map( h => () => h.run()).getOrElse(null),
-    Option(afterValidationSuccessHandler).map(h => () => h.run()).getOrElse(null)
+      () => events.toList,
+      Option(errorHandler).map( h => (e:String) => h.accept(e)).getOrElse(null),
+      Option(successHandler).map( h => () => h.run()).getOrElse(null),
+      Option(afterValidationSuccessHandler).map(h => () => h.run()).getOrElse(null)
     )
   }
 

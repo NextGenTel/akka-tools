@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.5 - Not released yet
+
+* Slight change in signature of ResultingEvent, so that the onError-impl can be used for the generating of event/events itself..
+
 Version 1.0.4.1 - 06/01-2016
 
 * Fixing [#14](https://github.com/NextGenTel/akka-tools/issues/14) Exceptions when applying events in EnhancedPersistentActor are now only logged - preventing infinit retrying

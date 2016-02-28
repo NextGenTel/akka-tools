@@ -64,6 +64,13 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
       ResultingEvent(CancelationEvent(c.seatId))
         .onSuccess( sender ! "ok")
         .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
+
+    case c: CmdThatFailsWhenGeneratingEvent =>
+      ResultingEvent {
+          println("This is executed later - when our onError-code is ready to be used")
+          throw BookingError("The error is: " + c.error)
+        }.onSuccess(sender ! "ok")
+        .onError((errorMsg) => sender ! Failure(new Exception(errorMsg)))
   }
 
   override def generateResultingDurableMessages = {

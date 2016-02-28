@@ -87,8 +87,9 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
-          if( log.isDebugEnabled ) log.debug("Trying resultingEvents: " + eventResult.events)
-          eventResult.events.foldLeft(state) {
+          val eventList:List[E] = eventResult.events.apply()
+          if( log.isDebugEnabled ) log.debug("Trying resultingEvents: " + eventList)
+          eventList.foldLeft(state) {
             (s, e) =>
               s.transition(e)
           }
@@ -100,12 +101,12 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           val runTheSuccessHandler = () => Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
 
 
-          if (eventResult.events.isEmpty) {
+          if (eventList.isEmpty) {
             // We have no events to persist - run the successHandler any way
             runTheSuccessHandler.apply()
           } else {
             // we can persist it
-            persistAndApplyEvents(eventResult.events,
+            persistAndApplyEvents(eventList,
               successHandler = {
                 () =>
                   // run the successHandler
@@ -189,13 +190,13 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 }
 
 object ResultingEvent {
-  def apply[E](event:E):ResultingEvent[E] = new ResultingEvent[E](List(event), null, null, null)
-  def apply[E](events:List[E]):ResultingEvent[E] = new ResultingEvent[E](events, null, null, null)
-  def empty[E]():ResultingEvent[E] = new ResultingEvent[E](List(), null, null, null)
+  def apply[E](event: => E):ResultingEvent[E] = new ResultingEvent[E](() => List(event), null, null, null)
+  def apply[E:ClassTag](events: => List[E]):ResultingEvent[E] = new ResultingEvent[E](() => events, null, null, null)
+  def empty[E]():ResultingEvent[E] = new ResultingEvent[E](() => List(), null, null, null)
 }
 
 case class ResultingEvent[+E](
-                               events:List[E],
+                               events: () => List[E],
                                errorHandler:(String)=>Unit,
                                successHandler:()=>Unit,
                                afterValidationSuccessHandler: () => Unit) {
