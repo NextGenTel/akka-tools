@@ -27,7 +27,7 @@ Changelog
 
 Version 1.0.5 - Not released yet
 
-* Slight change in signature of ResultingEvent, so that the onError-impl can be used for the generating of event/events itself..
+* ResultingEvent now uses function that return events instead of just returning the events directly. This allows us to use the onError-impl for both resolving and applying events
 
 Version 1.0.4.1 - 06/01-2016
 
