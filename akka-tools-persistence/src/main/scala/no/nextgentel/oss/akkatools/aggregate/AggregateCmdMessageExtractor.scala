@@ -1,6 +1,7 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import akka.cluster.sharding.ShardRegion.HashCodeMessageExtractor
+import akka.persistence.{SaveSnapshotFailure, SaveSnapshotSuccess}
 import no.nextgentel.oss.akkatools.persistence.{DurableMessage, DurableMessageReceived}
 import org.slf4j.LoggerFactory
 
@@ -28,6 +29,14 @@ class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2, val shardsPrNod
           log.warn("DurableMessageReceived.getConfirmationRoutingInfo() returned null in message: " + rawMessage)
           null
         }
+      case x:SaveSnapshotSuccess =>
+        // Ignoring this message to mitigate Akka-bug https://github.com/akka/akka/issues/19893
+        log.debug(s"Ignoring $x  to mitigate akka issue 19893")
+        null
+      case x:SaveSnapshotFailure =>
+        // Ignoring this message to mitigate Akka-bug https://github.com/akka/akka/issues/19893
+        log.debug(s"Ignoring $x to mitigate akka issue 19893")
+        null
       case x:AnyRef => extractId(x)
     }
   }
