@@ -29,6 +29,7 @@ Version 1.0.5 - Not released yet
 
 * Mitigating akka bug [19893](https://github.com/akka/akka/issues/19893)
 * ResultingEvent now uses function that return events instead of just returning the events directly. This allows us to use the onError-impl for both resolving and applying events
+  * This change requires you to recompile your code against the new version
 
 Version 1.0.4.1 - 06/01-2016
 
