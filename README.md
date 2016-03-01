@@ -19,19 +19,19 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.4.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.5          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.5 - Not released yet
+Version 1.0.5 - 2016-03-01
 
 * Mitigating akka bug [19893](https://github.com/akka/akka/issues/19893)
 * ResultingEvent now uses function that return events instead of just returning the events directly. This allows us to use the onError-impl for both resolving and applying events
   * This change requires you to recompile your code against the new version
 
-Version 1.0.4.1 - 06/01-2016
+Version 1.0.4.1 - 2016-01-06
 
 * Fixing [#14](https://github.com/NextGenTel/akka-tools/issues/14) Exceptions when applying events in EnhancedPersistentActor are now only logged - preventing infinit retrying
 * GeneralAggregate.stateInfo() is no longer final - it can now be overridden
@@ -39,7 +39,7 @@ Version 1.0.4.1 - 06/01-2016
 * GeneralAggregate's *myDispatcher* is now using the more describing name **dmSelf**. You can now use dmSelf = null to fallback to self() which will make dm.confirm() work as expected in testing.
 
 
-Version 1.0.4 - 15/12-2015
+Version 1.0.4 - 2015-12-15
 
 * It is now optional to implement generateResultingDurableMessages()
 * Improving Java 8 support by introducing AbstractGeneralAggregate - Similar to AbstractActor
@@ -49,15 +49,15 @@ Version 1.0.4 - 15/12-2015
 * Fixed bug related to Journal TCK's testcase 'not reset highestSequenceNr after message deletion'
 * Upgraded to Akka 2.4.1
 
-Version 1.0.3.2 - 01/12-2015
+Version 1.0.3.2 - 2015-12-01
 
 * Fixing issue with proxying to clusterSingleton created by ClusterSingletonHelper
 
-Version 1.0.3.1 - 19/11-2015
+Version 1.0.3.1 - 2015-11-19
 
 * Fixing regression in 1.0.3 caused by 'successHandler is now executed at the right time' - Now inbound DM cleanup is performed AFTER success-handler has been executed
 
-Version 1.0.3 - 18/11-2015
+Version 1.0.3 - 2015-11-18
 
 * Improved default idleTimeout - It is now calculated based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts  
 * Improved bootstrapping of Aggregates using AggregateStarter [commit](https://github.com/NextGenTel/akka-tools/commit/448bd1)
@@ -66,15 +66,15 @@ Version 1.0.3 - 18/11-2015
 * Improved ResultingEvents-API
 * successHandler is now executed at the right time - after all events are actually persisted
 
-Version 1.0.2 - 26/10-2015
+Version 1.0.2 - 2015-10-26
 
 * Fixing [#9](https://github.com/NextGenTel/akka-tools/issues/9) - Restructured how persistenceId's are resolved - Now using persitenceIdBase - Introduces some changes to the GeneralAggregate-API [commit](https://github.com/NextGenTel/akka-tools/commit/ab45697)
 
-Version 1.0.1 - 23/10-2015
+Version 1.0.1 - 2015-10-23
 
 * Fixes [#8](https://github.com/NextGenTel/akka-tools/issues/8) Explicit closing sql statements to prevent leakage [commit](https://github.com/NextGenTel/akka-tools/commit/95baa1)
 
-Version 1.0.0 - 21/10-2015
+Version 1.0.0 - 2015-10-21
 
 * Changed GeneralAggregateBuilder so that it is possible to initiate views with initialState based on aggregateId [commit](https://github.com/NextGenTel/akka-tools/commit/3b9cfea)
 * Added ActorWithDMSupport which makes it easy to implement regular Actors interacting with DMs [commit](https://github.com/NextGenTel/akka-tools/commit/1a8511d)
@@ -82,7 +82,7 @@ Version 1.0.0 - 21/10-2015
 * Added another example: Trust Account Creation System [commit](https://github.com/NextGenTel/akka-tools/commit/64671b)
 * Changed signature of onCmdToEvent to use AggregateCmd instead of AnyRef [commit](https://github.com/NextGenTel/akka-tools/commit/b0be41b)
 
-Version 0.9.0 - 23/9-2015
+Version 0.9.0 - 2015-09-23
 
 * First released open-source version of the original internal NextGenTel project - using Akka 2.3
  
