@@ -76,7 +76,7 @@ class JdbcSnapshotStoreTest (_system:ActorSystem) extends TestKit(_system) with 
 
   def getData(p:ActorRef):String = {
     import akka.pattern.ask
-    implicit val timeout = Timeout(1, TimeUnit.SECONDS)
+    implicit val timeout = Timeout(5, TimeUnit.SECONDS)
 
     val f = ask(p, GetDataCmd())
     Await.result(f, timeout.duration).asInstanceOf[String]
