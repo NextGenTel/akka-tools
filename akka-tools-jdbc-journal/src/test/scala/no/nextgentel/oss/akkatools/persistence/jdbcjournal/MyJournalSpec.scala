@@ -11,15 +11,13 @@ class MyJournalSpec extends JournalSpec (
   config = ConfigFactory.load("application-test.conf")) {
 
   val log = LoggerFactory.getLogger(getClass)
-  lazy val dataSource = DataSourceUtil.createDataSource("MyJournalSpec", "akka-tools-jdbc-journal-liquibase.sql")
 
   val errorHandler = new JdbcJournalErrorHandler {
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-
-
-  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+  // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
+  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MyJournalSpec"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
 
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = false
 }
@@ -28,13 +26,13 @@ class MySnapshotStoreSpec extends SnapshotStoreSpec (
   config = ConfigFactory.load("application-test.conf")) with BeforeAndAfter {
 
   val log = LoggerFactory.getLogger(getClass)
-  lazy val dataSource = DataSourceUtil.createDataSource("MySnapshotStoreSpec", "akka-tools-jdbc-journal-liquibase.sql")
 
   val errorHandler = new JdbcJournalErrorHandler {
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-  JdbcJournal.init(JdbcJournalConfig(dataSource, None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+  // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
+  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MySnapshotStoreSpec"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
 
 
 

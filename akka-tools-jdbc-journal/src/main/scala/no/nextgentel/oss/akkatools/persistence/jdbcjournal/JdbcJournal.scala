@@ -19,6 +19,7 @@ import akka.persistence.SnapshotSelectionCriteria
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.snapshot.SnapshotStore
 import akka.serialization.SerializationExtension
+import akka.serialization.SerializerWithStringManifest
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializableButNotDeserializable
 import org.sql2o.Sql2o
@@ -152,8 +153,10 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
           promise.success(None)
         case Some(e: SnapshotEntry) =>
 
-          val clazz: Class[_] = getClass().getClassLoader().loadClass(e.snapshotClassname)
-          val snapshot = serialization.serializerFor(clazz).fromBinary(e.snapshot, clazz)
+          val snapshot = e.serializerId match {
+            case Some(serializerId) => serialization.deserialize(e.snapshot, serializerId, e.manifest).get
+            case None               => serialization.deserialize(e.snapshot, getClass().getClassLoader().loadClass(e.manifest))
+          }
 
           val selectedSnapshot = SelectedSnapshot(
             new SnapshotMetadata(
@@ -183,7 +186,13 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
 
     try {
 
-      val bytes = serialization.serializerFor(snapshot.getClass).toBinary(snapshot.asInstanceOf[AnyRef])
+      val serializer = serialization.serializerFor(snapshot.getClass)
+      val bytes = serializer.toBinary(snapshot.asInstanceOf[AnyRef])
+      val manifest:String = serializer match {
+        case s:SerializerWithStringManifest => s.manifest(snapshot.asInstanceOf[AnyRef])
+        case _                              => snapshot.getClass.getName
+      }
+
 
       repo().writeSnapshot(
         new SnapshotEntry(
@@ -191,7 +200,8 @@ class JdbcSnapshotStore extends SnapshotStore with ActorLogging {
           metadata.sequenceNr,
           metadata.timestamp,
           bytes,
-          snapshot.getClass.getName))
+          manifest,
+          Some(serializer.identifier)))
       promise.success(Unit)
     } catch {
       case e: Exception => {

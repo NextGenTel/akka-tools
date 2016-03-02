@@ -85,7 +85,7 @@ Database schema
 -------------------------
  
 **Note: The name 'processorId' is, for historical reasons (Akka 2.3), the same as persistenceId**
- 
+
 The following tables are needed, here described in liquibase-format:
 
     --changeset mokj:Create-akka-tools-jdbc-journal-tables dbms:all
@@ -113,6 +113,7 @@ The following tables are needed, here described in liquibase-format:
       timestamp                               NUMERIC,
       snapshot                                BLOB,
       snapshotClassname                       VARCHAR(255),
+      serializerId                            INT,
       updated                                 TIMESTAMP,
     
       PRIMARY KEY(processorId, sequenceNr, timestamp)
@@ -136,7 +137,11 @@ If migrating from Akka 2.3.x to 2.4 you might want to apply the following db-cha
 
     ALTER TABLE t_journal DROP COLUMN redeliveries;
     ALTER TABLE t_journal DROP COLUMN deleted;
-    
+
+If migrating from **akka-tools 1.0.5**, you need to apply the following DB-changes:
+
+    ALTER TABLE t_snapshot ADD serializerId INT;
+
 The payload of the events are written and read from the *persistentRepr*-column.
 
 If the payload is serialized using *no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer*,

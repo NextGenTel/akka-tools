@@ -10,7 +10,7 @@ import org.sql2o.{Sql2oException, Query, Connection, Sql2o}
 import scala.concurrent.duration.FiniteDuration
 
 case class JournalEntryDto(persistenceId: PersistenceId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String)
-case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], snapshotClassname:String)
+case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], manifest:String, serializerId:Option[Int])
 
 
 trait StorageRepo {
@@ -160,7 +160,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
   }
 
   def writeSnapshot(e: SnapshotEntry) {
-    val sql = s"insert into ${schemaPrefix}t_snapshot (processorId,sequenceNr,timestamp,snapshot,snapshotClassname,updated) values (:processorId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,sysdate)"
+    val sql = s"insert into ${schemaPrefix}t_snapshot (processorId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:processorId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
     val c = sql2o.open()
     try {
       c.createQuery(sql)
@@ -168,7 +168,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
         .addParameter("sequenceNr", e.sequenceNr)
         .addParameter("timestamp", e.timestamp)
         .addParameter("snapshot", e.snapshot)
-        .addParameter("snapshotClassname", e.snapshotClassname)
+        .addParameter("snapshotClassname", e.manifest)
+        .addParameter("serializerId", e.serializerId.get)
         .executeUpdate
     } catch {
       case ex: Sql2oException => {
@@ -195,7 +196,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
             row.getLong("sequenceNr"),
             row.getLong("timestamp"),
             row.getObject("snapshot", classOf[Array[Byte]]).asInstanceOf[Array[Byte]],
-            row.getString("snapshotClassname"))
+            row.getString("snapshotClassname"),
+            Option(row.getInteger("serializerId")).map(_.toInt).filter( i => i != 0))
           Some(e)
         }
       } finally {

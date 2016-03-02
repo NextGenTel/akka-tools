@@ -10,13 +10,12 @@ import org.sql2o.quirks.OracleQuirks
 class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with BeforeAndAfter{
 
   val log = LoggerFactory.getLogger(getClass)
-  lazy val dataSource = DataSourceUtil.createDataSource("StorageRepoTest", "akka-tools-jdbc-journal-liquibase.sql")
 
   val errorHandler = new JdbcJournalErrorHandler {
     override def onError(e: Exception): Unit = log.error("onError", e)
   }
 
-  lazy val repo = new StorageRepoImpl(new Sql2o(dataSource, new OracleQuirks), None, errorHandler)
+  lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), None, errorHandler)
 
   val nextId = new AtomicInteger(0)
 

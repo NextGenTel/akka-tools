@@ -25,6 +25,11 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.6 - Not released yet
+
+* Fixing [#15](https://github.com/NextGenTel/akka-tools/issues/15) - Snapshot-journal now supports SerializerWithStringManifest
+  * **Note!** - This fix requires a **change to the database layout** as described her: [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
+
 Version 1.0.5 - 2016-03-01
 
 * Mitigating akka bug [19893](https://github.com/akka/akka/issues/19893)

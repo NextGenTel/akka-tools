@@ -1,6 +1,7 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicInteger
 import javax.sql.DataSource
 
 import liquibase.{Contexts, Liquibase}
@@ -9,13 +10,17 @@ import liquibase.database.jvm.JdbcConnection
 import liquibase.resource.ClassLoaderResourceAccessor
 import org.h2.jdbcx.JdbcDataSource
 
+import scala.util.Random
+
 object DataSourceUtil {
 
+  def createDataSource(h2DbName:String, pathToLiquibaseFile:String = "akka-tools-jdbc-journal-liquibase.sql"):DataSource = {
 
-  def createDataSource(h2DbName:String, pathToLiquibaseFile:String):DataSource = {
     this.synchronized {
       val dataSource = new JdbcDataSource
-      dataSource.setURL(s"jdbc:h2:mem:$h2DbName;mode=oracle;DB_CLOSE_DELAY=-1")
+      val name = s"$h2DbName-${Random.nextInt(1000)}"
+      println(s"****> h2-name: '$name'")
+      dataSource.setURL(s"jdbc:h2:mem:$name;mode=oracle;DB_CLOSE_DELAY=-1")
       dataSource.setUser("sa")
       dataSource.setPassword("sa")
 
@@ -23,7 +28,9 @@ object DataSourceUtil {
       // released when no connections are active..
       dataSource.getConnection
 
+
       updateDb(dataSource, pathToLiquibaseFile)
+
       dataSource
     }
   }

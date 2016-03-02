@@ -33,3 +33,6 @@ CREATE TABLE t_cluster_nodes (
     lastSeen                              TIMESTAMP,
     PRIMARY KEY(nodeName)
 );
+
+-- changeset mokj:changes-after-akka-tools-1.0.5 dbms:all
+ALTER TABLE t_snapshot ADD serializerId INT;
