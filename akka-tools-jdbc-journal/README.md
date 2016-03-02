@@ -138,7 +138,7 @@ If migrating from Akka 2.3.x to 2.4 you might want to apply the following db-cha
     ALTER TABLE t_journal DROP COLUMN redeliveries;
     ALTER TABLE t_journal DROP COLUMN deleted;
 
-If migrating from **akka-tools 1.0.5**, you need to apply the following DB-changes:
+If migrating from **akka-tools 1.0.5 or earlier**, you need to apply the following DB-changes which was added in **akka-tools 1.0.6**:
 
     ALTER TABLE t_snapshot ADD serializerId INT;
 
