@@ -162,7 +162,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     logMessage("State: " + stateInfo())
   }
 
-  private def toStringForLogging[T](o: T): String = {
+  protected def toStringForLogging[T](o: T): String = {
     Option(o).map(_.getClass.getSimpleName).getOrElse("null")
   }
 
