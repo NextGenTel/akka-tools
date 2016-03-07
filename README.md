@@ -27,6 +27,9 @@ Changelog
 
 Version 1.0.6 - Not released yet
 
+* Deprecated generateResultingDurableMessages in GeneralAggregate. Instead use new *generateDM* or *generateDMBefore*
+  * generateDM - is invoked AFTER event has been applied to state.
+  * generateDMBefore - is invoked BEFORE event has been applied to state ( same as old generateResultingDurableMessages)
 * Fixing [#15](https://github.com/NextGenTel/akka-tools/issues/15) - Snapshot-journal now supports SerializerWithStringManifest
   * **Note!** - This fix requires a **change to the database layout** as described her: [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
 

@@ -41,9 +41,7 @@ trait AggregateState[E, T <: AggregateState[E,T]] {
  *        generate and send DurableMessages
  *        change our current state (by calling state.transition() and keeping the result )
  *
- *
- *
- * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
+  * @param dmSelf dmSelf is used as the address where the DM-confirmation-messages should be sent.
  *               In a sharding environment, this has to be our dispatcher which knows how to reach the sharding mechanism.
  *               If null, we'll fallback to self - useful when testing
  * @tparam E     Superclass/trait representing your events
@@ -59,7 +57,11 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   // This one is only valid when we're in the process of applying an event inside generateResultingDurableMessages
   private var _nextState:Option[S] = None
 
-  def nextState():S = _nextState.getOrElse(throw new Exception("nextState can only be used from inside generateResultingDurableMessages"))
+  def nextState():S = _nextState.getOrElse(throw new Exception("nextState can only be used from inside generateDMBefore"))
+
+  // This one is only valid when we're in the process of applying an event inside generateDM
+  private var _previousState:Option[S] = None
+  def previousState():S = _previousState.getOrElse(throw new Exception("previousState can only be used from inside generateDM"))
 
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
@@ -71,8 +73,20 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
+
+
+  @deprecated("""Use generateDMBefore instead""", since = "1.0.6")
   def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages] = Map.empty
 
+  // Called to generate DMs BEFORE we have applied the event.
+  // nextState() returns the state you are turning into
+  def generateDMBefore:PartialFunction[E, ResultingDurableMessages] = Map.empty
+
+  // Called to generate DMs AFTER we have applied the event.
+  // previousState() returns the state you are leaving
+  def generateDM:PartialFunction[E, ResultingDurableMessages] = Map.empty
+
+  private lazy val generateDMInfo = resolveGenerateDMInfo()
 
   override protected def stateInfo(): String = state.toString
 
@@ -123,18 +137,47 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
 
+  protected case class GenerateDMInfo(generateDM:PartialFunction[E, ResultingDurableMessages], applyEventBefore:Boolean )
+
+  private def resolveGenerateDMInfo():GenerateDMInfo = {
+
+    val errorMsg = "You can only override one of the following methods at the same time: generateDM, generateDMBefore and generateResultingDurableMessages(which is Deprecated)"
+    var generateDMInfo:Option[GenerateDMInfo] = None
+    if ( generateResultingDurableMessages != Map.empty) {
+      if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
+      generateDMInfo = Some(GenerateDMInfo(generateResultingDurableMessages, false))
+    }
+
+    if ( generateDMBefore != Map.empty) {
+      if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
+      generateDMInfo = Some(GenerateDMInfo(generateDMBefore, false))
+    }
+
+    // fallback to default
+    generateDMInfo.getOrElse(GenerateDMInfo(generateDM, true))
+  }
+
   def onEvent = {
     case e:E =>
 
-      // Store nextState - the state we're in the processes of applying into - so that it is available
-      // through nextState() from inside generateResultingDurableMessages
-      _nextState = Some(state.transition(e))
-      val resultingDurableMessages = generateResultingDurableMessages.applyOrElse(e, defaultResultingDurableMessages)
-      state = _nextState.get // pop the nextState and make it current
-      _nextState = None // clear next state
+      val resultingDMs = if (generateDMInfo.applyEventBefore) {
+        _previousState = Some(state) // keep the old state available as long as we execute generateDM
+        state = state.transition(e) // make the new state current
+        val resultingDurableMessages = generateDMInfo.generateDM.applyOrElse(e, defaultResultingDurableMessages)
+        _previousState = None // clear previousState state
+        resultingDurableMessages
+      } else {
+        // Store nextState - the state we're in the processes of applying into - so that it is available
+        // through nextState() from inside generateResultingDurableMessages
+        _nextState = Some(state.transition(e))
+        val resultingDurableMessages = generateDMInfo.generateDM.applyOrElse(e, defaultResultingDurableMessages)
+        state = _nextState.get // pop the nextState and make it current
+        _nextState = None // clear next state
+        resultingDurableMessages
+      }
 
       // From java resultingDurableMessages might be null.. Wrap it optional
-      Option(resultingDurableMessages).map {
+      Option(resultingDMs).map {
         rdm =>
           rdm.list.foreach {
             msg =>
@@ -159,7 +202,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   /**
    * If doUnconfirmedWarningProcessing is turned on, then override this method
    * to try to do something useful before we give up
-   * @param originalPayload
+    *
+    * @param originalPayload
    */
   override protected def durableMessageNotDeliveredHandler(originalPayload: Any, errorMsg: String): Unit = {
     // call generateEventsForFailedDurableMessage to let the app decide if this should result in any events that should be persisted.
@@ -182,7 +226,8 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
    * If so, return these events.
    * When these have been persisted, generateResultingDurableMessages() will be called as usual enabling
    * you to perform some outbound action.
-   * @param originalPayload
+    *
+    * @param originalPayload
    * @param errorMsg
    * @return
    */

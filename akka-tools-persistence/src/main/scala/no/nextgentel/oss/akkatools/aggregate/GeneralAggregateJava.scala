@@ -31,6 +31,8 @@ abstract class GeneralAggregateJava[S <: AggregateStateJava]
   def getState():S = state.asInstanceOf[S]
 
   def onCmdToEvent(cmd:AggregateCmd):ResultingEventJava
+
+  @deprecated("Use onGenerateDMBefore instead", since = "1.0.6")
   def onGenerateResultingDurableMessages(event:Any):ResultingDurableMessages
 
   override def cmdToEvent: PartialFunction[AggregateCmd, ResultingEvent[Any]] = {
@@ -40,6 +42,8 @@ abstract class GeneralAggregateJava[S <: AggregateStateJava]
   override def generateResultingDurableMessages: PartialFunction[Any, ResultingDurableMessages] = {
     case e:Any => onGenerateResultingDurableMessages(e)
   }
+
+
 
 }
 

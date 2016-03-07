@@ -75,6 +75,8 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
 
   override def generateResultingDurableMessages = {
     case e: BookingClosedEvent =>
+      assert( state.state == StateName.OPEN)
+      assert( nextState().state == StateName.CLOSED)
 
       // We're just testing the nextState()-functionality
       assert( nextState() == state.transition(e))

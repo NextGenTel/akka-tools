@@ -45,8 +45,12 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
         .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
-  override def generateResultingDurableMessages = {
+  override def generateDM = {
     case e: BookingClosedEvent =>
+
+      assert( state.state == StateName.CLOSED)
+      assert( previousState().state == StateName.OPEN)
+
       // The booking has now been closed and we need to send an important notification to the Cinema
       val msg = CinemaNotification(state.reservations.toList)
       ResultingDurableMessages(msg, cinemaNotifier)
