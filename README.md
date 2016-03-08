@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.6 - Not released yet
 
+* Fixed bug in findHighestSequenceNr when using (not full) persisteceIds / wildcards
 * Deprecated generateResultingDurableMessages in GeneralAggregate. Instead use new *generateDM* (via state), *generateDMBefore* (via Event), or *generateDMAfter* (via Event)
   * generateDMBefore - gets event as input and is invoked BEFORE event has been applied to state ( same as old generateResultingDurableMessages)
   * generateDMAfter - gets event as input and is invoked AFTER event has been applied to state.

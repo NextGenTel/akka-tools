@@ -142,10 +142,25 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:Jdb
 
   // This one both looks at existing once and 'delete once' (with persistentRepr = null)
   def findHighestSequenceNr(persistenceId: PersistenceId, fromSequenceNr: Long): Long = {
-    val sql = s"select max(sequenceNr) from ${schemaPrefix}t_journal where typePath = :typePath and id = :id and sequenceNr>=:fromSequenceNr"
+
+    val sequenceNrColumnName = if (persistenceId.isFull) {
+      "sequenceNr"
+    } else {
+      "journalIndex"
+    }
+
+
+    val sql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where typePath = :typePath " + (if (persistenceId.isFull) " and id = :id " else "") + s" and $sequenceNrColumnName>=:fromSequenceNr"
     val c = sql2o.open()
     try {
-      val table = c.createQuery(sql).addParameter("typePath", persistenceId.typePath).addParameter("id", persistenceId.id).addParameter("fromSequenceNr", fromSequenceNr).executeAndFetchTable
+
+      val query = c.createQuery(sql).addParameter("typePath", persistenceId.typePath)
+      if (persistenceId.isFull) {
+        query.addParameter("id", persistenceId.id)
+      }
+      query.addParameter("fromSequenceNr", fromSequenceNr)
+      val table = query.executeAndFetchTable
+
       if (table.rows.size == 0) {
         return Math.max(fromSequenceNr, 0L)
       }
