@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.6 - Not released yet
 
+* Added canSendAsDurableMessage():Boolean - Use it to check if it is possible to send DM
 * Fixed bug in findHighestSequenceNr when using (not full) persisteceIds / wildcards
 * Deprecated generateResultingDurableMessages in GeneralAggregate. Instead use new *generateDM* (via state), *generateDMBefore* (via Event), or *generateDMAfter* (via Event)
   * generateDMBefore - gets event as input and is invoked BEFORE event has been applied to state ( same as old generateResultingDurableMessages)

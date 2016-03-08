@@ -409,6 +409,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     }
   }
 
+  protected def canSendAsDurableMessage():Boolean = isProcessingEvent || pendingDurableMessage.isDefined
+
 
 }
 
