@@ -45,7 +45,7 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
         .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
-  override def generateDM = {
+  override def generateDMAfter = {
     case e: BookingClosedEvent =>
 
       assert( state.state == StateName.CLOSED)
