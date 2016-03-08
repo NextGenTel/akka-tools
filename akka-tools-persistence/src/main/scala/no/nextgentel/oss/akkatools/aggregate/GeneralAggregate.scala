@@ -153,6 +153,11 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
       generateDMInfo = Some(GenerateDMInfo(generateDMBefore, false))
     }
 
+    if ( generateDM != Map.empty) {
+      if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
+      generateDMInfo = Some(GenerateDMInfo(generateDM, true))
+    }
+
     // fallback to default
     generateDMInfo.getOrElse(GenerateDMInfo(generateDM, true))
   }
