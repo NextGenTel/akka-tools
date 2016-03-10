@@ -77,8 +77,15 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
     ResultingDurableMessages(List())
   }
 
+  private val defaultGenerateDMViaStateAndEvent = (t:(S,E)) => {
+    log.debug("No durableMessages generated for this event")
+    ResultingDurableMessages(List())
+  }
+
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
+
+  // TODO: These generateXX** method really needs to be refactored into different traits...
 
   @deprecated("""Use generateDMBefore/generateDMAfter/generateDM instead""", since = "1.0.6")
   def generateResultingDurableMessages:PartialFunction[E, ResultingDurableMessages] = Map.empty
@@ -93,6 +100,9 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 
   // Called to generate DMs AFTER we have applied the event.
   def generateDM:PartialFunction[S, ResultingDurableMessages] = Map.empty
+
+  // Called to generate DMs AFTER we have applied the event. with both the new state and the event as input
+  def generateDMSE:PartialFunction[(S,E), ResultingDurableMessages] = Map.empty
 
 
   private lazy val generateDMInfo = resolveGenerateDMInfo()
@@ -146,54 +156,63 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   }
 
 
-  protected case class GenerateDMInfo(generateDMViaEvent:Option[PartialFunction[E, ResultingDurableMessages]], generateDMViaState:Option[PartialFunction[S, ResultingDurableMessages]], applyEventBefore:Boolean )
+  protected case class GenerateDMInfo(generateDMViaEvent:Option[PartialFunction[E, ResultingDurableMessages]], generateDMViaState:Option[PartialFunction[S, ResultingDurableMessages]], generateDMViaStateAndEvent:Option[PartialFunction[(S,E), ResultingDurableMessages]], applyEventBefore:Boolean )
 
   // TODO This should be refactored into multiple traits..
   // TODO Could also add a way to get both event and state as input..
   private def resolveGenerateDMInfo():GenerateDMInfo = {
 
-    val errorMsg = "You can only override one of the following methods at the same time: generateDM, generateDMBefore and generateDMBefore( and generateResultingDurableMessages(which is Deprecated))"
+    val errorMsg = "You can only override one of the following methods at the same time: generateDM, generateDMSE, generateDMBefore and generateDMBefore( and generateResultingDurableMessages(which is Deprecated))"
     var generateDMInfo:Option[GenerateDMInfo] = None
     if ( generateResultingDurableMessages != Map.empty) {
       if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
-      generateDMInfo = Some(GenerateDMInfo(Some(generateResultingDurableMessages), None, false))
+      generateDMInfo = Some(GenerateDMInfo(Some(generateResultingDurableMessages), None, None, false))
     }
 
     if ( generateDMBefore != Map.empty) {
       if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
-      generateDMInfo = Some(GenerateDMInfo(Some(generateDMBefore), None, false))
+      generateDMInfo = Some(GenerateDMInfo(Some(generateDMBefore), None, None, false))
     }
 
     if ( generateDMAfter != Map.empty) {
       if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
-      generateDMInfo = Some(GenerateDMInfo(Some(generateDMAfter), None, true))
+      generateDMInfo = Some(GenerateDMInfo(Some(generateDMAfter), None, None, true))
     }
 
     if ( generateDM != Map.empty) {
       if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
-      generateDMInfo = Some(GenerateDMInfo(None, Some(generateDM), true))
+      generateDMInfo = Some(GenerateDMInfo(None, Some(generateDM), None, true))
+    }
+
+    if ( generateDMSE != Map.empty) {
+      if ( generateDMInfo.isDefined) throw new Exception(errorMsg)
+      generateDMInfo = Some(GenerateDMInfo(None, None, Some(generateDMSE), true))
     }
 
     // fallback to default - which is
-    generateDMInfo.getOrElse(GenerateDMInfo(None, Some(generateDM), true))
+    generateDMInfo.getOrElse(GenerateDMInfo(None, Some(generateDM), None, true))
   }
 
   def onEvent = {
     case e:E =>
 
       val resultingDMs:ResultingDurableMessages = generateDMInfo match {
-        case GenerateDMInfo(Some(generate), None, true) =>
+        case GenerateDMInfo(Some(generate), None, None, true) =>
           _previousState = Some(state) // keep the old state available as long as we execute generateDM
           state = state.transition(e) // make the new state current
           val resultingDurableMessages = generate.applyOrElse(e, defaultGenerateDMViaEvent)
           _previousState = None // clear previousState state
           resultingDurableMessages
 
-        case GenerateDMInfo(None, Some(generate), true) =>
+        case GenerateDMInfo(None, Some(generate), None, true) =>
           state = state.transition(e) // make the new state current
           generate.applyOrElse(state, defaultGenerateDMViaState)
 
-        case GenerateDMInfo(Some(generate), None, false) =>
+        case GenerateDMInfo(None, None, Some(generate), true) =>
+          state = state.transition(e) // make the new state current
+          generate.applyOrElse((state, e), defaultGenerateDMViaStateAndEvent)
+
+        case GenerateDMInfo(Some(generate), None, None, false) =>
           // Store nextState - the state we're in the processes of applying into - so that it is available
           // through nextState() from inside generateResultingDurableMessages
           _nextState = Some(state.transition(e))
@@ -201,6 +220,7 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           state = _nextState.get // pop the nextState and make it current
           _nextState = None // clear next state
           resultingDurableMessages
+        case x:GenerateDMInfo => throw new Exception("This combo is not supported..: " + x)
       }
 
       // From java resultingDurableMessages might be null.. Wrap it optional
