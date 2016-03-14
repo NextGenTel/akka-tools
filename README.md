@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.5          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.6          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.6 - Not released yet
+Version 1.0.6 - 2016-03-14
 
 * Added canSendAsDurableMessage():Boolean - Use it to check if it is possible to send DM
 * Fixed bug in findHighestSequenceNr when using (not full) persisteceIds / wildcards
@@ -34,7 +34,7 @@ Version 1.0.6 - Not released yet
   * generateDMAfter - gets event as input and is invoked AFTER event has been applied to state.
   * generateDM - gets state as input and is invoked AFTER event has been applied
 * Fixing [#15](https://github.com/NextGenTel/akka-tools/issues/15) - Snapshot-journal now supports SerializerWithStringManifest
-  * **Note!** - This fix requires a **change to the database layout** as described her: [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
+  * **Note!** - This fix requires a **change to the database layout** as described here: [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
 
 Version 1.0.5 - 2016-03-01
 
