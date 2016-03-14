@@ -196,31 +196,44 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   def onEvent = {
     case e:E =>
 
-      val resultingDMs:ResultingDurableMessages = generateDMInfo match {
-        case GenerateDMInfo(Some(generate), None, None, true) =>
-          _previousState = Some(state) // keep the old state available as long as we execute generateDM
-          state = state.transition(e) // make the new state current
-          val resultingDurableMessages = generate.applyOrElse(e, defaultGenerateDMViaEvent)
+      val resultingDMs: ResultingDurableMessages = {
+
+        val stateBackup = state
+        try {
+          generateDMInfo match {
+            case GenerateDMInfo(Some(generate), None, None, true) =>
+              _previousState = Some(state) // keep the old state available as long as we execute generateDM
+              state = state.transition(e) // make the new state current
+              generate.applyOrElse(e, defaultGenerateDMViaEvent)
+
+            case GenerateDMInfo(None, Some(generate), None, true) =>
+              state = state.transition(e) // make the new state current
+              generate.applyOrElse(state, defaultGenerateDMViaState)
+
+            case GenerateDMInfo(None, None, Some(generate), true) =>
+              state = state.transition(e) // make the new state current
+              generate.applyOrElse((state, e), defaultGenerateDMViaStateAndEvent)
+
+            case GenerateDMInfo(Some(generate), None, None, false) =>
+              // Store nextState - the state we're in the processes of applying into - so that it is available
+              // through nextState() from inside generateResultingDurableMessages
+              _nextState = Some(state.transition(e))
+              val resultingDurableMessages = generate.applyOrElse(e, defaultGenerateDMViaEvent)
+              state = _nextState.get // pop the nextState and make it current
+              resultingDurableMessages
+            case x: GenerateDMInfo => throw new Exception("This combo is not supported..: " + x)
+          }
+        } catch {
+          case e:Exception =>
+            state = stateBackup // Must revert changes to state
+            throw e // rethrow it
+
+        } finally {
+          // Do some more cleanup
           _previousState = None // clear previousState state
-          resultingDurableMessages
-
-        case GenerateDMInfo(None, Some(generate), None, true) =>
-          state = state.transition(e) // make the new state current
-          generate.applyOrElse(state, defaultGenerateDMViaState)
-
-        case GenerateDMInfo(None, None, Some(generate), true) =>
-          state = state.transition(e) // make the new state current
-          generate.applyOrElse((state, e), defaultGenerateDMViaStateAndEvent)
-
-        case GenerateDMInfo(Some(generate), None, None, false) =>
-          // Store nextState - the state we're in the processes of applying into - so that it is available
-          // through nextState() from inside generateResultingDurableMessages
-          _nextState = Some(state.transition(e))
-          val resultingDurableMessages = generate.applyOrElse(e, defaultGenerateDMViaEvent)
-          state = _nextState.get // pop the nextState and make it current
           _nextState = None // clear next state
-          resultingDurableMessages
-        case x:GenerateDMInfo => throw new Exception("This combo is not supported..: " + x)
+        }
+
       }
 
       // From java resultingDurableMessages might be null.. Wrap it optional
