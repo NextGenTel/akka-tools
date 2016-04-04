@@ -202,6 +202,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   private def onDurableMessageReceived(msg: DurableMessageReceived) {
     log.debug("Remembering DurableMessageReceived with DeliveryId={}", msg.deliveryId)
+    // We also need to confirm it here: If live, this is the second time, but if recovering it is the first real time.
     confirmDelivery(msg.deliveryId)
   }
 
@@ -261,9 +262,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       onInactiveTimeout()
     case r:DurableMessageReceived =>
       cancelTimeoutTimer()
-      persist(r) {
-        e => onDurableMessageReceived(e)
+
+      // We must try to confirmDelivery to see if this is the first time we get this confirmation.
+      // We should only persist it if it is the first time
+      if (confirmDelivery(r.deliveryId)) {
+        persist(r) {
+          e => onDurableMessageReceived(e)
+        }
       }
+
       startTimeoutTimer()
     case cmd:AnyRef =>
       tryCommandInternal(cmd)

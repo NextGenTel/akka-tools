@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.7 - Not Released yet
+
+* Preventing un-needed re-persisting of DurableMessageReceived when we receive the same one multiple times
+
 Version 1.0.6 - 2016-03-14
 
 * Added canSendAsDurableMessage():Boolean - Use it to check if it is possible to send DM
