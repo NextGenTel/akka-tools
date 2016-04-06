@@ -27,6 +27,8 @@ Changelog
 
 Version 1.0.7 - Not Released yet
 
+* Introduced GeneralAggregateBase in favor of now deprecated GeneralAggregate
+  * GeneralAggregateBase has a simpler more generic approach to generateDM
 * Preventing un-needed re-persisting of DurableMessageReceived when we receive the same one multiple times
 
 Version 1.0.6 - 2016-03-14
