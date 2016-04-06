@@ -10,7 +10,12 @@ import akka.persistence.{PersistentView, RecoveryCompleted, AtLeastOnceDelivery,
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
 
-case class SendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
+case class SendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
+
+@deprecated(message = "Use SendAsDM and GeneralAggregateBase instead", since = "1.0.7")
+case class SendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null) {
+  def toSendAsDM() = SendAsDM(payload, destinationActor, confirmationRoutingInfo)
+}
 
 object EnhancedPersistentActor {
   // Before we calculated the timeout based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts,
@@ -394,29 +399,29 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     return self.path
   }
 
-  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath) {
-    sendAsDurableMessage( SendAsDurableMessage(payload, destinationActor) )
+  protected def sendAsDM(payload: AnyRef, destinationActor: ActorPath) {
+    sendAsDM( SendAsDM(payload, destinationActor) )
   }
 
-  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = {
-    sendAsDurableMessage( SendAsDurableMessage(payload, destinationActor, confirmationRoutingInfo) )
+  protected def sendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = {
+    sendAsDM( SendAsDM(payload, destinationActor, confirmationRoutingInfo) )
   }
 
-  protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage) {
+  protected def sendAsDM(sendAsDm: SendAsDM) {
     if (isProcessingEvent) {
-      deliver(sendAsDurableMessage.destinationActor) {
+      deliver(sendAsDm.destinationActor) {
         deliveryId:Long =>
-          DurableMessage(deliveryId, sendAsDurableMessage.payload, getDMSelf(), sendAsDurableMessage.confirmationRoutingInfo)
+          DurableMessage(deliveryId, sendAsDm.payload, getDMSelf(), sendAsDm.confirmationRoutingInfo)
       }
     }
     else {
-      val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDurableMessage.payload)
-      context.actorSelection(sendAsDurableMessage.destinationActor).tell(outgoingDurableMessage, self)
+      val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDm.payload)
+      context.actorSelection(sendAsDm.destinationActor).tell(outgoingDurableMessage, self)
       pendingDurableMessage = None
     }
   }
 
-  protected def canSendAsDurableMessage():Boolean = isProcessingEvent || pendingDurableMessage.isDefined
+  protected def canSendAsDM():Boolean = isProcessingEvent || pendingDurableMessage.isDefined
 
 
 }

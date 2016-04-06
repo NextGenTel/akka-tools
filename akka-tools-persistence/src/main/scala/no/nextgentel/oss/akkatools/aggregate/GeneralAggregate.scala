@@ -9,14 +9,7 @@ import scala.collection.JavaConversions._
 import scala.reflect._
 
 
-
-
-
-
-
-
-
-@deprecated(message = "This impl is too complicated with all the different generateDM*-methods - Instead use GeneralAggregateBAse which has one single generic generateDM-method", since = "1.0.7")
+@deprecated(message = "This impl is too complicated with all the different generateDMs*-methods - Instead use GeneralAggregateBAse which has one single generic generateDMs-method", since = "1.0.7")
 abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
 (
   dmSelf:ActorPath
@@ -104,9 +97,9 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
     generateDMInfo.getOrElse(GenerateDMInfo(None, Some(generateDM), None, true))
   }
 
-  def generateDM(e:E, previousState:S):ResultingDurableMessages = {
+  def generateDMs(e:E, previousState:S):ResultingDMs = {
     try {
-      generateDMInfo match {
+      val resultingDMs:ResultingDurableMessages = generateDMInfo match {
         case GenerateDMInfo(Some(generate), None, None, true) =>
           _previousState = Some(previousState) // keep the old state available as long as we execute generateDM
           generate.applyOrElse(e, defaultGenerateDMViaEvent)
@@ -128,16 +121,33 @@ abstract class GeneralAggregate[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
           resultingDurableMessages
         case x: GenerateDMInfo => throw new Exception("This combo is not supported..: " + x)
       }
+
+      // From java resultingDMs might be null.. Wrap it optional
+      Option(resultingDMs).map( _.toResultingDMs()).getOrElse(null)
     } finally {
       // Do some more cleanup
       _previousState = None // clear previousState state
       _nextState = None // clear next state
     }
   }
+
+  protected def sendAsDurableMessage(sendAsDurableMessage: SendAsDurableMessage) = sendAsDM(sendAsDurableMessage.toSendAsDM())
+  protected def canSendAsDurableMessage():Boolean = canSendAsDM()
+  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = sendAsDM(payload, destinationActor, confirmationRoutingInfo)
+  protected def sendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath) = sendAsDM(payload, destinationActor)
 }
 
 
+@deprecated(message = "Use ResultingDMs and GeneralAggregateBase instead", since = "1.0.7")
+case class ResultingDurableMessages(list:List[SendAsDurableMessage]) {
+  def toResultingDMs() = ResultingDMs(list.map(_.toSendAsDM()))
+}
 
+@deprecated(message = "Use ResultingDMs and GeneralAggregateBase instead", since = "1.0.7")
+object ResultingDurableMessages {
+  def apply(message:AnyRef, destination:ActorPath):ResultingDurableMessages = ResultingDurableMessages(List(SendAsDurableMessage(message, destination)))
+  def apply(sendAsDurableMessage: SendAsDurableMessage):ResultingDurableMessages = ResultingDurableMessages(List(sendAsDurableMessage))
+}
 
 
 

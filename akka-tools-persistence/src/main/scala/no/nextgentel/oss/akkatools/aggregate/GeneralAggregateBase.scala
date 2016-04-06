@@ -2,7 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor.ActorPath
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
-import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState}
+import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, SendAsDM}
 
 import scala.reflect.ClassTag
 
@@ -99,18 +99,18 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
   }
 
   // Called AFTER event has been applied to state
-  def generateDM(event:E, previousState:S):ResultingDurableMessages
+  def generateDMs(event:E, previousState:S):ResultingDMs
 
   def onEvent = {
     case e:E =>
 
-      val resultingDMs: ResultingDurableMessages = {
+      val resultingDMs: ResultingDMs = {
 
         val stateBackup = state
         try {
           val previousState:S = state
           state = state.transition(e) // make the new state current
-          generateDM(e, previousState)
+          generateDMs(e, previousState)
         } catch {
           case e:Exception =>
             state = stateBackup // Must revert changes to state
@@ -120,13 +120,13 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
 
       }
 
-      // From java resultingDurableMessages might be null.. Wrap it optional
+      // From java resultingDMs might be null.. Wrap it optional
       Option(resultingDMs).map {
         rdm =>
           rdm.list.foreach {
             msg =>
               if(log.isDebugEnabled) log.debug(s"Sending generated DurableMessage: $msg")
-              sendAsDurableMessage(msg)
+              sendAsDM(msg)
           }
       }
   }
@@ -168,7 +168,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
   /**
    * Override this to decide if the failed outbound durableMessage should result in a persisted event.
    * If so, return these events.
-   * When these have been persisted, generateResultingDurableMessages() will be called as usual enabling
+   * When these have been persisted, generateDMs() will be called as usual enabling
    * you to perform some outbound action.
     *
     * @param originalPayload
@@ -176,4 +176,12 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
    * @return
    */
   def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
+}
+
+
+case class ResultingDMs(list:List[SendAsDM])
+
+object ResultingDMs {
+  def apply(message:AnyRef, destination:ActorPath):ResultingDMs = ResultingDMs(List(SendAsDM(message, destination)))
+  def apply(sendAsDM: SendAsDM):ResultingDMs = ResultingDMs(List(sendAsDM))
 }
