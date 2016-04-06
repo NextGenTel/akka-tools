@@ -11,6 +11,7 @@ case class DurableMessageReceived
 (
   deliveryId:Long,
 
+  // confirmationRoutingInfo is used as aggregateId when dispatching it to an aggregate using sharding
   @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@confirmationRoutingInfo_class")
   confirmationRoutingInfo:Option[AnyRef]
   ) extends JacksonJsonSerializable
