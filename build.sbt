@@ -32,7 +32,8 @@ lazy val commonSettings = Seq(
   compileOrder in Test := CompileOrder.Mixed,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   scalacOptions ++= Seq("-unchecked", "-deprecation"),
-  resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
+  resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven",
+  parallelExecution := false // Cannot use parallel tests as long as we're using static JdbcJournal.init()
 )
 
 
@@ -135,7 +136,6 @@ lazy val akkaToolsJdbcJournal = (project in file("akka-tools-jdbc-journal"))
   .settings(name := "akka-tools-jdbc-journal")
   .dependsOn(akkaToolsCommon)
   .settings(commonSettings: _*)
-  .settings(parallelExecution := false) // Cannot use parallel tests as long as we're using static JdbcJournal.init()
   .settings(libraryDependencies ++= (akkaToolsJdbcJournalDependencies))
   .settings(libraryDependencies ++= (testDbDependencies))
   .settings(libraryDependencies ++= (testDependencies))
