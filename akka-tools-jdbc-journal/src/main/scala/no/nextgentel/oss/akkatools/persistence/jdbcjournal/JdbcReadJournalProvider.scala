@@ -53,11 +53,15 @@ with akka.persistence.query.javadsl.CurrentEventsByTagQuery {
     scalaJdbcReadJournal.currentEventsByTag(tag, offset).asJava
 }
 
-class JdbcReadJournal(system: ExtendedActorSystem, config: Config) extends ScalaReadJournal
+class JdbcReadJournal(system: ExtendedActorSystem, val config: Config) extends ScalaReadJournal
 with akka.persistence.query.scaladsl.EventsByPersistenceIdQuery
 with akka.persistence.query.scaladsl.CurrentEventsByPersistenceIdQuery
 with akka.persistence.query.scaladsl.EventsByTagQuery
-with akka.persistence.query.scaladsl.CurrentEventsByTagQuery {
+with akka.persistence.query.scaladsl.CurrentEventsByTagQuery
+with JdbcJournalExtractRuntimeData {
+
+  val persistenceIdSplitter = runtimeData.persistenceIdSplitter
+
 
   val refreshInterval: FiniteDuration = {
     val millis = config.getDuration("refresh-interval", TimeUnit.MILLISECONDS)
@@ -65,46 +69,45 @@ with akka.persistence.query.scaladsl.CurrentEventsByTagQuery {
   }
 
   override def eventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, Unit] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 
   override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, Unit] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 
   private def generatePersistenceIdForEventByTag(tag:String):String = {
     // Must generate a persistenceId using the proper splitChar for the selected PersistenceIdSplitter so that
     // we get ALL events for this tag/type..
-    val splitChar:Char = JdbcJournal.persistenceIdSplitter().splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a persistenceIdSplitter not using a splitChar"))
+    val splitChar:Char = persistenceIdSplitter.splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a persistenceIdSplitter not using a splitChar"))
     tag + splitChar + PersistenceIdSplitterLastSlashImpl.WILDCARD
   }
 
   // Tag is defined to be the type-part used with persistenceIdSplitter
   override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, Unit] = {
     val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(true, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 
   override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, Unit] = {
     val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(false, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ ())
   }
 }
 
 
-class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
+class JdbcEventsByPersistenceIdActor(runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
   extends ActorPublisher[EventEnvelope] with ActorLogging {
 
   private case object Continue
 
-  import JdbcJournal._
 
   val serializer = SerializationExtension.get(context.system).serializerFor(classOf[PersistentRepr])
-  val persistenceIdObject: PersistenceId = persistenceIdSplitter().split(persistenceId)
+  val persistenceIdObject: PersistenceId = runtimeData.persistenceIdSplitter.split(persistenceId)
   private var nextFromSequenceNr = fromSequenceNr
   var buf = Vector.empty[EventEnvelope]
 
@@ -130,7 +133,7 @@ class JdbcEventsByPersistenceIdActor(live:Boolean, refreshInterval: FiniteDurati
       try {
 
         log.debug(s"Reading entries for persistenceId=$persistenceId - nextFromSequenceNr=$nextFromSequenceNr, toSequenceNr=$toSequenceNr")
-        val entries: List[JournalEntryDto] = repo().loadJournalEntries(persistenceIdObject, nextFromSequenceNr, toSequenceNr, maxRowsPrRead)
+        val entries: List[JournalEntryDto] = runtimeData.repo.loadJournalEntries(persistenceIdObject, nextFromSequenceNr, toSequenceNr, runtimeData.maxRowsPrRead)
         buf = entries.map {
           entry: JournalEntryDto =>
 

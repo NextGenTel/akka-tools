@@ -1,23 +1,26 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 
-import akka.actor.{Props, ActorLogging, Actor, ActorSystem}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.persistence.PersistentActor
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
-import akka.testkit.{TestProbe, TestKit}
+import akka.testkit.{TestKit, TestKitBase, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfter, Matchers, BeforeAndAfterAll, FunSuiteLike}
+import org.scalatest._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 
-class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+// Need separate actorSystems for each test to prevent them from interacting with each other
 
-  def this() = this(ActorSystem("JdbcReadJournalTest", ConfigFactory.load("application-test.conf")))
+
+abstract class JdbcReadJournalTestBase extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+
+  implicit lazy val system = ActorSystem(getClass.getSimpleName, ConfigFactory.load("application-test.conf"))
 
   val log = LoggerFactory.getLogger(getClass)
 
@@ -25,38 +28,39 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-
-  val readJournal = PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
-
-  val halfRefreshIntervalInMills:Long = readJournal.refreshInterval.toMillis/2
-
-  var nextIdValue = System.currentTimeMillis()
-
-  before {
-    // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-    JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+  lazy val readJournal = {
+    SingletonJdbcJournalRuntimeDataFactory.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+    PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
   }
 
+  lazy val halfRefreshIntervalInMills: Long = readJournal.refreshInterval.toMillis / 2
+
+  var nextIdValue = System.currentTimeMillis()
 
   override protected def afterAll(): Unit = {
     val f = system.terminate()
     Await.ready(f, Duration("2s"))
   }
 
-  def uniquePersistenceId(tag:String):String = {
+  def uniquePersistenceId(tag: String): String = {
     val id = s"$tag-$nextIdValue"
     nextIdValue = nextIdValue + 1
     id
   }
 
+}
+
+class JdbcReadJournalTest1 extends JdbcReadJournalTestBase {
   test("EventsByPersistenceIdQuery") {
 
     val persistenceId = uniquePersistenceId("pa")
+    val source: Source[EventEnvelope, Unit] =
+      readJournal.eventsByPersistenceId(persistenceId, 0, Long.MaxValue)
+
+
     val pa = system.actorOf(Props(new TestPersistentActor(persistenceId)))
     val paOther = system.actorOf(Props(new TestPersistentActor(uniquePersistenceId("pa"))))
 
-    val source: Source[EventEnvelope, Unit] =
-      readJournal.eventsByPersistenceId(persistenceId, 0, Long.MaxValue)
 
     val streamResult = TestProbe()
 
@@ -95,13 +99,19 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
       EventEnvelope(4, persistenceId, 4, TestEvent("d")))
-
   }
+}
 
+class JdbcReadJournalTest2 extends JdbcReadJournalTestBase {
   test("currentEventsByPersistenceId") {
-    val persistenceId = uniquePersistenceId("pa")
+    val persistenceId = uniquePersistenceId("pa1")
+
+    val source: Source[EventEnvelope, Unit] =
+      readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
+
+
     val pa = system.actorOf(Props(new TestPersistentActor(persistenceId)))
-    val paOther = system.actorOf(Props(new TestPersistentActor(uniquePersistenceId("pa"))))
+    val paOther = system.actorOf(Props(new TestPersistentActor(uniquePersistenceId("pa1"))))
 
     pa ! TestCmd("a")
     paOther ! TestCmd("other-a")
@@ -110,11 +120,8 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     pa ! TestCmd("c")
     paOther ! TestCmd("other-c")
 
-    Thread.sleep(halfRefreshIntervalInMills) // Skip to next read cycle
-
-    val source: Source[EventEnvelope, Unit] =
-      readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
-
+    Thread.sleep(halfRefreshIntervalInMills)
+    // Skip to next read cycle
 
     val streamResult = TestProbe()
 
@@ -139,18 +146,21 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectNoMsg() // The stream should have stopped
-
   }
+}
 
+class JdbcReadJournalTest3 extends JdbcReadJournalTestBase {
   test("eventsByTag") {
     val tag = "pb"
+
+    val source: Source[EventEnvelope, Unit] =
+      readJournal.eventsByTag(tag, 0)
+
+
     val id1 = uniquePersistenceId(tag)
     val id2 = uniquePersistenceId(tag)
     val pa1 = system.actorOf(Props(new TestPersistentActor(id1)))
     val pa2 = system.actorOf(Props(new TestPersistentActor(id2)))
-
-    val source: Source[EventEnvelope, Unit] =
-      readJournal.eventsByTag(tag, 0)
 
     val streamResult = TestProbe()
 
@@ -201,9 +211,16 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
       EventEnvelope(7, id1, 7, TestEvent("d1")),
       EventEnvelope(8, id2, 8, TestEvent("d2")))
   }
+}
 
+class JdbcReadJournalTest4 extends JdbcReadJournalTestBase {
   test("currentEventsByTag") {
     val tag = "pc"
+
+    val source: Source[EventEnvelope, Unit] =
+      readJournal.currentEventsByTag(tag, 0)
+
+
     val id1 = uniquePersistenceId(tag)
     val id2 = uniquePersistenceId(tag)
     val pa1 = system.actorOf(Props(new TestPersistentActor(id1)))
@@ -220,9 +237,6 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
     pa2 ! TestCmd("b2")
 
     Thread.sleep(halfRefreshIntervalInMills)
-
-    val source: Source[EventEnvelope, Unit] =
-      readJournal.currentEventsByTag(tag, 0)
 
     val streamResult = TestProbe()
 
@@ -248,24 +262,24 @@ class JdbcReadJournalTest(_system:ActorSystem) extends TestKit(_system) with Fun
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    streamResult.expectNoMsg()// The stream should have stopped
+    streamResult.expectNoMsg() // The stream should have stopped
   }
 
 }
 
-case class TestCmd(v:String)
+case class TestCmd(v: String)
 
-case class TestEvent(v:String)
+case class TestEvent(v: String)
 
-class TestPersistentActor(val persistenceId:String) extends Actor with PersistentActor with ActorLogging {
+class TestPersistentActor(val persistenceId: String) extends Actor with PersistentActor with ActorLogging {
   override def receiveRecover: Receive = {
-    case x:Any => log.debug(s"receiveRecover: $x")
+    case x: Any => log.debug(s"receiveRecover: $x")
   }
 
   override def receiveCommand: Receive = {
     case TestCmd(v) =>
       val event = TestEvent(v)
-      persist( event) {
+      persist(event) {
         e =>
           log.info(s"Persisted $event")
       }

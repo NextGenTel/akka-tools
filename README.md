@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.7 - Not Released yet
 
+* Added new config-file param 'jdbcJournalRuntimeDataFactory' which can be used when using multiple journals with different configuration at the same time.
 * Introduced GeneralAggregateBase in favor of now deprecated GeneralAggregate
   * GeneralAggregateBase has a simpler more generic approach to generateDM
 * Preventing un-needed re-persisting of DurableMessageReceived when we receive the same one multiple times

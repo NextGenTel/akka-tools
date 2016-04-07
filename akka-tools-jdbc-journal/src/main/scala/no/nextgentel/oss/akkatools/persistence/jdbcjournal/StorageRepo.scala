@@ -2,10 +2,12 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 import java.time.OffsetDateTime
 import java.util.Date
+import javax.sql.DataSource
 
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 import org.sql2o.data.{Row, Table}
-import org.sql2o.{Sql2oException, Query, Connection, Sql2o}
+import org.sql2o._
+import org.sql2o.quirks.OracleQuirks
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -43,12 +45,16 @@ class JdbcJournalDetectFatalOracleErrorHandler(fatalErrorHandler:JdbcJournalErro
   }
 }
 
-class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], errorHandler:JdbcJournalErrorHandler) extends StorageRepo with ClusterNodeRepo {
+class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:JdbcJournalErrorHandler) extends StorageRepo with ClusterNodeRepo {
 
   // backward compatible constructor
-  def this(sql2o:Sql2o, schemaName:String, errorHandler:JdbcJournalErrorHandler) = this(sql2o, Option(schemaName), errorHandler)
+  def this(sql2o:Sql2o, schemaName:String, _errorHandler:JdbcJournalErrorHandler) = this(sql2o, Option(schemaName), _errorHandler)
+  def this(dataSource:DataSource, schemaName:Option[String], _errorHandler:JdbcJournalErrorHandler) = this(new Sql2o(dataSource, new OracleQuirks()), schemaName, _errorHandler)
 
   import scala.collection.JavaConversions._
+
+  // wrap it
+  val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler)
 
   lazy val schemaPrefix = schemaName.map( s => s + ".").getOrElse("")
 
