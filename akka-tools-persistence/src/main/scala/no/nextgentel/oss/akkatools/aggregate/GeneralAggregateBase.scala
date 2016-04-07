@@ -178,6 +178,27 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
   def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
 }
 
+abstract class GeneralAggregateDMViaState[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+(
+  dmSelf:ActorPath
+) extends GeneralAggregateBase[E, S](dmSelf) {
+
+  // Called AFTER event has been applied to state
+  override def generateDMs(event: E, previousState: S): ResultingDMs = generateDMs.applyOrElse(state, (s:S) => ResultingDMs(List()))
+
+  def generateDMs:PartialFunction[S, ResultingDMs]
+}
+
+abstract class GeneralAggregateDMViaStateAndEvent[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+(
+  dmSelf:ActorPath
+) extends GeneralAggregateBase[E, S](dmSelf) {
+
+  // Called AFTER event has been applied to state
+  override def generateDMs(event: E, previousState: S): ResultingDMs = generateDMs.applyOrElse((state,event), (t:(S,E)) => ResultingDMs(List()))
+
+  def generateDMs:PartialFunction[(S,E), ResultingDMs]
+}
 
 case class ResultingDMs(list:List[SendAsDM])
 
