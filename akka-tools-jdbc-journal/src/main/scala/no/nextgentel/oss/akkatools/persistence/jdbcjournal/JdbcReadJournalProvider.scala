@@ -99,12 +99,10 @@ with JdbcJournalExtractRuntimeData {
   }
 }
 
+private case object Continue
 
 class JdbcEventsByPersistenceIdActor(runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
   extends ActorPublisher[EventEnvelope] with ActorLogging {
-
-  private case object Continue
-
 
   val serializer = SerializationExtension.get(context.system).serializerFor(classOf[PersistentRepr])
   val persistenceIdObject: PersistenceId = runtimeData.persistenceIdSplitter.split(persistenceId)
