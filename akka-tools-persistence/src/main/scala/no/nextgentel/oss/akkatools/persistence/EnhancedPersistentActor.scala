@@ -5,7 +5,9 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.event.Logging.MDC
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
-import akka.persistence.{PersistentView, RecoveryCompleted, AtLeastOnceDelivery, PersistentActor}
+import akka.persistence.{AtLeastOnceDelivery, PersistentActor, PersistentView, RecoveryCompleted}
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
@@ -68,6 +70,18 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeout
   }
 
+  // Info about all already processed (successfully) inbound DMs.
+  // If we see one of these again, we know that it is a resending caused by the sender not
+  // getting the DM-confirm.
+  // So instead of trying to process them - and fail since we've already processed them,
+  // we can 'ignore' them...
+  // But we cannot just ignore them:
+  // If the sender never got our DMReceived, we must send it again..
+  // And since the impl might not have just sent confirm, but used the DM with a new payload to send
+  // a cmd back to the sender via the DM-confirm, we must facilitate for that to also work again..
+  // You know.... idempotent cmds :)
+  private var processedDMs = Set[ProcessedDMEvent]() // DMs without payload
+
   /**
    * @param eventLogLevelInfo Used when processing events live - not recovering
    * @param recoveringEventLogLevelInfo Used when recovering events
@@ -125,6 +139,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       } finally {
         processingRecoveringMessageEnded
       }
+    case e:ProcessedDMEvent =>
+      onProcessedDMEvent(e)
     case c:RecoveryCompleted =>
       log.debug("Recover complete")
     case event:AnyRef =>
@@ -213,16 +229,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => Unit})
 
-  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = {
-    persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
-    persist(event) {
-      e =>
-        onApplyingLiveEvent(e)
-        successHandler.apply()
-        // Now we can do the last DM cleanup
-        doTryCommandCleanupAndConfirmDMIfSuccess(true)
-    }
-  }
+  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = persistAndApplyEvents( List(event), successHandler)
 
   protected def persistAndApplyEvents(events: List[E]):Unit = persistAndApplyEvents(events, { () => Unit})
 
@@ -235,11 +242,22 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
       persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
 
-      var callbacksLeft = events.size
-      persistAll(events) {
+      // If inbound cmd came via DM, we must also persist that we've processed This DM
+      val _events:List[Any] = pendingDurableMessage match {
+        case Some(dm) => ProcessedDMEvent.createFromDM(dm) :: events
+        case None     => events
+      }
+
+
+      var callbacksLeft = _events.size
+      persistAll(_events) {
         e =>
           callbacksLeft = callbacksLeft - 1
-          onApplyingLiveEvent(e)
+          e match {
+            case e:ProcessedDMEvent => onProcessedDMEvent(e)
+            case e:Any              => onApplyingLiveEvent(e.asInstanceOf[E])
+          }
+
           if (callbacksLeft == 0) {
             // This was the last time - we should call the successHandler
             successHandler.apply()
@@ -249,6 +267,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           }
       }
     }
+  }
+
+  private def onProcessedDMEvent(processedDMEvent: ProcessedDMEvent): Unit = {
+    processedDMs = processedDMs + processedDMEvent
   }
 
   /**
@@ -299,7 +321,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     val command: AnyRef = rawCommand match {
       case dm:DurableMessage =>
         pendingDurableMessage = Some(dm)
-        dm.payload.asInstanceOf[AnyRef]
+        dm.payload
       case x:AnyRef => x
     }
 
@@ -309,8 +331,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     try {
       if (doUnconfirmedWarningProcessing && (command.isInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])) {
         internalProcessUnconfirmedWarning(command.asInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])
-      }
-      else {
+      } else if (pendingDurableMessage.isDefined && processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
+        onAlreadyProcessedCmdViaDMReceivedAgain(command)
+      } else {
         tryCommand.apply(command)
       }
 
@@ -334,6 +357,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     startTimeoutTimer
   }
 
+  protected def onAlreadyProcessedCmdViaDMReceivedAgain(cmd:AnyRef): Unit ={
+    log.warning(s"Received already processed DM again: $cmd")
+  }
+
   private def doTryCommandCleanupAndConfirmDMIfSuccess(confirm:Boolean): Unit = {
 
     if ( confirm) {
@@ -355,6 +382,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   /**
    * If doUnconfirmedWarningProcessing is turned on, then override this method
    * to try to do something useful before we give up
+ *
    * @param originalPayload
    */
   protected def durableMessageNotDeliveredHandler(originalPayload:Any, errorMsg: String) {
@@ -466,6 +494,18 @@ trait MdcSupport[E] extends BeforeAndAfterEventAndCommand[E] {
   }
 
 }
+
+object ProcessedDMEvent {
+  def createFromDM(dm:DurableMessage) = ProcessedDMEvent(dm.deliveryId, dm.sender, dm.confirmationRoutingInfo)
+}
+
+case class ProcessedDMEvent(
+                             deliveryId:Long,
+                             sender:String,
+                             @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@confirmationRoutingInfo_class")
+                             confirmationRoutingInfo:AnyRef
+                           ) extends JacksonJsonSerializable
+
 
 case class PersistentActorTimeout private [persistence] ()
 
