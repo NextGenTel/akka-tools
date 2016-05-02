@@ -52,6 +52,26 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
 
   override protected def stateInfo(): String = state.toString
 
+
+  override protected def onAlreadyProcessedCmdViaDMReceivedAgain(cmd: AnyRef): Unit = {
+    super.onAlreadyProcessedCmdViaDMReceivedAgain(cmd)
+
+    cmd match {
+      case c:AggregateCmd =>
+        // Since the successHandler for receiving this cmd might resend the DM with new payload,
+        // and in that way forward the confirm-responsibility,
+        // we'll try to invoke the success-handler so that it might do that..
+        // If not, this duplicate DM will just be confirmed
+        val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => ResultingEvent(List[E]())} // Do nothing..
+        // Invoke cmdToEvent - not to use the event, but to try to invoke its successHandler.
+        val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(c, defaultCmdToEvent)
+        Option(eventResult.successHandler).map( _.apply() )
+
+      case _ => Unit // Nothing we can do..
+    }
+
+  }
+
   final def tryCommand = {
     case x:AggregateCmd =>
       // Can't get pattern-matching to work with generics..
