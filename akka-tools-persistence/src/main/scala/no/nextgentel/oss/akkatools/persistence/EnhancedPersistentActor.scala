@@ -414,7 +414,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
         // Cannot call confirmDelivery directly because we need to remember that we have
         // decided to threat this failed delivery as "delivered"
-        val persistableDurableMessageReceived = DurableMessageReceived(ud.deliveryId, null)
+        val persistableDurableMessageReceived = DurableMessageReceived(ud.deliveryId, None)
         persist(persistableDurableMessageReceived) {
           e => onDurableMessageReceived(e)
         }
