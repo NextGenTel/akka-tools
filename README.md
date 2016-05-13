@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.6          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.7          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.7 - Not Released yet
+Version 1.0.7 - 2016-05-13
 
 * Added new config-file param 'jdbcJournalRuntimeDataFactory' which can be used when using multiple journals with different configuration at the same time.
 * Introduced GeneralAggregateBase in favor of now deprecated GeneralAggregate
