@@ -24,7 +24,7 @@ object SeedNodesListOrderingResolver {
       log.info("We are NOT a seedNode")
     }
 
-    val aliveNodes = repo.findAliveClusterNodes(maxAliveAge).map {
+    val aliveNodes = repo.findAliveClusterNodes(maxAliveAge, onlyJoined = false).map {
       node =>
         // alive nodes are listed on this form:
         //    akka.tcp://SomeAkkaSystem@host1:9999

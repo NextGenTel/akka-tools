@@ -122,6 +122,7 @@ The following tables are needed, here described in liquibase-format:
     CREATE TABLE t_cluster_nodes (
         nodeName                              VARCHAR(255),
         lastSeen                              TIMESTAMP,
+        joined                                INT,
         PRIMARY KEY(nodeName)
     );
     
@@ -141,6 +142,10 @@ If migrating from Akka 2.3.x to 2.4 you might want to apply the following db-cha
 If migrating from **akka-tools 1.0.5 or earlier**, you need to apply the following DB-changes which was added in **akka-tools 1.0.6**:
 
     ALTER TABLE t_snapshot ADD serializerId INT;
+
+If migrating from **akka-tools 1.0.6 or earlier**, you need to apply the following DB-changes which was added in **akka-tools 1.0.7**:
+
+    ALTER TABLE t_cluster_nodes ADD joined INT;
 
 The payload of the events are written and read from the *persistentRepr*-column.
 

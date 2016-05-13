@@ -36,3 +36,6 @@ CREATE TABLE t_cluster_nodes (
 
 -- changeset mokj:changes-after-akka-tools-1.0.5 dbms:all
 ALTER TABLE t_snapshot ADD serializerId INT;
+
+-- changeset mokj:changes-after-akka-tools-1.0.7 dbms:all
+ALTER TABLE t_cluster_nodes ADD joined INT;

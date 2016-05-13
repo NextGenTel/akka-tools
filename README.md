@@ -34,6 +34,7 @@ Version 1.0.7 - Not Released yet
 * Added automatic handling of re-received old commands (via DM)
   * Before: We would process it as a regular command which would fail since we have already processed it and changed our state.
   * Now: We see that we have successfully processed this command before (sender is re-sending it because it has not yet gotten our confirmation), so we ignore it and re-send the confirm
+* Improved SeedNodeResolving and Cluster-ErrorDetection
 
 Version 1.0.6 - 2016-03-14
 

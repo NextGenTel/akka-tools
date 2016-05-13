@@ -246,14 +246,23 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
     }
   }
 
-  def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime) {
-    var sql = s"update ${schemaPrefix}t_cluster_nodes set lastSeen = :timestamp where nodeName = :nodeName"
+  def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime, joined:Boolean) {
+    var sql = s"update ${schemaPrefix}t_cluster_nodes set lastSeen = :timestamp, joined = :joined where nodeName = :nodeName"
     val c = sql2o.open()
     try {
-      val updatedRows: Int = c.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate.getResult
+      val joinedAsInt:Int = if (joined) 1 else 0
+      val updatedRows: Int = c.createQuery(sql)
+        .addParameter("nodeName", nodeName)
+        .addParameter("timestamp", Date.from(timestamp.toInstant))
+        .addParameter("joined", joinedAsInt)
+        .executeUpdate.getResult
       if (updatedRows == 0) {
-        sql = s"insert into ${schemaPrefix}t_cluster_nodes(nodeName, lastSeen) values (:nodeName, :timestamp)"
-        c.createQuery(sql).addParameter("nodeName", nodeName).addParameter("timestamp", Date.from(timestamp.toInstant)).executeUpdate
+        sql = s"insert into ${schemaPrefix}t_cluster_nodes(nodeName, lastSeen, joined) values (:nodeName, :timestamp, :joined)"
+        c.createQuery(sql)
+          .addParameter("nodeName", nodeName)
+          .addParameter("timestamp", Date.from(timestamp.toInstant))
+          .addParameter("joined", joinedAsInt)
+          .executeUpdate
       }
     } finally {
       c.close()
@@ -270,9 +279,9 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
     }
   }
 
-  def findAliveClusterNodes(clusterNodesAliveSinceCheck: FiniteDuration): List[String] = {
+  def findAliveClusterNodes(clusterNodesAliveSinceCheck: FiniteDuration, onlyJoined:Boolean): List[String] = {
     val aliveAfter = OffsetDateTime.now.minusSeconds(clusterNodesAliveSinceCheck.toSeconds.toInt)
-    val sql = s"select nodeName from ${schemaPrefix}t_cluster_nodes where lastSeen >= :aliveAfter"
+    val sql = s"select nodeName from ${schemaPrefix}t_cluster_nodes where lastSeen >= :aliveAfter" + (if (onlyJoined) " and joined = 1" else "") + " order by joined desc, lastSeen desc"
     val c = sql2o.open()
     try {
       c.createQuery(sql).addParameter("aliveAfter", Date.from(aliveAfter.toInstant)).executeScalarList(classOf[String]).toList

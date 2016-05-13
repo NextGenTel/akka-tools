@@ -57,12 +57,10 @@ class ClusterListener
   var upMembers = Set[String]()
   val maxAllowedTimeBeforeClusterIsReady = resolveMaxAllowedTimeBeforeClusterIsReady()
   var scheduledDoHousekeeping: Option[Cancellable] = None
-  var clusterStartTimeout = context.system.scheduler.scheduleOnce(maxAllowedTimeBeforeClusterIsReady, self, ClusterStartTimeout())
-  var errorDetectionIsStarted = false
+  var clusterStartTimeout:Option[Cancellable] = Some(context.system.scheduler.scheduleOnce(maxAllowedTimeBeforeClusterIsReady, self, ClusterStartTimeout()))
   val nodeName = clusterConfig.thisHostnameAndPort()
 
-  // Since we're starting up, just make sure that we do not find info about ourself from our last run
-  removeClusterNodeAlive()
+  startErrorDetection()
 
 
   override def preStart {
@@ -71,7 +69,6 @@ class ClusterListener
 
   override def postStop {
     removeClusterNodeAlive() // do some cleanup
-    errorDetectionIsStarted = false
     cluster.unsubscribe(self)
   }
 
@@ -79,9 +76,9 @@ class ClusterListener
     case mUp: MemberUp =>
       upMembers = upMembers + mUp.member.address.toString
       log.info("Member is Up: {} - memberCount: {}", mUp.member, upMembers.size)
-      if (!errorDetectionIsStarted) {
-        startErrorDetection()
-        errorDetectionIsStarted = true
+      if ( clusterStartTimeout.isDefined) {
+        clusterStartTimeout.get.cancel()
+        clusterStartTimeout = None
       }
     case mUnreachable: UnreachableMember =>
       log.warning("Member detected as unreachable: {} - memberCount: {}", mUnreachable.member, upMembers.size)
@@ -102,7 +99,7 @@ class ClusterListener
 
   private def startErrorDetection() {
     log.info("Starting Cluster Error detection")
-    clusterStartTimeout.cancel
+
     writeClusterNodeAlive()
     scheduleDoHousekeeping()
   }
@@ -115,14 +112,17 @@ class ClusterListener
   }
 
   private def writeClusterNodeAlive() {
-    log.debug("Updating writeClusterNodeAlive for {}", nodeName)
-    repo.writeClusterNodeAlive(nodeName, OffsetDateTime.now)
+
+    val weHaveJoinedCluster = upMembers.size > 0
+
+    log.debug(s"Updating writeClusterNodeAlive for $nodeName - weHaveJoinedCluster: $weHaveJoinedCluster")
+    repo.writeClusterNodeAlive(nodeName, OffsetDateTime.now, weHaveJoinedCluster)
   }
 
   private def checkForErrorSituation(): Boolean = {
     //TODO: change it so that this error-situation has to be seen over some periode of time - eg. to checks
     //.. To prevent us from concluding error situation if we have not been told that a member has joined the cluster yet.
-    val aliveClusterNodes = repo.findAliveClusterNodes(clusterNodesAliveSinceCheck)
+    val aliveClusterNodes = repo.findAliveClusterNodes(clusterNodesAliveSinceCheck, onlyJoined = true)
     log.debug("List of live clusterNodes from DB: " + aliveClusterNodes.mkString(","))
     if (aliveClusterNodes.size > upMembers.size) {
       val errorMsg = "Fatal Cluster Error detected: " +
