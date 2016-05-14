@@ -35,6 +35,7 @@ Version 1.0.7 - 2016-05-13
   * Before: We would process it as a regular command which would fail since we have already processed it and changed our state.
   * Now: We see that we have successfully processed this command before (sender is re-sending it because it has not yet gotten our confirmation), so we ignore it and re-send the confirm
 * Improved SeedNodeResolving and Cluster-ErrorDetection
+  * **Note!** - This fix requires a **change to the database layout** as described here: [JdbcJournal](https://github.com/NextGenTel/akka-tools/tree/master/akka-tools-jdbc-journal)
 
 Version 1.0.6 - 2016-03-14
 
