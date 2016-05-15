@@ -1,6 +1,9 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 
+import java.util.concurrent.TimeUnit
+
+import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.persistence.PersistentActor
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
@@ -12,7 +15,7 @@ import org.scalatest._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 
 // Need separate actorSystems for each test to prevent them from interacting with each other
@@ -54,7 +57,7 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase {
   test("EventsByPersistenceIdQuery") {
 
     val persistenceId = uniquePersistenceId("pa")
-    val source: Source[EventEnvelope, Unit] =
+    val source: Source[EventEnvelope, NotUsed] =
       readJournal.eventsByPersistenceId(persistenceId, 0, Long.MaxValue)
 
 
@@ -106,7 +109,7 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase {
   test("currentEventsByPersistenceId") {
     val persistenceId = uniquePersistenceId("pa1")
 
-    val source: Source[EventEnvelope, Unit] =
+    val source: Source[EventEnvelope, NotUsed] =
       readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
 
 
@@ -140,12 +143,14 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase {
       EventEnvelope(2, persistenceId, 2, TestEvent("b")),
       EventEnvelope(3, persistenceId, 3, TestEvent("c")))
 
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
     pa ! TestCmd("x")
     paOther ! TestCmd("other-x")
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    streamResult.expectNoMsg() // The stream should have stopped
+    streamResult.expectNoMsg(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
   }
 }
 
@@ -153,7 +158,7 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase {
   test("eventsByTag") {
     val tag = "pb"
 
-    val source: Source[EventEnvelope, Unit] =
+    val source: Source[EventEnvelope, NotUsed] =
       readJournal.eventsByTag(tag, 0)
 
 
@@ -217,7 +222,7 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase {
   test("currentEventsByTag") {
     val tag = "pc"
 
-    val source: Source[EventEnvelope, Unit] =
+    val source: Source[EventEnvelope, NotUsed] =
       readJournal.currentEventsByTag(tag, 0)
 
 
@@ -256,13 +261,15 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase {
       EventEnvelope(3, id1, 3, TestEvent("b1")),
       EventEnvelope(4, id2, 4, TestEvent("b2")))
 
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
     pa1 ! TestCmd("c1")
     Thread.sleep(100)
     pa2 ! TestCmd("c2")
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    streamResult.expectNoMsg() // The stream should have stopped
+    streamResult.expectNoMsg(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
   }
 
 }
