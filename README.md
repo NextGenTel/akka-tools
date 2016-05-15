@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.8 - Not released yet
+
+* Upgraded to akka 2.4.4 - including changes need to work with new Java PersistentQuery-api
+
 Version 1.0.7 - 2016-05-13
 
 * Added new config-file param 'jdbcJournalRuntimeDataFactory' which can be used when using multiple journals with different configuration at the same time.
