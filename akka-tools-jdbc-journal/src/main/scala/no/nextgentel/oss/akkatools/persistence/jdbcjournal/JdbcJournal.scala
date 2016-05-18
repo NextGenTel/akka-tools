@@ -54,8 +54,21 @@ object JdbcJournal {
     SingletonJdbcJournalRuntimeDataFactory.init(config)
   }
 
+  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
+  def repo(): StorageRepo = SingletonJdbcJournalRuntimeDataFactory.repo()
+
+  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
+  def clusterNodeRepo() = SingletonJdbcJournalRuntimeDataFactory.clusterNodeRepo()
+
+  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
+  def persistenceIdSplitter() = SingletonJdbcJournalRuntimeDataFactory.persistenceIdSplitter()
+
 }
 
+/**
+Used when not configuring custom/multi JdbcJournalRuntimeDataFactory
+You can invoke the method createJdbcJournalRuntimeData as many times you like to get working runtimeConfig.
+*/
 object SingletonJdbcJournalRuntimeDataFactory extends JdbcJournalRuntimeDataFactory {
 
   private var maxRowsPrRead = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ
@@ -68,10 +81,10 @@ object SingletonJdbcJournalRuntimeDataFactory extends JdbcJournalRuntimeDataFact
     maxRowsPrRead = config.maxRowsPrRead
   }
 
-  private def repo(): StorageRepo = _repo.getOrElse(throw new Exception("JdbcJournal not configured yet"))
-  private def clusterNodeRepo() = repo().asInstanceOf[ClusterNodeRepo]
+  private [jdbcjournal] def repo(): StorageRepo = _repo.getOrElse(throw new Exception("JdbcJournal not configured yet"))
+  private [jdbcjournal] def clusterNodeRepo() = repo().asInstanceOf[ClusterNodeRepo]
 
-  private def persistenceIdSplitter(): PersistenceIdSplitter = _persistenceIdSplitter.getOrElse(throw new Exception("JdbcJournal not configured yet"))
+  private [jdbcjournal] def persistenceIdSplitter(): PersistenceIdSplitter = _persistenceIdSplitter.getOrElse(throw new Exception("JdbcJournal not configured yet"))
 
   override def createJdbcJournalRuntimeData(): JdbcJournalRuntimeData = {
     JdbcJournalRuntimeData(repo(), clusterNodeRepo(), persistenceIdSplitter(), maxRowsPrRead)
