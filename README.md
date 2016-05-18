@@ -25,9 +25,9 @@ Version-information:
 Changelog
 ----------------------------
 
-Version 1.0.8 - Not released yet
+Version 1.0.7.1 - Not released yet
 
-* Upgraded to akka 2.4.4 - including changes need to work with new Java PersistentQuery-api
+* Upgraded to akka 2.4.5 - including changes need to work with new Java PersistentQuery-api
 * Fixed regression in JdbcJournal - Now we're back to being backward compile-compatible
 
 Version 1.0.7 - 2016-05-13
