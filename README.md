@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.7          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.7.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.7.1 - Not released yet
+Version 1.0.7.1 - 2016-05-18
 
 * Upgraded to akka 2.4.5 - including changes need to work with new Java PersistentQuery-api
 * Fixed regression in JdbcJournal - Now we're back to being backward compile-compatible
