@@ -216,7 +216,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
             row.getString("processorId"),
             row.getLong("sequenceNr"),
             row.getLong("timestamp"),
-            row.getObject("snapshot", classOf[Array[Byte]]).asInstanceOf[Array[Byte]],
+            Option(row.getObject("snapshot", classOf[Array[Byte]]).asInstanceOf[Array[Byte]]).getOrElse( Array[Byte]() ), // Empty BLOB in Oracle is returned as NULL
             row.getString("snapshotClassname"),
             Option(row.getInteger("serializerId")).map(_.toInt).filter( i => i != 0))
           Some(e)
