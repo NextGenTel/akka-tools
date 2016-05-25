@@ -111,17 +111,20 @@ class ClusterListener
     }
   }
 
-  private def writeClusterNodeAlive() {
+  private def weHaveJoinedCluster = upMembers.nonEmpty
 
-    val weHaveJoinedCluster = upMembers.size > 0
+  private def writeClusterNodeAlive() {
 
     log.debug(s"Updating writeClusterNodeAlive for $nodeName - weHaveJoinedCluster: $weHaveJoinedCluster")
     repo.writeClusterNodeAlive(nodeName, OffsetDateTime.now, weHaveJoinedCluster)
   }
 
   private def checkForErrorSituation(): Boolean = {
-    //TODO: change it so that this error-situation has to be seen over some periode of time - eg. to checks
-    //.. To prevent us from concluding error situation if we have not been told that a member has joined the cluster yet.
+    if( !weHaveJoinedCluster ) {
+      // No error-situation since we have not joined cluster yet
+      return false
+    }
+
     val aliveClusterNodes = repo.findAliveClusterNodes(clusterNodesAliveSinceCheck, onlyJoined = true)
     log.debug("List of live clusterNodes from DB: " + aliveClusterNodes.mkString(","))
     if (aliveClusterNodes.size > upMembers.size) {

@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.8 - Not released yet
+
+* Fixed bug in ClusterListener-errorDetection - It could wrongly detect error when it saw other alive nodes before it self has joined cluster..
+
 Version 1.0.7.1 - 2016-05-18
 
 * Upgraded to akka 2.4.5 - including changes need to work with new Java PersistentQuery-api
