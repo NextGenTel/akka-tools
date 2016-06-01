@@ -75,14 +75,14 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
   // When running in a sharded environment, we cannot use our real actors self.
   // We must use our dispatcher, which knows about the sharding mechanism.
   // This has to be like this to make sure the DM confirmation-message is received by the correct sharded instance of our actor.
-  override protected def getDMSelf(): ActorPath = Option(dmSelf).getOrElse(super.getDMSelf())
+  override def getDMSelf(): ActorPath = Option(dmSelf).getOrElse(super.getDMSelf())
 
   // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
-  override protected def sendAsDM(payload: AnyRef, destinationActor: ActorPath): Unit =
+  override def sendAsDM(payload: AnyRef, destinationActor: ActorPath): Unit =
     sendAsDM(payload, destinationActor, dispatchId)
 
   // Sending messages with our dispatcherId as confirmation routing info - to help the confirmation coming back to us
-  override protected def sendAsDM(sendAsDM: SendAsDM): Unit = {
+  override def sendAsDM(sendAsDM: SendAsDM): Unit = {
     super.sendAsDM( sendAsDM.copy(confirmationRoutingInfo = dispatchId) )
   }
 }

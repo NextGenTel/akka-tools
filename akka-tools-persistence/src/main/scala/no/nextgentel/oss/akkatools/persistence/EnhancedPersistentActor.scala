@@ -423,19 +423,19 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   // This is used as 'self' when sending DMs.. When receiver is confirming DM, the confirmation is sent to this actor.
-  protected def getDMSelf(): ActorPath = {
-    return self.path
+  def getDMSelf(): ActorPath = {
+    self.path
   }
 
-  protected def sendAsDM(payload: AnyRef, destinationActor: ActorPath) {
+  def sendAsDM(payload: AnyRef, destinationActor: ActorPath):Unit = {
     sendAsDM( SendAsDM(payload, destinationActor) )
   }
 
-  protected def sendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = {
+  def sendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef): Unit = {
     sendAsDM( SendAsDM(payload, destinationActor, confirmationRoutingInfo) )
   }
 
-  protected def sendAsDM(sendAsDm: SendAsDM) {
+  def sendAsDM(sendAsDm: SendAsDM):Unit = {
     if (isProcessingEvent) {
       deliver(sendAsDm.destinationActor) {
         deliveryId:Long =>
@@ -449,7 +449,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     }
   }
 
-  protected def canSendAsDM():Boolean = isProcessingEvent || pendingDurableMessage.isDefined
+  def canSendAsDM():Boolean = isProcessingEvent || pendingDurableMessage.isDefined
 
 
 }

@@ -29,6 +29,8 @@ Version 1.0.8 - Not released yet
 
 * Fixed bug in ClusterListener-errorDetection - It could wrongly detect error when it saw other alive nodes before it self has joined cluster..
 * Fixed NPE bug when reading empty snapshots - Oracle treats empty BLOBs as NULL
+* Introduced GeneralAggregateV2 and AggregateStateV2 which let you co-locate all related logic:
+  * each different state-implementation has their own cmdToEvent, eventToDMs( old name: generateDMs) and eventToState (old name: transition)
 
 Version 1.0.7.1 - 2016-05-18
 
