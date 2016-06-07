@@ -315,7 +315,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     persistAndApplyEventHasBeenCalled = false
 
     prevLogLevelTryCommand = currentLogLevelInfo
-    currentLogLevelInfo = cmdLogLevelInfo
+    currentLogLevelInfo = cmdLogLevelInfo && !(rawCommand.isInstanceOf[InternalCommand]) // Prevent using info-cmd-logging when command is InternalCommand
     cancelTimeoutTimer
     pendingDurableMessage = None
     val command: AnyRef = rawCommand match {

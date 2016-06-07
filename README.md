@@ -31,6 +31,7 @@ Version 1.0.8 - Not released yet
 * Fixed NPE bug when reading empty snapshots - Oracle treats empty BLOBs as NULL
 * Introduced GeneralAggregateV2 and AggregateStateV2 which let you co-locate all related logic:
   * each different state-implementation has their own cmdToEvent, eventToDMs( old name: generateDMs) and eventToState (old name: transition)
+* InternalCommands (e.g GetState) are now logged with debug even though it is configured to log commands as info
 
 Version 1.0.7.1 - 2016-05-18
 
