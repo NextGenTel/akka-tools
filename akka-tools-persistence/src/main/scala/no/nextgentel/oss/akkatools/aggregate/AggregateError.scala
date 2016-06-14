@@ -1,3 +1,4 @@
 package no.nextgentel.oss.akkatools.aggregate
 
-class AggregateError(errorMsg:String) extends RuntimeException(errorMsg)
+// if skipErrorHandler == true, we'll skip the custom-errorHandler on eventResult (onError)
+class AggregateError(errorMsg:String, val skipErrorHandler:Boolean = false) extends RuntimeException(errorMsg)

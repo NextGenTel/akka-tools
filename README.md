@@ -32,6 +32,7 @@ Version 1.0.8 - Not released yet
 * Introduced GeneralAggregateV2 and AggregateStateV2 which let you co-locate all related logic:
   * each different state-implementation has their own cmdToEvent, eventToDMs( old name: generateDMs) and eventToState (old name: transition)
 * InternalCommands (e.g GetState) are now logged with debug even though it is configured to log commands as info
+* Added skipErrorHandler:Boolean to AggregateError. If true, we skip invoking the custom onError-errorHandler attached to eventResult
 
 Version 1.0.7.1 - 2016-05-18
 

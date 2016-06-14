@@ -111,7 +111,11 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
           }
         } catch {
           case error:AggregateError =>
-            Option(eventResult.errorHandler).getOrElse(defaultErrorHandler).apply(error.getMessage)
+            if ( error.skipErrorHandler ) {
+              log.debug("Skipping eventResult-errorHandler")
+            } else {
+              Option(eventResult.errorHandler).getOrElse(defaultErrorHandler).apply(error.getMessage)
+            }
             throw error
         }
       }
