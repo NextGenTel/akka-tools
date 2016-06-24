@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.7.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.8          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.8 - Not released yet
+Version 1.0.8 - 2016-06-24
 
 * Fixed bug in ClusterListener-errorDetection - It could wrongly detect error when it saw other alive nodes before it self has joined cluster..
 * Fixed NPE bug when reading empty snapshots - Oracle treats empty BLOBs as NULL
