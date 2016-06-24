@@ -33,6 +33,7 @@ Version 1.0.8 - Not released yet
   * each different state-implementation has their own cmdToEvent, eventToDMs( old name: generateDMs) and eventToState (old name: transition)
 * InternalCommands (e.g GetState) are now logged with debug even though it is configured to log commands as info
 * Added skipErrorHandler:Boolean to AggregateError. If true, we skip invoking the custom onError-errorHandler attached to eventResult
+* Fixed bug in JdbcSnapshotStore related to reading snapshots when not using serializerId
 
 Version 1.0.7.1 - 2016-05-18
 

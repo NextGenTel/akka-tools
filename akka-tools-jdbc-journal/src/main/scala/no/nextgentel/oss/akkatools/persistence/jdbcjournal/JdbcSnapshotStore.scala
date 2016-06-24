@@ -32,7 +32,7 @@ class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLoggi
 
           val snapshot = e.serializerId match {
             case Some(serializerId) => serialization.deserialize(e.snapshot, serializerId, e.manifest).get
-            case None               => serialization.deserialize(e.snapshot, getClass().getClassLoader().loadClass(e.manifest))
+            case None               => serialization.deserialize(e.snapshot, getClass().getClassLoader().loadClass(e.manifest)).get
           }
 
           val selectedSnapshot = SelectedSnapshot(
