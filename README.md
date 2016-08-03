@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.8          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.9          | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.9 - NOT RELEASED YET
+Version 1.0.9 - 2016-08-03
 
 * Added the concept of DMGeneratingVersion
   * If you (by mistake?) change the behaviour of an aggregate in such a way that it now sends a different amount of DMs based on the same events,
