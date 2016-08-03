@@ -1,10 +1,11 @@
-package no.nextgentel.oss.akkatools.aggregate
+package no.nextgentel.oss.akkatools.aggregate.GeneralAggregateBaseTestPackage
 
 import java.util.UUID
 
 import akka.actor.{ActorPath, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
+import no.nextgentel.oss.akkatools.aggregate._
 import no.nextgentel.oss.akkatools.persistence.{DurableMessage, DurableMessageReceived}
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}

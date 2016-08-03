@@ -25,6 +25,16 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.9 - NOT RELEASED YET
+
+* Added the concept of DMGeneratingVersion
+  * If you (by mistake?) change the behaviour of an aggregate in such a way that it now sends a different amount of DMs based on the same events,
+   this will (by default) confuse Akka's AtLeastOnceDelivery-mechanism which will try to resend what it believes is old unconfirmed messages.
+    This can now be fixed by setting DMGeneratingVersion to a higher int-value. If this is the case, we will see that this is the case,
+    prevent these messages from beeing sent, and store the info so we wont have this issue in the future.
+    This feature can be used mulitple times (with multiple new versions) over time.
+    [See test for more info](https://github.com/NextGenTel/akka-tools/blob/master/akka-tools-persistence/src/test/scala/no/nextgentel/oss/akkatools/aggregate/TestingAggregateNowSendingMoreDMs.scala)
+
 Version 1.0.8 - 2016-06-24
 
 * Fixed bug in ClusterListener-errorDetection - It could wrongly detect error when it saw other alive nodes before it self has joined cluster..

@@ -70,6 +70,19 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeout
   }
 
+  private var dmGeneratingVersionFixedDeliveryIds = Set[Long]()
+  private var currentDmGeneratingVersion = 0
+
+  // Override this in your code to set the dmGeneratingVersion your code is currently using.
+  // You can bump this version if you have changed the code in such a way that it now sends
+  // more DMs than before based on the same events.
+  // We do the following when we ave completed a recover:
+  //  If currentDmGeneratingVersion < getDMGeneratingVersion, then we auto-confirms all outstanding
+  // DMs so that thay are not sent after all.. Then we stores a new event, SettingDMGeneratingVersionEvent( getDMGeneratingVersion() ).
+  // The next time we recover, we will process the SettingDMGeneratingVersionEvent and modifying currentDmGeneratingVersion so that
+  // we will not perform the fix described above again
+  protected def getDMGeneratingVersion = 0
+
   // Info about all already processed (successfully) inbound DMs.
   // If we see one of these again, we know that it is a resending caused by the sender not
   // getting the DM-confirm.
@@ -141,10 +154,49 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
+    case e:NewDMGeneratingVersionEvent =>
+      onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
-      log.debug("Recover complete")
+      onRecoveryCompleted()
     case event:AnyRef =>
       onReceiveRecover(event.asInstanceOf[E])
+  }
+
+  protected def onRecoveryCompleted(): Unit = {
+    log.debug("Recover complete")
+
+    if ( currentDmGeneratingVersion < getDMGeneratingVersion ) {
+      fixDMGeneratingVersionProblem()
+    }
+
+  }
+
+  private def isFixingDMGeneratingVersionProblem():Boolean = {
+    currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
+  }
+
+  private def fixDMGeneratingVersionProblem(): Unit = {
+    if ( dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
+
+
+      log.warning(s"Found unconfirmed DMs ($dmGeneratingVersionFixedDeliveryIds) when going to from dmGeneratingVersion=$currentDmGeneratingVersion to dmGeneratingVersion=$getDMGeneratingVersion")
+
+      // We must save that we're done with these DMs
+      val listOfReceivedDMs = dmGeneratingVersionFixedDeliveryIds.map {
+        deliveryId =>
+          // This is the event we're going to save
+          DurableMessageReceived(deliveryId, "Added by fixDMGeneratingVersionProblem")
+      }.toList
+
+      dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
+
+      // Must also save that we are now using new DMGeneratingVersion
+      val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
+      persistAll(eventList) {
+          case x:DurableMessageReceived => onDurableMessageReceived(x)
+          case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
+      }
+    }
   }
 
   protected def onReceiveRecover(event:E) {
@@ -222,9 +274,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   def onEvent:PartialFunction[E,Unit]
 
   private def onDurableMessageReceived(msg: DurableMessageReceived) {
-    log.debug("Remembering DurableMessageReceived with DeliveryId={}", msg.deliveryId)
     // We also need to confirm it here: If live, this is the second time, but if recovering it is the first real time.
-    confirmDelivery(msg.deliveryId)
+    val wasRemovedFromUnconfirmedList = confirmDelivery(msg.deliveryId)
+
+    log.debug(s"Remembering DurableMessageReceived with DeliveryId=${msg.deliveryId}, wasRemovedFromUnconfirmedList=$wasRemovedFromUnconfirmedList")
+
+    // Since we might be fixing DMGeneratingVersion issues, we must remove this id from dmGeneratingVersionFixedDeliveryIds - if it exists there..
+    if ( dmGeneratingVersionFixedDeliveryIds.contains(msg.deliveryId)) {
+      dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds - msg.deliveryId
+    }
   }
 
   protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => Unit})
@@ -254,8 +312,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         e =>
           callbacksLeft = callbacksLeft - 1
           e match {
-            case e:ProcessedDMEvent => onProcessedDMEvent(e)
-            case e:Any              => onApplyingLiveEvent(e.asInstanceOf[E])
+            case e:ProcessedDMEvent            => onProcessedDMEvent(e)
+            case e:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(e)
+            case e:Any                         => onApplyingLiveEvent(e.asInstanceOf[E])
           }
 
           if (callbacksLeft == 0) {
@@ -267,6 +326,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           }
       }
     }
+  }
+
+  private def onNewDMGeneratingVersionEvent(settingDMGeneratingVersionEvent: NewDMGeneratingVersionEvent): Unit = {
+    this.currentDmGeneratingVersion = settingDMGeneratingVersionEvent.version
   }
 
   private def onProcessedDMEvent(processedDMEvent: ProcessedDMEvent): Unit = {
@@ -437,10 +500,31 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   def sendAsDM(sendAsDm: SendAsDM):Unit = {
     if (isProcessingEvent) {
+
+      var usedDeliveryId:Long = 0
       deliver(sendAsDm.destinationActor) {
         deliveryId:Long =>
+          usedDeliveryId = deliveryId
           DurableMessage(deliveryId, sendAsDm.payload, getDMSelf(), sendAsDm.confirmationRoutingInfo)
       }
+
+      if( isFixingDMGeneratingVersionProblem() ) {
+        // We're recovering and in the process of upgrading to a new DMGeneratingVersion.
+        // All DMs resulted by te recovering events should end up as confirmed.
+        // We're going to persist all the needed DurableMessageReceived-events when the recover is completed,
+        // But to prevent AtLeastOnceDelivery to re-send any 'fixed' DMs before we have the time to tell it to not do it,
+        // We just do it here right away for all DMs..
+        // As said: Needed events are being saved later on.
+
+        // We need to add all ids to a list, and remove it from the list if we (later) get an event telling us that we knew that this dms was confirmed.
+        // then we end up knowing which deliveryIds we actually need to save that now is confirmed.
+
+        dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds + usedDeliveryId
+
+        log.debug(s"Since we're isFixingDMGeneratingVersionProblem, we're confirming deliveryId=$usedDeliveryId right away")
+        confirmDelivery(usedDeliveryId)
+      }
+
     }
     else {
       val outgoingDurableMessage = pendingDurableMessage.getOrElse( {throw new RuntimeException("Cannot send durableMessage while not processingEvent nor having a pendingDurableMessage")}).withNewPayload(sendAsDm.payload)
@@ -494,6 +578,8 @@ trait MdcSupport[E] extends BeforeAndAfterEventAndCommand[E] {
   }
 
 }
+
+case class NewDMGeneratingVersionEvent(version:Int) extends JacksonJsonSerializable
 
 object ProcessedDMEvent {
   def createFromDM(dm:DurableMessage) = ProcessedDMEvent(dm.deliveryId, dm.sender, dm.confirmationRoutingInfo)
