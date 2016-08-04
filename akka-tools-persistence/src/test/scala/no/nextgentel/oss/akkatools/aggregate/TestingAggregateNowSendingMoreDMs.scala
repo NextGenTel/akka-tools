@@ -216,8 +216,87 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       Thread.sleep(500) // Make sure it stops before we continue
 
     }
+  }
+
+  test("Migrating to new dbGeneratingVersion with nothing to fix") {
+    new TestEnv {
+      assertState(XState(0))
+
+      sendDMBlocking(main, AddValueCmd(0))
+      assertState(XState(1))
+
+      dest.expectMsg(DurableMessage(1, ValueWasAdded(1), main.path.toString, aggregateId)).confirm(system, null)
+
+      // stop it
+      main ! PoisonPill
+      Thread.sleep(500)
+
+      // Start again with new impl using new dmGeneratingVersion but still only sending one DM pr event.
+      for( i <- 1 to 2) { // do it twice
+        val d = TestProbe()
+        val m = system.actorOf(Props(new XAggregateVersion5Sending1DM(null, d.ref.path)), aggregateId)
+
+        // Make sure we recover into correct state
+        assert(XState(1) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
+
+        d.expectNoMsg()
+
+        // stop it
+        m ! PoisonPill
+        Thread.sleep(500)
+      }
+
+      // Start it again
+
+      {
+        val d = TestProbe()
+        val m = system.actorOf(Props(new XAggregateVersion5Sending1DM(null, d.ref.path)), aggregateId)
+
+        // Make sure we recover into correct state
+        assert(XState(1) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
+
+        sendDMBlocking(m, AddValueCmd(1))
+        assert(XState(2) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
+
+        d.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)) // NOT confirming it - .confirm(system, null)
+
+        // stop it
+        m ! PoisonPill
+        Thread.sleep(500)
+      }
+
+      // Start it again - make sure the unconfrmed message is resent
+      {
+        val d = TestProbe()
+        val m = system.actorOf(Props(new XAggregateVersion5Sending1DM(null, d.ref.path)), aggregateId)
+
+        // Make sure we recover into correct state
+        assert(XState(2) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
+
+        d.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)).confirm(system, null)
+
+        // stop it
+        m ! PoisonPill
+        Thread.sleep(500)
+      }
+
+      // Start it again - make sure nothing gets sent
+      {
+        val d = TestProbe()
+        val m = system.actorOf(Props(new XAggregateVersion5Sending1DM(null, d.ref.path)), aggregateId)
+
+        // Make sure we recover into correct state
+        assert(XState(2) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
+
+        d.expectNoMsg()
+
+        // stop it
+        m ! PoisonPill
+        Thread.sleep(500)
+      }
 
 
+    }
   }
 }
 

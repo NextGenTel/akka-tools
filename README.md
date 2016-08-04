@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.9.1 - NOT YET RELEASED
+
+* Fixing bug in DMGeneratingVersion - Now saving NewDMGeneratingVersionEvent also when there is nothing to fix
+
 Version 1.0.9 - 2016-08-03
 
 * Added the concept of DMGeneratingVersion

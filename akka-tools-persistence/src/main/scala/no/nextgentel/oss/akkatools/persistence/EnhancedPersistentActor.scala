@@ -176,27 +176,30 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def fixDMGeneratingVersionProblem(): Unit = {
-    if ( dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
+    val listOfReceivedDMs = if ( dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
 
-
-      log.warning(s"Found unconfirmed DMs ($dmGeneratingVersionFixedDeliveryIds) when going to from dmGeneratingVersion=$currentDmGeneratingVersion to dmGeneratingVersion=$getDMGeneratingVersion")
+      log.warning(s"Found and fixing unconfirmed DMs $dmGeneratingVersionFixedDeliveryIds when going to new dmGeneratingVersion")
 
       // We must save that we're done with these DMs
-      val listOfReceivedDMs = dmGeneratingVersionFixedDeliveryIds.map {
+      dmGeneratingVersionFixedDeliveryIds.map {
         deliveryId =>
           // This is the event we're going to save
           DurableMessageReceived(deliveryId, "Added by fixDMGeneratingVersionProblem")
       }.toList
 
-      dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
+    } else List()
 
-      // Must also save that we are now using new DMGeneratingVersion
-      val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
-      persistAll(eventList) {
-          case x:DurableMessageReceived => onDurableMessageReceived(x)
-          case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
-      }
+    dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
+
+    log.warning(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+
+    // Must also save that we are now using new DMGeneratingVersion
+    val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
+    persistAll(eventList) {
+      case x:DurableMessageReceived => onDurableMessageReceived(x)
+      case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
     }
+    
   }
 
   protected def onReceiveRecover(event:E) {
