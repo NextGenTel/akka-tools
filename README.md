@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.9          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.9.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.9.1 - NOT YET RELEASED
+Version 1.0.9.1 - 2016-08-04
 
 * Fixing bug in DMGeneratingVersion - Now saving NewDMGeneratingVersionEvent also when there is nothing to fix
 
