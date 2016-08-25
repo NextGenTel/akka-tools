@@ -4,6 +4,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.actor.{ActorLogging, ExtendedActorSystem, Props}
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.persistence.PersistentRepr
 import akka.persistence.query.{EventEnvelope, ReadJournalProvider}
 import akka.persistence.query.scaladsl.{ReadJournal => ScalaReadJournal}
@@ -70,12 +72,12 @@ with JdbcJournalExtractRuntimeData {
   }
 
   override def eventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
   override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
@@ -89,20 +91,20 @@ with JdbcJournalExtractRuntimeData {
   // Tag is defined to be the type-part used with persistenceIdSplitter
   override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
     val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
   override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
     val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 }
 
 private case object Continue
 
-class JdbcEventsByPersistenceIdActor(runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
+class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:String, runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
   extends ActorPublisher[EventEnvelope] with ActorLogging {
 
   val serializer = SerializationExtension.get(context.system).serializerFor(classOf[PersistentRepr])
@@ -113,17 +115,33 @@ class JdbcEventsByPersistenceIdActor(runtimeData:JdbcJournalRuntimeData, live:Bo
   import context.dispatcher
   val continueTask = context.system.scheduler.schedule( refreshInterval, refreshInterval, self, Continue)
 
+  // Start listening for EntryWrittenToTag-messages which is publish each time an event is written for
+  // a specific tag - maybe the one we're tracking
+  val pubsubMediator = DistributedPubSub(context.system).mediator
+  if ( live && !persistenceIdObject.isFull() ) {
+    // This means we're tracking a tag - we should subscribe
+    pubsubMediator ! Subscribe( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, persistenceIdObject.typePath()), self)
+
+  }
+
   override def postStop(): Unit = {
     continueTask.cancel()
   }
 
   def receive = {
+    case _: EntryWrittenToTag =>
+      doWork()
+
     case _: Request | Continue ⇒
-      query()
-      deliverBuf()
+      doWork()
 
     case Cancel ⇒
       context.stop(self)
+  }
+
+  def doWork(): Unit = {
+    query()
+    deliverBuf()
   }
 
 

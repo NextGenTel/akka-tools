@@ -25,6 +25,11 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.10 - Not released yet
+
+* PersistenceQuery's EventsByTag now loads new events instantly - No more waiting for the next scheduled read
+  * This is achieved using a Distributed pubSub-mechanism
+
 Version 1.0.9.1 - 2016-08-04
 
 * Fixing bug in DMGeneratingVersion - Now saving NewDMGeneratingVersionEvent also when there is nothing to fix
@@ -51,7 +56,7 @@ Version 1.0.8 - 2016-06-24
 
 Version 1.0.7.1 - 2016-05-18
 
-* Upgraded to akka 2.4.5 - including changes need to work with new Java PersistentQuery-api
+* Upgraded to akka 2.4.5 - including changes need to work with new Java PersistenceQuery-api
 * Fixed regression in JdbcJournal - Now we're back to being backward compile-compatible
 
 Version 1.0.7 - 2016-05-13

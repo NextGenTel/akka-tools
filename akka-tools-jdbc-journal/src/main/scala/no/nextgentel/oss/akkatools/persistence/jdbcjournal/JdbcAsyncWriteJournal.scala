@@ -3,15 +3,33 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 import java.nio.charset.Charset
 
 import akka.actor.ActorLogging
+import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import akka.persistence.journal.AsyncWriteJournal
 import akka.serialization.SerializationExtension
 import com.typesafe.config.Config
-import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializableButNotDeserializable
+import no.nextgentel.oss.akkatools.serializing.{JacksonJsonSerializable, JacksonJsonSerializableButNotDeserializable}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
+
+
+object EntryWrittenToTag {
+  // resolves the topic used when publishing EntryWrittenToTag-messages for a
+  // specific journal and tag-type
+  def topic(jdbcJournalRuntimeDataFactoryClassName: String, tag: String) = {
+    s"akka-tools.JdbcAsyncWriteJournal.$jdbcJournalRuntimeDataFactoryClassName.tag.$tag"
+  }
+}
+
+// This msg is published using DistributedPubSub each time we have written a new journal-entry.
+// It is published the topic resolved via EntryWrittenToTag.topic()-method.
+// This is used by JdbcReadJournal's EventsByTagQuery (PersistenceQuery) so that it can read
+// it right away - instead of waiting for it to arrive the next time we try to check the db.
+case class EntryWrittenToTag() extends JacksonJsonSerializable
+
 
 class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with ActorLogging with JdbcJournalExtractRuntimeData {
 
@@ -24,6 +42,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
 
   val serialization = SerializationExtension.get(context.system)
 
+  val pubsubMediator = DistributedPubSub(context.system).mediator
 
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
 
@@ -52,6 +71,14 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               log.error(e, s"Error while persisting ${dtoList.size} PersistentReprs")
               throw e
           }
+
+          // Find all unique tags
+          dtoList.map (_.persistenceId.typePath()).toSet.foreach {
+            tagName:String =>
+              // publish msg to tell any JdbcReadJournal / PersistenceQuery that it can read more events
+              pubsubMediator ! Publish( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, tagName), EntryWrittenToTag() )
+          }
+
         }
     })
     promise.future
