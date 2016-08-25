@@ -29,6 +29,7 @@ Version 1.0.10 - Not released yet
 
 * PersistenceQuery's EventsByTag now loads new events instantly - No more waiting for the next scheduled read
   * This is achieved using a Distributed pubSub-mechanism
+* Upgraded to Akka 2.4.9
 
 Version 1.0.9.1 - 2016-08-04
 

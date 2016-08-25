@@ -37,7 +37,7 @@ lazy val commonSettings = Seq(
 )
 
 
-val akkaVersion = "2.4.5"
+val akkaVersion = "2.4.9"
 val akkaPersistenceInMemoryVersion = "1.1.5"
 val jacksonVersion = "2.4.6"
 val jacksonScalaModuleVersion = "2.4.5"
