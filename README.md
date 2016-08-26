@@ -19,13 +19,13 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.9.1        | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.0.10         | [master](https://github.com/NextGenTel/akka-tools)                   |
 | 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
 
 Changelog
 ----------------------------
 
-Version 1.0.10 - Not released yet
+Version 1.0.10 - 2016-08-26
 
 * PersistenceQuery's EventsByTag now loads new events instantly - No more waiting for the next scheduled read
   * This is achieved using a Distributed pubSub-mechanism
