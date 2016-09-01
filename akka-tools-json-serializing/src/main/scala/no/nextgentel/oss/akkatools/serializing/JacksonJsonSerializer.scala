@@ -1,9 +1,9 @@
 package no.nextgentel.oss.akkatools.serializing
 
-import java.io.IOException
+import java.io.{IOException, NotSerializableException}
 
 import akka.serialization.Serializer
-import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.slf4j.LoggerFactory
 
@@ -45,7 +45,13 @@ object JacksonJsonSerializer {
   }
 }
 
-class JacksonJsonSerializerVerificationFailed(errorMsg:String) extends RuntimeException(errorMsg)
+class JacksonJsonSerializerException(errorMsg:String, cause:Throwable) extends NotSerializableException() {
+  // Must extend NotSerializableException so that we can prevent akka-remoting connections being dropped
+  override def getMessage: String = errorMsg
+  override def getCause: Throwable = cause
+}
+
+class JacksonJsonSerializerVerificationFailed(errorMsg:String) extends JacksonJsonSerializerException(errorMsg, null)
 
 class JacksonJsonSerializer extends Serializer {
   val logger = LoggerFactory.getLogger(getClass)
@@ -76,14 +82,21 @@ class JacksonJsonSerializer extends Serializer {
   }
 
   override def toBinary(o: AnyRef): Array[Byte] = {
-    if (logger.isDebugEnabled) {
-      logger.debug("toBinary: " + o.getClass)
+    try {
+      if (logger.isDebugEnabled) {
+        logger.debug("toBinary: " + o.getClass)
+      }
+      val bytes: Array[Byte] = objectMapper().writeValueAsBytes(o)
+      if (verifySerialization) {
+        doVerifySerialization(o, bytes)
+      }
+      bytes
+    } catch {
+      case e:JacksonJsonSerializerException =>
+        throw e
+      case e:Exception =>
+        throw new JacksonJsonSerializerException(e.getMessage, e)
     }
-    val bytes: Array[Byte] = objectMapper().writeValueAsBytes(o)
-    if (verifySerialization) {
-      doVerifySerialization(o, bytes)
-    }
-    return bytes
   }
 
   private def doVerifySerialization(originalObject: AnyRef, bytes: Array[Byte]):Unit = {

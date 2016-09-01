@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.11 - Not released yet
+
+* Exceptions thrown by JacksonJsonSerializer.toBinary when sending msg via akka-remoting no longer [brings the connection down](https://github.com/akka/akka/issues/21343)
+
 Version 1.0.10 - 2016-08-26
 
 * PersistenceQuery's EventsByTag now loads new events instantly - No more waiting for the next scheduled read
