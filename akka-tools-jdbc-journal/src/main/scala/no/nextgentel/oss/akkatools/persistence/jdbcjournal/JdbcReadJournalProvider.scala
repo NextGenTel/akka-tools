@@ -63,7 +63,7 @@ with akka.persistence.query.scaladsl.EventsByTagQuery
 with akka.persistence.query.scaladsl.CurrentEventsByTagQuery
 with JdbcJournalExtractRuntimeData {
 
-  val persistenceIdSplitter = runtimeData.persistenceIdSplitter
+  val persistenceIdParser = runtimeData.persistenceIdParser
 
 
   val refreshInterval: FiniteDuration = {
@@ -72,43 +72,33 @@ with JdbcJournalExtractRuntimeData {
   }
 
   override def eventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, persistenceIdParser.parse(persistenceId), fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
   override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, persistenceId, fromSequenceNr, toSequenceNr))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, persistenceIdParser.parse(persistenceId), fromSequenceNr, toSequenceNr))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
-  }
-
-  private def generatePersistenceIdForEventByTag(tag:String):String = {
-    // Must generate a persistenceId using the proper splitChar for the selected PersistenceIdSplitter so that
-    // we get ALL events for this tag/type..
-    val splitChar:Char = persistenceIdSplitter.splitChar().getOrElse(throw new Exception("Cannot use eventsByTag with a persistenceIdSplitter not using a splitChar"))
-    tag + splitChar + PersistenceIdSplitterLastSlashImpl.WILDCARD
   }
 
   // Tag is defined to be the type-part used with persistenceIdSplitter
   override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
-    val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, true, refreshInterval, PersistenceIdTagOnly(tag), offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
   override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
-    val persistenceId = generatePersistenceIdForEventByTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName, runtimeData, false, refreshInterval, PersistenceIdTagOnly(tag), offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 }
 
 private case object Continue
 
-class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:String, runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long)
+class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:String, runtimeData:JdbcJournalRuntimeData, live:Boolean, refreshInterval: FiniteDuration, persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long)
   extends ActorPublisher[EventEnvelope] with ActorLogging {
 
   val serializer = SerializationExtension.get(context.system).serializerFor(classOf[PersistentRepr])
-  val persistenceIdObject: PersistenceId = runtimeData.persistenceIdSplitter.split(persistenceId)
   private var nextFromSequenceNr = fromSequenceNr
   var buf = Vector.empty[EventEnvelope]
 
@@ -118,8 +108,9 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
   // Start listening for EntryWrittenToTag-messages which is publish each time an event is written for
   // a specific tag - maybe the one we're tracking
   val pubsubMediator = DistributedPubSub(context.system).mediator
+
   if ( live ) {
-    pubsubMediator ! Subscribe( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, persistenceIdObject.typePath()), self)
+    pubsubMediator ! Subscribe( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, persistenceId.tag), self)
 
   }
 
@@ -129,7 +120,7 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
 
   def receive = {
     case entryWrittenToTag: EntryWrittenToTag =>
-      if ( !persistenceIdObject.isFull() ) {
+      if ( persistenceId.isInstanceOf[PersistenceIdTagOnly] ) {
         // We're tracking a tag
         doWork()
       } else if(entryWrittenToTag.persistenceId == persistenceId) {
@@ -156,7 +147,7 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
       try {
 
         log.debug(s"Reading entries for persistenceId=$persistenceId - nextFromSequenceNr=$nextFromSequenceNr, toSequenceNr=$toSequenceNr")
-        val entries: List[JournalEntryDto] = runtimeData.repo.loadJournalEntries(persistenceIdObject, nextFromSequenceNr, toSequenceNr, runtimeData.maxRowsPrRead)
+        val entries: List[JournalEntryDto] = runtimeData.repo.loadJournalEntries(persistenceId, nextFromSequenceNr, toSequenceNr, runtimeData.maxRowsPrRead)
         buf = entries.map {
           entry: JournalEntryDto =>
 

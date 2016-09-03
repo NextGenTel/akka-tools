@@ -59,29 +59,31 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   lazy val schemaPrefix = schemaName.map( s => s + ".").getOrElse("")
 
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
-    val sequenceNrColumnName = if (persistenceId.isFull) {
-      "sequenceNr"
-    } else {
-      "journalIndex"
+    val sequenceNrColumnName = persistenceId match {
+      case p:PersistenceIdSingle    => "sequenceNr"
+      case p:PersistenceIdTagOnly => "journalIndex"
     }
 
     val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where typePath = :typePath " +
-      (if (persistenceId.isFull) " and id = :id " else "") +
+      (if (persistenceId.isInstanceOf[PersistenceIdSingle]) " and id = :id " else "") +
       s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
 
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
-        val query = conn.createQuery(sql).addParameter("typePath", persistenceId.typePath)
-        if (persistenceId.isFull) {
-          query.addParameter("id", persistenceId.id)
+        val query = conn.createQuery(sql).addParameter("typePath", persistenceId.tag)
+        persistenceId match {
+          case p:PersistenceIdSingle =>
+            query.addParameter("id", p.uniqueId)
+          case _ =>
         }
+
         query.addParameter("fromSequenceNr", fromSequenceNr).addParameter("toSequenceNr", toSequenceNr).addParameter("max", max)
         val table = query.executeAndFetchTable
         table.rows.toList.map{
           r:Row =>
             JournalEntryDto(
-              PersistenceId(r.getString("typePath"), r.getString("id")),
+              persistenceId,
               r.getLong(sequenceNrColumnName),
               r.getObject("persistentRepr", classOf[Array[Byte]]),
               null,
@@ -93,9 +95,6 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
-    if (dtoList.find( dto => !dto.persistenceId.isFull() ).isDefined ) {
-      throw new RuntimeException("Can only write using PersistenceIdType.FULL")
-    }
 
     val sql = s"insert into ${schemaPrefix}t_journal (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
       s"values (:typePath, :id, :sequenceNr,${schemaPrefix}s_journalIndex_seq.nextval, :persistentRepr, :payload_write_only, sysdate)"
@@ -109,8 +108,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
           val insert = c.createQuery(sql)
           try {
 
-            insert.addParameter("typePath", dto.persistenceId.typePath)
-              .addParameter("id", dto.persistenceId.id)
+            insert.addParameter("typePath", dto.persistenceId.tag)
+              .addParameter("id", dto.persistenceId.uniqueId)
               .addParameter("sequenceNr", dto.sequenceNr)
               .addParameter("persistentRepr", dto.persistentRepr)
               .addParameter("payload_write_only", dto.payloadWriteOnly)
@@ -141,7 +140,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
     val sql = s"update ${schemaPrefix}t_journal set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("typePath", persistenceId.typePath).addParameter("id", persistenceId.id).addParameter("toSequenceNr", toSequenceNr).executeUpdate
+      c.createQuery(sql).addParameter("typePath", persistenceId.tag).addParameter("id", persistenceId.uniqueId).addParameter("toSequenceNr", toSequenceNr).executeUpdate
     } finally {
       c.close()
     }
@@ -150,20 +149,21 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   // This one both looks at existing once and 'delete once' (with persistentRepr = null)
   def findHighestSequenceNr(persistenceId: PersistenceId, fromSequenceNr: Long): Long = {
 
-    val sequenceNrColumnName = if (persistenceId.isFull) {
-      "sequenceNr"
-    } else {
-      "journalIndex"
+    val sequenceNrColumnName = persistenceId match {
+      case p:PersistenceIdSingle    => "sequenceNr"
+      case p:PersistenceIdTagOnly => "journalIndex"
     }
 
 
-    val sql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where typePath = :typePath " + (if (persistenceId.isFull) " and id = :id " else "") + s" and $sequenceNrColumnName>=:fromSequenceNr"
+    val sql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where typePath = :typePath " + (if (persistenceId.isInstanceOf[PersistenceIdSingle]) " and id = :id " else "") + s" and $sequenceNrColumnName>=:fromSequenceNr"
     val c = sql2o.open()
     try {
 
-      val query = c.createQuery(sql).addParameter("typePath", persistenceId.typePath)
-      if (persistenceId.isFull) {
-        query.addParameter("id", persistenceId.id)
+      val query = c.createQuery(sql).addParameter("typePath", persistenceId.tag)
+      persistenceId match {
+        case p:PersistenceIdSingle =>
+          query.addParameter("id", p.uniqueId)
+        case _ =>
       }
       query.addParameter("fromSequenceNr", fromSequenceNr)
       val table = query.executeAndFetchTable

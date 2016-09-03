@@ -17,7 +17,7 @@ class MyJournalSpec extends JournalSpec (
   }
 
   // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MyJournalSpec"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MyJournalSpec"), None, errorHandler, new PersistenceIdParserImpl('-')))
 
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = false
 }
@@ -32,7 +32,7 @@ class MySnapshotStoreSpec extends SnapshotStoreSpec (
   }
 
   // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MySnapshotStoreSpec"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+  JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("MySnapshotStoreSpec"), None, errorHandler, new PersistenceIdParserImpl('-')))
 
 
 

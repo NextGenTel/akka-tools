@@ -32,7 +32,7 @@ abstract class JdbcReadJournalTestBase extends FunSuite with TestKitBase with Be
   }
 
   lazy val readJournal = {
-    SingletonJdbcJournalRuntimeDataFactory.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+    SingletonJdbcJournalRuntimeDataFactory.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
     PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
   }
 

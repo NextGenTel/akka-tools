@@ -26,7 +26,7 @@ class JdbcSnapshotStoreTest (_system:ActorSystem) extends TestKit(_system) with 
 
   before {
     // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-    JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), None, errorHandler, new PersistenceIdSplitterLastSomethingImpl('-')))
+    JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
   }
 
   override protected def afterAll(): Unit = {

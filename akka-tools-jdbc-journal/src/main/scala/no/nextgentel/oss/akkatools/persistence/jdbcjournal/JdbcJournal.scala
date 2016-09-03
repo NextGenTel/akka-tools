@@ -4,7 +4,6 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 import java.nio.charset.Charset
 import javax.sql.DataSource
 
-import PersistenceIdType._
 import akka.actor.ActorLogging
 import akka.persistence.AtomicWrite
 import akka.persistence.PersistentRepr
@@ -40,7 +39,7 @@ case class JdbcJournalConfig
   dataSource: DataSource,
   schemaName: Option[String],
   fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happend - like getting unique PK key errors - Which is probably a symptom of split brain
-  persistenceIdSplitter: PersistenceIdSplitter = new PersistenceIdSplitterLastSlashImpl(),
+  persistenceIdParser:PersistenceIdParser = new PersistenceIdParserImpl('/'),
   maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
 
 object JdbcJournal {
@@ -61,7 +60,7 @@ object JdbcJournal {
   def clusterNodeRepo() = SingletonJdbcJournalRuntimeDataFactory.clusterNodeRepo()
 
   @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
-  def persistenceIdSplitter() = SingletonJdbcJournalRuntimeDataFactory.persistenceIdSplitter()
+  def persistenceIdSplitter() = SingletonJdbcJournalRuntimeDataFactory.persistenceIdParser()
 
 }
 
@@ -73,21 +72,21 @@ object SingletonJdbcJournalRuntimeDataFactory extends JdbcJournalRuntimeDataFact
 
   private var maxRowsPrRead = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ
   private var _repo: Option[StorageRepo] = None
-  private var _persistenceIdSplitter: Option[PersistenceIdSplitter] = None
+  private var _persistenceIdParser: Option[PersistenceIdParser] = None
 
   def init(config: JdbcJournalConfig): Unit = {
     _repo = Some(new StorageRepoImpl(config.dataSource, config.schemaName, config.fatalErrorHandler))
-    _persistenceIdSplitter = Some(config.persistenceIdSplitter)
+    _persistenceIdParser = Some(config.persistenceIdParser)
     maxRowsPrRead = config.maxRowsPrRead
   }
 
   private [jdbcjournal] def repo(): StorageRepo = _repo.getOrElse(throw new Exception("JdbcJournal not configured yet"))
   private [jdbcjournal] def clusterNodeRepo() = repo().asInstanceOf[ClusterNodeRepo]
 
-  private [jdbcjournal] def persistenceIdSplitter(): PersistenceIdSplitter = _persistenceIdSplitter.getOrElse(throw new Exception("JdbcJournal not configured yet"))
+  private [jdbcjournal] def persistenceIdParser(): PersistenceIdParser = _persistenceIdParser.getOrElse(throw new Exception("JdbcJournal not configured yet"))
 
   override def createJdbcJournalRuntimeData(): JdbcJournalRuntimeData = {
-    JdbcJournalRuntimeData(repo(), clusterNodeRepo(), persistenceIdSplitter(), maxRowsPrRead)
+    JdbcJournalRuntimeData(repo(), clusterNodeRepo(), persistenceIdParser(), maxRowsPrRead)
   }
 }
 
@@ -101,7 +100,7 @@ trait JdbcJournalRuntimeDataFactory {
   def createJdbcJournalRuntimeData():JdbcJournalRuntimeData
 }
 
-case class JdbcJournalRuntimeData( repo:StorageRepo, clusterNodeRepo:ClusterNodeRepo, persistenceIdSplitter:PersistenceIdSplitter, maxRowsPrRead:Int)
+case class JdbcJournalRuntimeData( repo:StorageRepo, clusterNodeRepo:ClusterNodeRepo, persistenceIdParser:PersistenceIdParser, maxRowsPrRead:Int)
 
 trait JdbcJournalExtractRuntimeData {
 

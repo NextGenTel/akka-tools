@@ -36,7 +36,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
   import JdbcJournal._
 
 
-  val persistenceIdSplitter = runtimeData.persistenceIdSplitter
+  val persistenceIdParser = runtimeData.persistenceIdParser
   val repo = runtimeData.repo
   val maxRowsPrRead = runtimeData.maxRowsPrRead
 
@@ -61,7 +61,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               }
 
               val payloadJson = tryToExtractPayloadAsJson(p)
-              JournalEntryDto(persistenceIdSplitter.split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null), timestamp = null)
+              JournalEntryDto(persistenceIdParser.parse(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null), timestamp = null)
           }
 
           try {
@@ -75,8 +75,8 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
           // Find all unique tags
           dtoList.map (_.persistenceId).toSet.foreach {
             persistenceId:PersistenceId =>
-              val tagName = persistenceId.typePath()
-              val persistenceIdString = persistenceId.typePath() + persistenceId.id()
+              val tagName = persistenceId.tag
+              val persistenceIdString = persistenceId.tag + persistenceId.uniqueId
               // publish msg to tell any JdbcReadJournal / PersistenceQuery that it can read more events
               pubsubMediator ! Publish( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, tagName), EntryWrittenToTag(persistenceIdString) )
           }
@@ -108,14 +108,14 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
         log.debug("JdbcAsyncWriteJournal doDeleteMessagesTo: persistenceId: " + persistenceId + " toSequenceNr=" + toSequenceNr)
       }
 
-      repo.deleteJournalEntryTo(persistenceIdSplitter.split(persistenceId), toSequenceNr)
+      repo.deleteJournalEntryTo(persistenceIdParser.parse(persistenceId), toSequenceNr)
     })
   }
 
   override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
     val promise = Promise[Long]()
 
-    val highestSequenceNr = repo.findHighestSequenceNr(persistenceIdSplitter.split(persistenceId), fromSequenceNr)
+    val highestSequenceNr = repo.findHighestSequenceNr(persistenceIdParser.parse(persistenceId), fromSequenceNr)
     if (log.isDebugEnabled) {
       log.debug("JdbcAsyncWriteJournal doAsyncReadHighestSequenceNr: persistenceId=" + persistenceId + " fromSequenceNr=" + fromSequenceNr + " highestSequenceNr=" + highestSequenceNr)
     }
@@ -134,7 +134,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
     var numberOfReads: Long = 0
 
     try {
-      val persistenceIdObject: PersistenceId = persistenceIdSplitter.split(persistenceId)
+      val persistenceIdObject: PersistenceId = persistenceIdParser.parse(persistenceId)
       while (maybeMoreData && (rowsRead < max)) {
         numberOfReads = numberOfReads + 1
         var maxRows: Long = maxRowsPrRead
@@ -150,6 +150,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
         entries.foreach {
           entry: JournalEntryDto =>
 
+
             val _rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
               .asInstanceOf[PersistentRepr]
               .update(sequenceNr = entry.sequenceNr)
@@ -163,14 +164,14 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               // use it as is
               _rawPersistentRepr
             }
-
-
-            val persistentRepr = if (!persistenceIdObject.isFull()) {
-              // Must create a new modified one..
-              val newPayload = JournalEntry(persistenceIdSplitter.split(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
-              PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.persistenceId, sender = rawPersistentRepr.sender)
-            } else {
-              rawPersistentRepr
+            
+            val persistentRepr = persistenceIdObject match {
+              case p:PersistenceIdTagOnly =>
+                // Must create a new modified one..
+                val newPayload = JournalEntry(persistenceIdParser.parse(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
+                PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.persistenceId, sender = rawPersistentRepr.sender)
+              case p:PersistenceIdSingle =>
+                rawPersistentRepr
             }
 
             try {
