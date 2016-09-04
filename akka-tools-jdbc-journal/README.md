@@ -20,7 +20,7 @@ Before start using it, you have to initialize it with a working DataSource, sche
         }
     }
     
-    JdbcJournal.init( JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) )
+    JdbcJournalConfig.setConfig("default", JdbcJournalConfig(dataSource, schemaName, fatalErrorHandler) )
     
 Persistence Query
 ----------------------------
@@ -46,24 +46,24 @@ Get a stream of all events for a specific persistenceId - which stops when all c
     val source = readJournal.currentEventsByPersistenceId(persistenceId, 0, Long.MaxValue)
     
 Get a live stream of all events for a specific type/tag of aggregates/PersistentActors
-(Look at PersistenceIdSplitter to understand how this works)
+(Look at PersistenceIdParser to understand how this works)
 
     val source = readJournal.eventsByTag("booking", 0)
     
 Get a stream of all events for a specific type/tag of aggregates/PersistentActors - which stops when all current events are read
-(Look at PersistenceIdSplitter to understand how this works) 
+(Look at PersistenceIdParser to understand how this works) 
 
     val source = readJournal.currentEventsByTag(tag, 0)
        
        
-PersistenceIdSplitter
+PersistenceIdParser
 ------------------------
 
 Akka's PersistentActor-support only cares about the unique persistenceId of one specific Aggregate/PersistentActor.
 It has no concept of the type.
 
-akka-tools-jdbc-journal uses a PersistenceIdSplitter which knows how to split the persistenceId into both
-type and unique Id. The default impl uses the last '/' as the separator.
+akka-tools-jdbc-journal uses a PersistenceIdParser which knows how to split the persistenceId into both
+tag and unique Id. The default impl uses the last '/' as the separator.
 
 So if the your persistenceId looks like this:
 
@@ -74,8 +74,6 @@ Then this would result in type/tag = 'booking' and id = '12'
 The journal write these two values into separate columns in the database.
 
 This makes it possible to ask for all events for 'booking' or
-
-If using PersistentView, you achieve this by asking for persistenceId = 'booking/*'
 
 If using Persistence Query's eventsByTag, your ask for the tag = 'booking'
 

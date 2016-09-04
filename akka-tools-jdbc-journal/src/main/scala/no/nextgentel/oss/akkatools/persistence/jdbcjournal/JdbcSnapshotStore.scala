@@ -9,7 +9,7 @@ import com.typesafe.config.Config
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
-class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLogging with JdbcJournalExtractRuntimeData {
+class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLogging with JdbcJournalRuntimeDataExtractor {
 
   val repo = runtimeData.repo
 

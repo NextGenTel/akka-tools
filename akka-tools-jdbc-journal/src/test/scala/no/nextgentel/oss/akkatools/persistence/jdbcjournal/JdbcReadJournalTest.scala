@@ -21,9 +21,14 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 // Need separate actorSystems for each test to prevent them from interacting with each other
 
 
-abstract class JdbcReadJournalTestBase extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+abstract class JdbcReadJournalTestBase(configName:String) extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
 
-  implicit lazy val system = ActorSystem(getClass.getSimpleName, ConfigFactory.load("application-test.conf"))
+  implicit lazy val system = ActorSystem(getClass.getSimpleName, ConfigFactory.parseString(
+    s"""
+       |akka.persistence.query.jdbc-read-journal.configName = $configName
+       |jdbc-journal.configName = $configName
+       |jdbc-snapshot-store.configName = $configName
+     """.stripMargin).withFallback(ConfigFactory.load("application-test.conf")))
 
   val log = LoggerFactory.getLogger(getClass)
 
@@ -32,7 +37,7 @@ abstract class JdbcReadJournalTestBase extends FunSuite with TestKitBase with Be
   }
 
   lazy val readJournal = {
-    SingletonJdbcJournalRuntimeDataFactory.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
+    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
     PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
   }
 
@@ -53,7 +58,7 @@ abstract class JdbcReadJournalTestBase extends FunSuite with TestKitBase with Be
 
 }
 
-class JdbcReadJournalTest1 extends JdbcReadJournalTestBase {
+class JdbcReadJournalTest1 extends JdbcReadJournalTestBase("JdbcReadJournalTest1") {
   test("EventsByPersistenceIdQuery") {
 
     val persistenceId = uniquePersistenceId("pa")
@@ -105,7 +110,7 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase {
   }
 }
 
-class JdbcReadJournalTest2 extends JdbcReadJournalTestBase {
+class JdbcReadJournalTest2 extends JdbcReadJournalTestBase("JdbcReadJournalTest2") {
   test("currentEventsByPersistenceId") {
     val persistenceId = uniquePersistenceId("pa1")
 
@@ -154,7 +159,7 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase {
   }
 }
 
-class JdbcReadJournalTest3 extends JdbcReadJournalTestBase {
+class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3") {
   test("eventsByTag") {
     val tag = "pb"
 
@@ -218,7 +223,7 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase {
   }
 }
 
-class JdbcReadJournalTest4 extends JdbcReadJournalTestBase {
+class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4") {
   test("currentEventsByTag") {
     val tag = "pc"
 

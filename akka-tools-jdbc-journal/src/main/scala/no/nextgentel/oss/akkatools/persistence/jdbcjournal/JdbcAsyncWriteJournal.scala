@@ -19,8 +19,8 @@ import scala.util.Try
 object EntryWrittenToTag {
   // resolves the topic used when publishing EntryWrittenToTag-messages for a
   // specific journal and tag-type
-  def topic(jdbcJournalRuntimeDataFactoryClassName: String, tag: String) = {
-    s"akka-tools.JdbcAsyncWriteJournal.$jdbcJournalRuntimeDataFactoryClassName.tag.$tag"
+  def topic(configName: String, tag: String) = {
+    s"akka-tools.JdbcAsyncWriteJournal.$configName.tag.$tag"
   }
 }
 
@@ -31,10 +31,7 @@ object EntryWrittenToTag {
 case class EntryWrittenToTag(persistenceId:String) extends JacksonJsonSerializable
 
 
-class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with ActorLogging with JdbcJournalExtractRuntimeData {
-
-  import JdbcJournal._
-
+class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with ActorLogging with JdbcJournalRuntimeDataExtractor {
 
   val persistenceIdParser = runtimeData.persistenceIdParser
   val repo = runtimeData.repo
@@ -78,7 +75,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               val tagName = persistenceId.tag
               val persistenceIdString = persistenceId.tag + persistenceId.uniqueId
               // publish msg to tell any JdbcReadJournal / PersistenceQuery that it can read more events
-              pubsubMediator ! Publish( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, tagName), EntryWrittenToTag(persistenceIdString) )
+              pubsubMediator ! Publish( EntryWrittenToTag.topic(configName, tagName), EntryWrittenToTag(persistenceIdString) )
           }
 
         }
@@ -91,7 +88,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
     // we get the json as string, to make the data more visual in the db.
     val payload = p.payload.asInstanceOf[AnyRef]
     val serializer = serialization.serializerFor(payload.getClass)
-    if (jacksonJsonSerializer_className == serializer.getClass.getName) {
+    if ("no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer" == serializer.getClass.getName) {
       // we can do it
       val bytes = serializer.toBinary( JsonObjectHolder(payload.getClass.getName, payload))
       val json = new String(bytes, Charset.forName("UTF-8"))
@@ -164,7 +161,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               // use it as is
               _rawPersistentRepr
             }
-            
+
             val persistentRepr = persistenceIdObject match {
               case p:PersistenceIdTagOnly =>
                 // Must create a new modified one..

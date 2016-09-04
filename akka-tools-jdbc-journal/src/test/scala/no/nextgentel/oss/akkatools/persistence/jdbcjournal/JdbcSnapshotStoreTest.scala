@@ -3,20 +3,27 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import akka.persistence.{SnapshotOffer, PersistentActor}
+import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.serialization.SerializerWithStringManifest
-import akka.testkit.TestKit
+import akka.testkit.{TestKit, TestKitBase}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{Matchers, BeforeAndAfterAll, BeforeAndAfter, FunSuiteLike}
+import org.scalatest._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class JdbcSnapshotStoreTest (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+class JdbcSnapshotStoreTest (_system:ActorSystem) extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
 
-  def this() = this(ActorSystem("JdbcSnapshotStoreTest", ConfigFactory.load("application-test.conf")))
+  val configName = "JdbcSnapshotStoreTest"
+
+  implicit lazy val system = ActorSystem(getClass.getSimpleName, ConfigFactory.parseString(
+    s"""
+       |akka.persistence.query.jdbc-read-journal.configName = $configName
+       |jdbc-journal.configName = $configName
+       |jdbc-snapshot-store.configName = $configName
+     """.stripMargin).withFallback(ConfigFactory.load("application-test.conf")))
 
   val log = LoggerFactory.getLogger(getClass)
 
@@ -26,7 +33,7 @@ class JdbcSnapshotStoreTest (_system:ActorSystem) extends TestKit(_system) with 
 
   before {
     // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-    JdbcJournal.init(JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
+    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), None, errorHandler, new PersistenceIdParserImpl('-')))
   }
 
   override protected def afterAll(): Unit = {

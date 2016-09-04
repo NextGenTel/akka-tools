@@ -1,34 +1,29 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 
-import java.nio.charset.Charset
 import javax.sql.DataSource
 
-import akka.actor.ActorLogging
-import akka.persistence.AtomicWrite
-import akka.persistence.PersistentRepr
-import akka.persistence.SelectedSnapshot
-import akka.persistence.SnapshotMetadata
-import akka.persistence.SnapshotSelectionCriteria
-import akka.persistence.journal.AsyncWriteJournal
-import akka.persistence.snapshot.SnapshotStore
-import akka.serialization.SerializationExtension
-import akka.serialization.SerializerWithStringManifest
 import com.typesafe.config.Config
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
-import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializableButNotDeserializable
-import org.sql2o.Sql2o
-import org.sql2o.quirks.OracleQuirks
-
-import scala.collection.immutable.Seq
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Try
-
-
 
 
 object JdbcJournalConfig {
+
+  private var name2Config = Map[String, JdbcJournalConfig]()
+
+  def setConfig(configName:String, config:JdbcJournalConfig): Unit ={
+    name2Config = name2Config + (configName -> config)
+  }
+
+  def getConfig(configName:String):JdbcJournalConfig = {
+    name2Config.getOrElse(configName, throw new Exception(s"Configuration with name '$configName' has not ben set."))
+  }
+
+  def createJdbcJournalRuntimeData(configName:String): JdbcJournalRuntimeData = {
+    val config = getConfig(configName)
+    val repo = new StorageRepoImpl(config.dataSource, config.schemaName, config.fatalErrorHandler)
+    JdbcJournalRuntimeData(repo, repo, config.persistenceIdParser, config.maxRowsPrRead)
+  }
 
   // Java helper
   def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(schemaName), fatalErrorHandler)
@@ -38,79 +33,21 @@ case class JdbcJournalConfig
 (
   dataSource: DataSource,
   schemaName: Option[String],
-  fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happend - like getting unique PK key errors - Which is probably a symptom of split brain
+  fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happened - like getting unique PK key errors - Which is probably a symptom of split brain
   persistenceIdParser:PersistenceIdParser = new PersistenceIdParserImpl('/'),
-  maxRowsPrRead: Int = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ)
-
-object JdbcJournal {
-  val DEFAULT_MAX_ROWS_PR_READ = 1000
-
-  val jacksonJsonSerializer_className = "no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer"
-
-  // This must be called at startup, before any akka-persistence-code is executed
-  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
-  def init(config: JdbcJournalConfig): Unit = {
-    SingletonJdbcJournalRuntimeDataFactory.init(config)
-  }
-
-  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
-  def repo(): StorageRepo = SingletonJdbcJournalRuntimeDataFactory.repo()
-
-  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
-  def clusterNodeRepo() = SingletonJdbcJournalRuntimeDataFactory.clusterNodeRepo()
-
-  @deprecated("Instead use the default SingletonJdbcJournalRuntimeDataFactory or configure another one in application.conf")
-  def persistenceIdSplitter() = SingletonJdbcJournalRuntimeDataFactory.persistenceIdParser()
-
-}
-
-/**
-Used when not configuring custom/multi JdbcJournalRuntimeDataFactory
-You can invoke the method createJdbcJournalRuntimeData as many times you like to get working runtimeConfig.
-*/
-object SingletonJdbcJournalRuntimeDataFactory extends JdbcJournalRuntimeDataFactory {
-
-  private var maxRowsPrRead = JdbcJournal.DEFAULT_MAX_ROWS_PR_READ
-  private var _repo: Option[StorageRepo] = None
-  private var _persistenceIdParser: Option[PersistenceIdParser] = None
-
-  def init(config: JdbcJournalConfig): Unit = {
-    _repo = Some(new StorageRepoImpl(config.dataSource, config.schemaName, config.fatalErrorHandler))
-    _persistenceIdParser = Some(config.persistenceIdParser)
-    maxRowsPrRead = config.maxRowsPrRead
-  }
-
-  private [jdbcjournal] def repo(): StorageRepo = _repo.getOrElse(throw new Exception("JdbcJournal not configured yet"))
-  private [jdbcjournal] def clusterNodeRepo() = repo().asInstanceOf[ClusterNodeRepo]
-
-  private [jdbcjournal] def persistenceIdParser(): PersistenceIdParser = _persistenceIdParser.getOrElse(throw new Exception("JdbcJournal not configured yet"))
-
-  override def createJdbcJournalRuntimeData(): JdbcJournalRuntimeData = {
-    JdbcJournalRuntimeData(repo(), clusterNodeRepo(), persistenceIdParser(), maxRowsPrRead)
-  }
-}
-
-// Need this class so that the journal impl can create an instance of the class if configured to use it
-class SingletonJdbcJournalRuntimeDataFactory extends JdbcJournalRuntimeDataFactory {
-  override def createJdbcJournalRuntimeData(): JdbcJournalRuntimeData = SingletonJdbcJournalRuntimeDataFactory.createJdbcJournalRuntimeData()
-}
+  maxRowsPrRead: Int = 1000
+)
 
 
-trait JdbcJournalRuntimeDataFactory {
-  def createJdbcJournalRuntimeData():JdbcJournalRuntimeData
-}
+
+// ------------------------------------------------------------------
 
 case class JdbcJournalRuntimeData( repo:StorageRepo, clusterNodeRepo:ClusterNodeRepo, persistenceIdParser:PersistenceIdParser, maxRowsPrRead:Int)
 
-trait JdbcJournalExtractRuntimeData {
+trait JdbcJournalRuntimeDataExtractor {
 
   val config: Config
 
-  val jdbcJournalRuntimeDataFactoryClassName = config.getString("jdbcJournalRuntimeDataFactory")
-  val runtimeData:JdbcJournalRuntimeData = try {
-    val jdbcJournalRuntimeDataFactory = Class.forName(jdbcJournalRuntimeDataFactoryClassName).newInstance().asInstanceOf[JdbcJournalRuntimeDataFactory]
-    jdbcJournalRuntimeDataFactory.createJdbcJournalRuntimeData()
-  } catch {
-    case e:Exception => throw new Exception(s"Failed to get JdbcJournalRuntimeData from jdbcJournalRuntimeDataFactory '$jdbcJournalRuntimeDataFactoryClassName'", e)
-  }
+  val configName = config.getString("configName")
+  val runtimeData:JdbcJournalRuntimeData = JdbcJournalConfig.createJdbcJournalRuntimeData(configName)
 }
