@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, FiniteDuration}
+import akka.pattern.ask
+import akka.util.Timeout
 
 
 // Need separate actorSystems for each test to prevent them from interacting with each other
@@ -31,6 +33,9 @@ abstract class JdbcReadJournalTestBase(configName:String) extends FunSuite with 
      """.stripMargin).withFallback(ConfigFactory.load("application-test.conf")))
 
   val log = LoggerFactory.getLogger(getClass)
+
+  implicit val _timeout = Timeout(5, TimeUnit.SECONDS)
+  val timeout = Duration(5, TimeUnit.SECONDS)
 
   val errorHandler = new JdbcJournalErrorHandler {
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
@@ -82,18 +87,18 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase("JdbcReadJournalTest1
 
     Thread.sleep(halfRefreshIntervalInMills)
 
-    pa ! TestCmd("a")
-    paOther ! TestCmd("other-a")
+    Await.ready(ask(pa, TestCmd("a")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-a")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
       EventEnvelope(1, persistenceId, 1, TestEvent("a")))
 
-    pa ! TestCmd("b")
-    paOther ! TestCmd("other-b")
-    pa ! TestCmd("c")
-    paOther ! TestCmd("other-c")
+    Await.ready(ask(pa, TestCmd("b")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-b")), timeout)
+    Await.ready(ask(pa, TestCmd("c")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-c")), timeout)
 
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
@@ -102,7 +107,7 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase("JdbcReadJournalTest1
       EventEnvelope(2, persistenceId, 2, TestEvent("b")),
       EventEnvelope(3, persistenceId, 3, TestEvent("c")))
 
-    pa ! TestCmd("d")
+    Await.ready(ask(pa, TestCmd("d")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
@@ -121,12 +126,12 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase("JdbcReadJournalTest2
     val pa = system.actorOf(Props(new TestPersistentActor(persistenceId)))
     val paOther = system.actorOf(Props(new TestPersistentActor(uniquePersistenceId("pa1"))))
 
-    pa ! TestCmd("a")
-    paOther ! TestCmd("other-a")
-    pa ! TestCmd("b")
-    paOther ! TestCmd("other-b")
-    pa ! TestCmd("c")
-    paOther ! TestCmd("other-c")
+    Await.ready(ask(pa, TestCmd("a")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-a")), timeout)
+    Await.ready(ask(pa, TestCmd("b")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-b")), timeout)
+    Await.ready(ask(pa, TestCmd("c")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-c")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills)
     // Skip to next read cycle
@@ -150,8 +155,8 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase("JdbcReadJournalTest2
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    pa ! TestCmd("x")
-    paOther ! TestCmd("other-x")
+    Await.ready(ask(pa, TestCmd("x")), timeout)
+    Await.ready(ask(paOther, TestCmd("other-x")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
@@ -184,9 +189,9 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
 
     Thread.sleep(halfRefreshIntervalInMills)
 
-    pa1 ! TestCmd("a1")
+    Await.ready(ask(pa1, TestCmd("a1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("a2")
+    Await.ready(ask(pa2, TestCmd("a2")), timeout)
     Thread.sleep(100)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
@@ -195,13 +200,13 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
       EventEnvelope(1, id1, 1, TestEvent("a1")),
       EventEnvelope(2, id2, 2, TestEvent("a2")))
 
-    pa1 ! TestCmd("b1")
+    Await.ready(ask(pa1, TestCmd("b1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("b2")
+    Await.ready(ask(pa2, TestCmd("b2")), timeout)
     Thread.sleep(100)
-    pa1 ! TestCmd("c1")
+    Await.ready(ask(pa1, TestCmd("c1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("c2")
+    Await.ready(ask(pa2, TestCmd("c2")), timeout)
 
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
@@ -212,9 +217,9 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
       EventEnvelope(5, id1, 5, TestEvent("c1")),
       EventEnvelope(6, id2, 6, TestEvent("c2")))
 
-    pa1 ! TestCmd("d1")
+    Await.ready(ask(pa1, TestCmd("d1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("d2")
+    Await.ready(ask(pa2, TestCmd("d2")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
@@ -238,13 +243,13 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
 
     Thread.sleep(halfRefreshIntervalInMills)
 
-    pa1 ! TestCmd("a1")
+    Await.ready(ask(pa1, TestCmd("a1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("a2")
+    Await.ready(ask(pa2, TestCmd("a2")), timeout)
     Thread.sleep(100)
-    pa1 ! TestCmd("b1")
+    Await.ready(ask(pa1, TestCmd("b1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("b2")
+    Await.ready(ask(pa2, TestCmd("b2")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills)
 
@@ -268,9 +273,9 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    pa1 ! TestCmd("c1")
+    Await.ready(ask(pa1, TestCmd("c1")), timeout)
     Thread.sleep(100)
-    pa2 ! TestCmd("c2")
+    Await.ready(ask(pa2, TestCmd("c2")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
@@ -294,6 +299,7 @@ class TestPersistentActor(val persistenceId: String) extends Actor with Persiste
       persist(event) {
         e =>
           log.info(s"Persisted $event")
+          sender ! "ok"
       }
   }
 
