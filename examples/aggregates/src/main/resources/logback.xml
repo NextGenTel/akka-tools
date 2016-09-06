@@ -28,7 +28,7 @@
     </root>
 
 
-    <logger name="no.nextgentel" level="debug" />
+    <!--<logger name="no.nextgentel" level="debug" />-->
     <!--
         <logger name="com.kjetland.liafjellet.UserSession" level="warn" />
         <logger name="com.kjetland.liafjellet.HttpSampler" level="warn" />

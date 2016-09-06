@@ -8,8 +8,8 @@
         </encoder>
     </appender>
 
-    <logger name="no.nextgentel" level="debug"/>
-    <logger name="akka" level="debug"/>
+    <!--<logger name="no.nextgentel" level="debug"/>-->
+    <!--<logger name="akka" level="debug"/>-->
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
