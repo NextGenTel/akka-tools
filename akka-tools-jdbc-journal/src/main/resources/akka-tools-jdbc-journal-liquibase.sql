@@ -18,24 +18,20 @@ CREATE UNIQUE INDEX IX_journalIndex ON t_journal(typePath, journalIndex);
 
 
 CREATE TABLE t_snapshot (
-  processorId                             VARCHAR(255),
+  persistenceId                           VARCHAR(255),
   sequenceNr                              INT,
   timestamp                               NUMERIC,
   snapshot                                BLOB,
   snapshotClassname                       VARCHAR(255),
   updated                                 TIMESTAMP,
+  serializerId                            INT,
 
-  PRIMARY KEY(processorId, sequenceNr, timestamp)
+  PRIMARY KEY(persistenceId, sequenceNr, timestamp)
 );
 
 CREATE TABLE t_cluster_nodes (
     nodeName                              VARCHAR(255),
     lastSeen                              TIMESTAMP,
+    joined                                INT,
     PRIMARY KEY(nodeName)
 );
-
--- changeset mokj:changes-after-akka-tools-1.0.5 dbms:all
-ALTER TABLE t_snapshot ADD serializerId INT;
-
--- changeset mokj:changes-after-akka-tools-1.0.7 dbms:all
-ALTER TABLE t_cluster_nodes ADD joined INT;

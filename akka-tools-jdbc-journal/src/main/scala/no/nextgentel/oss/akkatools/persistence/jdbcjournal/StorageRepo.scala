@@ -182,11 +182,11 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def writeSnapshot(e: SnapshotEntry) {
-    val sql = s"insert into ${schemaPrefix}t_snapshot (processorId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:processorId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
+    val sql = s"insert into ${schemaPrefix}t_snapshot (persistenceId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:persistenceId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
     val c = sql2o.open()
     try {
       c.createQuery(sql)
-        .addParameter("processorId", e.persistenceId)
+        .addParameter("persistenceId", e.persistenceId)
         .addParameter("sequenceNr", e.sequenceNr)
         .addParameter("timestamp", e.timestamp)
         .addParameter("snapshot", e.snapshot)
@@ -204,17 +204,17 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry] = {
-    val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by timestamp desc) where rownum <= 1"
+    val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by timestamp desc) where rownum <= 1"
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
-        val t = conn.createQuery(sql).addParameter("processorId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeAndFetchTable
+        val t = conn.createQuery(sql).addParameter("persistenceId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeAndFetchTable
         if (t.rows.isEmpty) {
           None
         } else {
           val row: Row = t.rows.get(0)
           val e = SnapshotEntry(
-            row.getString("processorId"),
+            row.getString("persistenceId"),
             row.getLong("sequenceNr"),
             row.getLong("timestamp"),
             Option(row.getObject("snapshot", classOf[Array[Byte]]).asInstanceOf[Array[Byte]]).getOrElse( Array[Byte]() ), // Empty BLOB in Oracle is returned as NULL
@@ -228,20 +228,20 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long) {
-    val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
+    val sql = s"delete from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("processorId", persistenceId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
+      c.createQuery(sql).addParameter("persistenceId", persistenceId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
     } finally {
       c.close()
     }
   }
 
   def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long) {
-    val sql = s"delete from ${schemaPrefix}t_snapshot where processorId = :processorId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
+    val sql = s"delete from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("processorId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
+      c.createQuery(sql).addParameter("persistenceId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
     } finally {
       c.close()
     }

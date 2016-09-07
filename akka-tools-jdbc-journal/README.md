@@ -103,20 +103,20 @@ The following tables are needed, here described in liquibase-format:
     
     -- Create index to make it fast to query using only typePath and s_journal_global_seq
     CREATE UNIQUE INDEX IX_journalIndex ON t_journal(typePath, journalIndex);
-
+    
     
     CREATE TABLE t_snapshot (
-      processorId                             VARCHAR(255),
+      persistenceId                           VARCHAR(255),
       sequenceNr                              INT,
       timestamp                               NUMERIC,
       snapshot                                BLOB,
       snapshotClassname                       VARCHAR(255),
-      serializerId                            INT,
       updated                                 TIMESTAMP,
+      serializerId                            INT,
     
-      PRIMARY KEY(processorId, sequenceNr, timestamp)
+      PRIMARY KEY(persistenceId, sequenceNr, timestamp)
     );
-
+    
     CREATE TABLE t_cluster_nodes (
         nodeName                              VARCHAR(255),
         lastSeen                              TIMESTAMP,
@@ -145,6 +145,10 @@ If migrating from **akka-tools 1.0.6 or earlier**, you need to apply the followi
 
     ALTER TABLE t_cluster_nodes ADD joined INT;
 
+If migrating from **akka-tools 1.0.7 or earlier**, you need to apply the following DB-changes which was added in **akka-tools 1.1.0**:
+
+    ALTER TABLE t_snapshot RENAME COLUMN processorId TO persistenceId;
+
 The payload of the events are written and read from the *persistentRepr*-column.
 
 If the payload is serialized using *no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializer*,
@@ -153,22 +157,3 @@ for readability and is never read/used in this code.
 
 
 It would be a good idea to use this with the *JacksonJsonSerializer*-module, but it is not mandatory.
-
-    
-
-Special PersistentView-feature
---------------------------------
-
-This jdbc-journal has implemented a special feature that makes it possible to create a PersistentView that receives
-ALL events for ALL instances of a specific type.
-
-If you have the following eventsources acctors/aggregates:
-  
-   /data/car/1
-   /data/car/2
-   /data/car/3
-   
-
-If you create a PersistentView with '/data/car/1', it will get all events for that car.
-But if you create a PersistentView with '/data/car/*', the special feature will give you all events for all cars.
-All these events are wrapped in JournalEntry-objects
