@@ -118,8 +118,7 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
   // Start listening for EntryWrittenToTag-messages which is publish each time an event is written for
   // a specific tag - maybe the one we're tracking
   val pubsubMediator = DistributedPubSub(context.system).mediator
-  if ( live && !persistenceIdObject.isFull() ) {
-    // This means we're tracking a tag - we should subscribe
+  if ( live ) {
     pubsubMediator ! Subscribe( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, persistenceIdObject.typePath()), self)
 
   }
@@ -129,8 +128,15 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
   }
 
   def receive = {
-    case _: EntryWrittenToTag =>
-      doWork()
+    case entryWrittenToTag: EntryWrittenToTag =>
+      if ( !persistenceIdObject.isFull() ) {
+        // We're tracking a tag
+        doWork()
+      } else if(entryWrittenToTag.persistenceId == persistenceId) {
+        // This means one of our events have been written
+        doWork()
+      }
+
 
     case _: Request | Continue ⇒
       doWork()

@@ -28,7 +28,7 @@ object EntryWrittenToTag {
 // It is published the topic resolved via EntryWrittenToTag.topic()-method.
 // This is used by JdbcReadJournal's EventsByTagQuery (PersistenceQuery) so that it can read
 // it right away - instead of waiting for it to arrive the next time we try to check the db.
-case class EntryWrittenToTag() extends JacksonJsonSerializable
+case class EntryWrittenToTag(persistenceId:String) extends JacksonJsonSerializable
 
 
 class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with ActorLogging with JdbcJournalExtractRuntimeData {
@@ -73,10 +73,12 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
           }
 
           // Find all unique tags
-          dtoList.map (_.persistenceId.typePath()).toSet.foreach {
-            tagName:String =>
+          dtoList.map (_.persistenceId).toSet.foreach {
+            persistenceId:PersistenceId =>
+              val tagName = persistenceId.typePath()
+              val persistenceIdString = persistenceId.typePath() + persistenceId.id()
               // publish msg to tell any JdbcReadJournal / PersistenceQuery that it can read more events
-              pubsubMediator ! Publish( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, tagName), EntryWrittenToTag() )
+              pubsubMediator ! Publish( EntryWrittenToTag.topic(jdbcJournalRuntimeDataFactoryClassName, tagName), EntryWrittenToTag(persistenceIdString) )
           }
 
         }
