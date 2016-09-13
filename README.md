@@ -27,6 +27,7 @@ Changelog
 
 Version 1.0.11 - Not released yet
 
+* Upgraded to Akka 2.4.10
 * PersistenceQuery's EventsByPersistenceId now also loads new events instantly - No more waiting for the next scheduled read
   * This is achieved using a Distributed pubSub-mechanism
 * Exceptions thrown by JacksonJsonSerializer.toBinary when sending msg via akka-remoting no longer [brings the connection down](https://github.com/akka/akka/issues/21343)
