@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.12-SNAPSHOT - Not released yet
+
+* Added error-logging to JdbcEventsByPersistenceIdActor
+
 Version 1.0.11 - 2016-09-13
 
 * Upgraded to Akka 2.4.10

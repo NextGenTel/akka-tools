@@ -175,6 +175,7 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
 
       } catch {
         case e: Exception ⇒
+          log.error(e, "JdbcEventsByPersistenceIdActor stopped for persistenceId=$persistenceId")
           onErrorThenStop(e)
       }
     }
