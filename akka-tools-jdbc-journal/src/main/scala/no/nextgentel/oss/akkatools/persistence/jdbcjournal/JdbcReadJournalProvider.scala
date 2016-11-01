@@ -163,7 +163,13 @@ class JdbcEventsByPersistenceIdActor(jdbcJournalRuntimeDataFactoryClassName:Stri
             val persistentRepr = serializer.fromBinary(entry.persistentRepr).asInstanceOf[PersistentRepr]
             nextFromSequenceNr = entry.sequenceNr +1
 
-            EventEnvelope(entry.sequenceNr, persistentRepr.persistenceId, entry.sequenceNr, persistentRepr.payload)
+            // TODO: Need to add test for this
+            val event:AnyRef = persistentRepr.payload match {
+              case q:EventWithInjectableTimestamp => q.cloneWithInjectedTimestamp(entry.timestamp)
+              case x:AnyRef => x
+            }
+
+            EventEnvelope(entry.sequenceNr, persistentRepr.persistenceId, entry.sequenceNr, event)
 
         }.toVector
 

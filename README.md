@@ -28,6 +28,7 @@ Changelog
 Version 1.0.12-SNAPSHOT - Not released yet
 
 * Added error-logging to JdbcEventsByPersistenceIdActor
+* Journal now supports injecting timestamp from db into Events extending EventWithInjectableTimestamp
 
 Version 1.0.11 - 2016-09-13
 

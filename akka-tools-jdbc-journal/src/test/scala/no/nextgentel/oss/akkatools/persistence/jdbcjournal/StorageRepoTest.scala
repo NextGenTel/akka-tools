@@ -23,7 +23,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
   test("writing and loading one dto") {
     val pid1 = PersistenceId("pId", getNextId())
-    val dto1 = JournalEntryDto(pid1, 1L, "persistentRepr".getBytes, "This is the payload")
+    val dto1 = JournalEntryDto(pid1, 1L, "persistentRepr".getBytes, "This is the payload", null)
 
     repo.insertPersistentReprList(Seq(dto1))
 
@@ -31,7 +31,8 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     // Must special-equals it due to the byte-array
     assert(dto1.persistentRepr.deep == read.persistentRepr.deep)
-    assert(dto1.copy(persistentRepr = null, payloadWriteOnly = null) == read.copy(persistentRepr = null))
+    assert( read.timestamp != null )
+    assert(dto1.copy(persistentRepr = null, payloadWriteOnly = null) == read.copy(persistentRepr = null, timestamp = null))
   }
 
   test("journal operations") {
@@ -40,7 +41,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     def fix(dtos:List[JournalEntryDto]):List[JournalEntryDto] = {
       dtos.map {
         d =>
-          d.copy(persistentRepr = null)
+          d.copy(persistentRepr = null, timestamp = null)
       }
     }
 
@@ -50,7 +51,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     val dummyPersistentRepr = Array[Byte]()
 
-    val dto1 = JournalEntryDto(pid1, 1L, dummyPersistentRepr, null)
+    val dto1 = JournalEntryDto(pid1, 1L, dummyPersistentRepr, null, null)
 
     repo.insertPersistentReprList(Seq(dto1))
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
@@ -60,7 +61,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     assert( 1 == repo.findHighestSequenceNr(pid1, 0))
 
-    val dto2 = JournalEntryDto(pid1, 2L, dummyPersistentRepr, null)
+    val dto2 = JournalEntryDto(pid1, 2L, dummyPersistentRepr, null, null)
     repo.insertPersistentReprList(Seq(dto2))
 
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))

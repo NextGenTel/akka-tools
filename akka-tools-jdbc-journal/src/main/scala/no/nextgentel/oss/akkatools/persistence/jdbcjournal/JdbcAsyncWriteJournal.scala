@@ -61,7 +61,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               }
 
               val payloadJson = tryToExtractPayloadAsJson(p)
-              JournalEntryDto(persistenceIdSplitter.split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null))
+              JournalEntryDto(persistenceIdSplitter.split(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null), timestamp = null)
           }
 
           try {
@@ -150,9 +150,20 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
         entries.foreach {
           entry: JournalEntryDto =>
 
-            val rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
+            val _rawPersistentRepr: PersistentRepr = serialization.serializerFor(classOf[PersistentRepr]).fromBinary(entry.persistentRepr)
               .asInstanceOf[PersistentRepr]
               .update(sequenceNr = entry.sequenceNr)
+
+            val rawPersistentRepr:PersistentRepr = if (_rawPersistentRepr.payload.isInstanceOf[EventWithInjectableTimestamp]) {
+              // we must inject timestamp into event/payload
+              // TODO: Need to add test for this
+              val eventWithTimestamp = _rawPersistentRepr.payload.asInstanceOf[EventWithInjectableTimestamp].cloneWithInjectedTimestamp(entry.timestamp)
+              PersistentRepr(eventWithTimestamp).update(sequenceNr = _rawPersistentRepr.sequenceNr, persistenceId = _rawPersistentRepr.persistenceId, sender = _rawPersistentRepr.sender, deleted = _rawPersistentRepr.deleted, writerUuid = _rawPersistentRepr.writerUuid)
+            } else {
+              // use it as is
+              _rawPersistentRepr
+            }
+
 
             val persistentRepr = if (!persistenceIdObject.isFull()) {
               // Must create a new modified one..

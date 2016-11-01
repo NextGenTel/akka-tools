@@ -1,6 +1,6 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
-import java.time.OffsetDateTime
+import java.time.{OffsetDateTime, ZoneId}
 import java.util.Date
 import javax.sql.DataSource
 
@@ -11,7 +11,7 @@ import org.sql2o.quirks.OracleQuirks
 
 import scala.concurrent.duration.FiniteDuration
 
-case class JournalEntryDto(persistenceId: PersistenceId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String)
+case class JournalEntryDto(persistenceId: PersistenceId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String, timestamp:OffsetDateTime)
 case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], manifest:String, serializerId:Option[Int])
 
 
@@ -65,7 +65,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
       "journalIndex"
     }
 
-    val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr from ${schemaPrefix}t_journal where typePath = :typePath " +
+    val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where typePath = :typePath " +
       (if (persistenceId.isFull) " and id = :id " else "") +
       s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
 
@@ -84,7 +84,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
               PersistenceId(r.getString("typePath"), r.getString("id")),
               r.getLong(sequenceNrColumnName),
               r.getObject("persistentRepr", classOf[Array[Byte]]),
-              null)
+              null,
+              OffsetDateTime.ofInstant(r.getDate("updated").toInstant(), ZoneId.systemDefault()))
         }
       } finally {
         if (conn != null) conn.close()
