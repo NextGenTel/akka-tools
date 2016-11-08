@@ -18,7 +18,7 @@ case class CinemaNotification(seatsBooked:List[String])
 
 // Aggregate
 class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator)
-  extends GeneralAggregate[BookingEvent, BookingState](dmSelf) {
+  extends GeneralAggregateDMViaEvent[BookingEvent, BookingState](dmSelf) {
 
 
   var state = BookingState.empty() // This is our initial state(Machine)
@@ -45,21 +45,20 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
         .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
   }
 
-  override def generateDMAfter = {
+  override def generateDMs = {
     case e: BookingClosedEvent =>
 
       assert( state.state == StateName.CLOSED)
-      assert( previousState().state == StateName.OPEN)
 
       // The booking has now been closed and we need to send an important notification to the Cinema
       val msg = CinemaNotification(state.reservations.toList)
-      ResultingDurableMessages(msg, cinemaNotifier)
+      ResultingDMs(msg, cinemaNotifier)
 
     case e: SeatReservedEvent =>
       // The seat-reservation has been confirmed and we need to print the ticket
 
       val msg = PrintTicketMessage(e.id)
-      ResultingDurableMessages(msg, ticketPrintShop)
+      ResultingDMs(msg, ticketPrintShop)
   }
 
   override def persistenceIdBase() = BookingAggregate.persistenceIdBase

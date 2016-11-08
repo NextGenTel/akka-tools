@@ -16,15 +16,6 @@ case class ResultingEvent[+E](
                                afterValidationSuccessHandler: () => Unit) {
 
 
-  @deprecated("Use onError instead", "1.0.3")
-  def withErrorHandler(errorHandler:(String)=>Unit) = onError(errorHandler)
-
-  @deprecated("Use onSuccess instead. IMPORTANT!! Note that the two methods are used differently: Before: '() => {your code}'  Now: '{your code}'", "1.0.3")
-  def withSuccessHandler(successHandler: ()=>Unit) = copy( successHandler = successHandler)
-
-
-  // Newer more fluent api
-
   // Called whenever an AggregateError happens - either in state validation or withPostValidationHandler
   def onError(errorHandler:(String)=>Unit) = copy( errorHandler = errorHandler)
 

@@ -239,6 +239,17 @@ abstract class GeneralAggregateDMViaStateAndEvent[E:ClassTag, S <: AggregateStat
   def generateDMs:PartialFunction[(S,E), ResultingDMs]
 }
 
+abstract class GeneralAggregateDMViaEvent[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+(
+  dmSelf:ActorPath
+) extends GeneralAggregateBase[E, S](dmSelf) {
+
+  // Called AFTER event has been applied to state
+  override def generateDMs(event: E, previousState: S): ResultingDMs = generateDMs.applyOrElse(event, (t:E) => ResultingDMs(List()))
+
+  def generateDMs:PartialFunction[E, ResultingDMs]
+}
+
 case class ResultingDMs(list:List[SendAsDM])
 
 object ResultingDMs {

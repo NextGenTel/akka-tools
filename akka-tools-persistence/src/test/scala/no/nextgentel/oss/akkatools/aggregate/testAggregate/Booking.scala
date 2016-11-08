@@ -16,7 +16,7 @@ case class CinemaNotification(seatsBooked:List[String])
 
 // Aggregate
 class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, var predefinedSeatIds:List[String], onSuccessDmForwardReceiver:ActorPath)
-  extends GeneralAggregate[BookingEvent, BookingState](dmSelf) {
+  extends GeneralAggregateDMViaEvent[BookingEvent, BookingState](dmSelf) {
 
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
@@ -40,7 +40,7 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
   override def cmdToEvent = {
     case c: OpenBookingCmd  =>  ResultingEvent(BookingOpenEvent(c.seats))
       .onSuccess {
-        sendAsDurableMessage("OpenBookingCmd-ok", onSuccessDmForwardReceiver)
+        sendAsDM("OpenBookingCmd-ok", onSuccessDmForwardReceiver)
       }
 
     case c: CloseBookingCmd => ResultingEvent(BookingClosedEvent())
@@ -73,23 +73,19 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
         .onError((errorMsg) => sender ! Failure(new Exception(errorMsg)))
   }
 
-  override def generateResultingDurableMessages = {
+  override def generateDMs = {
     case e: BookingClosedEvent =>
-      assert( state.state == StateName.OPEN)
-      assert( nextState().state == StateName.CLOSED)
-
-      // We're just testing the nextState()-functionality
-      assert( nextState() == state.transition(e))
+      assert( state.state == StateName.CLOSED)
 
       // The booking has now been closed and we need to send an important notification to the Cinema
       val cinemaNotification = CinemaNotification(state.reservations.toList)
-      ResultingDurableMessages(cinemaNotification, cinemaNotifier)
+      ResultingDMs(cinemaNotification, cinemaNotifier)
 
     case e: ReservationEvent =>
       // The seat-reservation has been confirmed and we need to print the ticket
 
       val printShopMessage = PrintTicketMessage(e.id)
-      ResultingDurableMessages(printShopMessage, ticketPrintShop)
+      ResultingDMs(printShopMessage, ticketPrintShop)
   }
 }
 

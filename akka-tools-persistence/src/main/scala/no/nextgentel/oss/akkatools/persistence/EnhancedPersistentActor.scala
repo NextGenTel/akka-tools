@@ -14,11 +14,6 @@ import scala.reflect._
 
 case class SendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
 
-@deprecated(message = "Use SendAsDM and GeneralAggregateBase instead", since = "1.0.7")
-case class SendAsDurableMessage(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null) {
-  def toSendAsDM() = SendAsDM(payload, destinationActor, confirmationRoutingInfo)
-}
-
 object EnhancedPersistentActor {
   // Before we calculated the timeout based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts,
   // This timeout used to be 240 seconds.
@@ -622,57 +617,3 @@ trait EnhancedPersistentJavaActorLike {
 case class EventAndState(eventType:String, event:AnyRef, state:AnyRef)
 
 case class GetEventAndStateHistory()
-
-abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:String, id:String, collectHistory:Boolean = true) extends PersistentView with ActorLogging {
-
-  log.debug(s"Starting view with persistenceIdBase=$persistenceIdBase and id=$id")
-
-  var history:List[EventAndState] = List()
-
-  override def viewId = persistenceIdBase + "-view-" + id
-
-  def currentState():S
-
-  def applyEventToState(event:E)
-
-  private def internalApplyEventToState(event:E): Unit = {
-    try {
-      applyEventToState(event)
-    } catch {
-      case e:Exception =>
-        handleEventException(e, event)
-    }
-  }
-
-  def handleEventException(e:Exception, event:E):Unit = {
-    log.error(e, s"Error applying event, ignoring it: $event" )
-  }
-
-
-  override def persistenceId: String = persistenceIdBase + id
-
-  val onCmd:PartialFunction[AnyRef, Unit]
-
-  override def receive = {
-    case GetEventAndStateHistory() =>
-      log.debug("Sending EventAndStateHistory")
-      sender ! history
-    case x:DurableMessageReceived => // We can ignore these in our view
-    case x:GetState =>
-      log.debug("Sending state")
-      sender ! currentState()
-    case x:AnyRef =>
-      if (classTag[E].runtimeClass.isInstance(x) ) {
-        val event = x.asInstanceOf[E]
-        log.debug(s"Applying event to state: $event")
-        internalApplyEventToState(event)
-        history = history :+ EventAndState(event.getClass.getName, event.asInstanceOf[AnyRef], currentState().asInstanceOf[AnyRef])
-      } else {
-        onCmd.applyOrElse(x, {
-          (cmd:AnyRef) =>
-            log.debug(s"No cmdHandler found for $cmd")
-        })
-      }
-
-  }
-}

@@ -15,7 +15,7 @@ class TACAggregate
   eSigningSystem:ActorPath,
   emailSystem:ActorPath,
   trustAccountSystem:ActorPath
-) extends GeneralAggregate[TACEvent, TACState](dmSelf) {
+) extends GeneralAggregateDMViaEvent[TACEvent, TACState](dmSelf) {
 
   override def persistenceIdBase() = TACAggregate.persistenceIdBase
 
@@ -37,28 +37,28 @@ class TACAggregate
     case c:DeclinedCmd            => ResultingEvent( DeclinedEvent(c.cause) )
   }
 
-  override def generateResultingDurableMessages = {
+  override def generateDMs = {
     case e:RegisteredEvent  =>
       // We must send message to eSigningSystem
       val msg = DoPerformESigning(dispatchId, e.info.customerNo)
-      ResultingDurableMessages( msg, eSigningSystem)
+      ResultingDMs( msg, eSigningSystem)
 
     case e:ESigningCompletedEvent =>
       // ESigning is completed, so we should init creation of the TrustAccount
       val info = state.info.get
       val msg = DoCreateTrustAccount(dispatchId, info.customerNo, info.trustAccountType)
-      ResultingDurableMessages(msg, trustAccountSystem)
+      ResultingDMs(msg, trustAccountSystem)
 
 
     case e:DeclinedEvent =>
       // The TrustAccountCreation-process failed - must notify customer
       val msg = DoSendEmailToCustomer(state.info.get.customerNo, s"Sorry.. TAC-failed: ${e.cause}")
-      ResultingDurableMessages(msg, emailSystem)
+      ResultingDMs(msg, emailSystem)
 
     case e:CreatedEvent =>
       // The TrustAccountCreation-process was success - must notify customer
       val msg = DoSendEmailToCustomer(state.info.get.customerNo, s"Your TrustAccount '${e.trustAccountId}' has been created!")
-      ResultingDurableMessages(msg, emailSystem)
+      ResultingDMs(msg, emailSystem)
 
   }
 }
