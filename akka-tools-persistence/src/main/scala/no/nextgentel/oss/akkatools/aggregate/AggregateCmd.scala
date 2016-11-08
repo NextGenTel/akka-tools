@@ -1,7 +1,5 @@
 package no.nextgentel.oss.akkatools.aggregate
 
-import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
-
-trait AggregateCmd extends JacksonJsonSerializable {
+trait AggregateCmd {
   def id(): String
 }
