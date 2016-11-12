@@ -12,14 +12,21 @@ import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest._
 import org.slf4j.LoggerFactory
 
+import scala.util.Random
+
+object GeneralAggregateWithShardingTest {
+  val port = 20000 + Random.nextInt(20000)
+}
+
+
 class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.parseString(
     s"""akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
         |akka.remote.enabled-transports = ["akka.remote.netty.tcp"]
         |akka.remote.netty.tcp.hostname="localhost"
-        |akka.remote.netty.tcp.port=42996
-        |akka.cluster.seed-nodes = ["akka.tcp://test-actor-system@localhost:42996"]
+        |akka.remote.netty.tcp.port=${GeneralAggregateWithShardingTest.port}
+        |akka.cluster.seed-nodes = ["akka.tcp://test-actor-system@localhost:${GeneralAggregateWithShardingTest.port}"]
     """.stripMargin
   ).withFallback(ConfigFactory.load("application-test.conf"))))
 

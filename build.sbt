@@ -4,7 +4,8 @@ lazy val commonSettings = Seq(
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
   version := "1.0.12-b1-SNAPSHOT",
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.12.0",
+  crossScalaVersions := Seq("2.11.8", "2.12.0"),
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
@@ -37,10 +38,10 @@ lazy val commonSettings = Seq(
 )
 
 
-val akkaVersion = "2.4.10"
-val akkaPersistenceInMemoryVersion = "1.1.5"
-val jacksonVersion = "2.4.6"
-val jacksonScalaModuleVersion = "2.4.5"
+val akkaVersion = "2.4.12"
+val akkaPersistenceInMemoryVersion = "1.3.14"
+val jacksonVersion = "2.8.4"
+val jacksonScalaModuleVersion = "2.8.4"
 val slf4jVersion = "1.7.7"
 
 lazy val akkaToolsCommonDependencies = Seq(
@@ -79,7 +80,7 @@ lazy val akkaToolsClusterDependencies = Seq(
 )
 
 lazy val testDependencies = Seq(
-  "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test"
 )
@@ -91,7 +92,7 @@ lazy val testDbDependencies = Seq(
 )
 
 lazy val exampleAggregatesDependencies = Seq(
-  "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
+  "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion
 )
