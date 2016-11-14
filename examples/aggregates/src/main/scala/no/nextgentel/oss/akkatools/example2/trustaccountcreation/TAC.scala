@@ -86,6 +86,4 @@ class TACStarter(system:ActorSystem) extends AggregateStarter("tac", system) wit
     this
   }
 
-  override def createViewProps(aggregateId: String): Props =
-    Props( new GeneralAggregateView[TACEvent, TACState](TACAggregate.persistenceIdBase, aggregateId, TACState.empty(), true))
 }

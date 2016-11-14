@@ -99,6 +99,4 @@ class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", sys
     this
   }
 
-  override def createViewProps(aggregateId: String): Props =
-    Props( new GeneralAggregateView[BookingEvent, BookingState](BookingAggregate.persistenceIdBase, aggregateId, BookingState.empty(), true))
 }
