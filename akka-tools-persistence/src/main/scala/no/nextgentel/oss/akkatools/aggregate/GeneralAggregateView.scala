@@ -4,7 +4,7 @@ import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentView, GetState
 
 import scala.reflect.ClassTag
 
-class GeneralAggregateView[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+class GeneralAggregateView[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
   persistenceIdBase:String,
   id:String,
@@ -17,7 +17,7 @@ class GeneralAggregateView[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
   override def currentState():S = state
 
   override def applyEventToState(event: E): Unit = {
-    state = state.transition(event)
+    state = state.transitionState(event).newState
   }
 
   override val onCmd: PartialFunction[AnyRef, Unit] = {
