@@ -1,5 +1,7 @@
 package no.nextgentel.oss.akkatools.aggregate;
 
+import scala.Option;
+
 public class JavaState implements AggregateStateJava {
 
     public static JavaState empty = new JavaState(0);
@@ -8,6 +10,11 @@ public class JavaState implements AggregateStateJava {
 
     public JavaState(int counter) {
         this.counter = counter;
+    }
+
+    @Override
+    public StateTransition<Object, AggregateStateJava> transitionState(Object event) {
+        return StateTransition.apply(transition(event), Option.apply(null));
     }
 
     @Override

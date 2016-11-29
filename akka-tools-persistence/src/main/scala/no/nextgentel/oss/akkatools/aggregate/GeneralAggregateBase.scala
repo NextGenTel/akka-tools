@@ -37,7 +37,7 @@ import scala.reflect.ClassTag
  * @tparam E     Superclass/trait representing your events
  * @tparam S     The type representing your state
  */
-abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
   dmSelf:ActorPath
   ) extends EnhancedPersistentShardingActor[E, AggregateError](dmSelf) {
@@ -83,11 +83,26 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
         // Test the events
         try {
-          val eventList:List[E] = eventResult.events.apply()
-          if( log.isDebugEnabled ) log.debug("Trying resultingEvents: " + eventList)
-          eventList.foldLeft(state) {
-            (s, e) =>
-              s.transition(e)
+          var eventsToProcessList:List[E] = eventResult.events.apply()
+
+          var testState = state
+          var allEvents = List[E]()
+
+          while( eventsToProcessList.nonEmpty ) {
+            val nextEvent = eventsToProcessList.head
+            if( log.isDebugEnabled ) log.debug("Trying event: " + nextEvent)
+            allEvents = allEvents :+ nextEvent // Add this event to list of all events
+            eventsToProcessList = eventsToProcessList.tail
+            val stateTransition = testState.transitionState(nextEvent)
+            testState = stateTransition.newState
+
+            // If this stateTransition resulted in new event, we must add it to the front of eventsToProcessList
+            eventsToProcessList = stateTransition.newEvent match {
+              case Some(newEvent) =>
+                if( log.isDebugEnabled ) log.debug("Adding new event: " + newEvent)
+                newEvent :: eventsToProcessList // add this new event to the front of eventsToProcessList
+              case _ => eventsToProcessList // unchanged
+            }
           }
 
           // it was valid
@@ -97,12 +112,12 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
           val runTheSuccessHandler = () => Option(eventResult.successHandler).getOrElse(defaultSuccessHandler).apply()
 
 
-          if (eventList.isEmpty) {
+          if (allEvents.isEmpty) {
             // We have no events to persist - run the successHandler any way
             runTheSuccessHandler.apply()
           } else {
             // we can persist it
-            persistAndApplyEvents(eventList,
+            persistAndApplyEvents(allEvents,
               successHandler = {
                 () =>
                   // run the successHandler
@@ -133,7 +148,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
         val stateBackup = state
         try {
           val previousState:S = state
-          state = state.transition(e) // make the new state current
+          state = state.transitionState(e).newState // make the new state current
           generateDMs(e, previousState)
         } catch {
           case e:Exception =>
@@ -156,7 +171,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
   }
 
 
-  private var tmpStateWhileProcessingUnconfirmedWarning:S = null.asInstanceOf[S]
+  private var tmpStateWhileProcessingUnconfirmedWarning:AggregateStateBase[E, S] = null.asInstanceOf[AggregateStateBase[E, S]]
 
   // We need to override this so that we can use a fresh copy of the state while we process
   // all the unconfirmed messages
@@ -180,7 +195,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
     var tmpState = tmpStateWhileProcessingUnconfirmedWarning // we must validate that the events are valid
 
     events.foreach {
-      e => tmpState = tmpState.transition(e)
+      e => tmpState = tmpState.transitionState(e).newState
     }
 
     // all events passed validation => we can persist them
@@ -202,7 +217,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateState[E, S]:ClassT
   def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
 }
 
-abstract class GeneralAggregateDMViaState[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+abstract class GeneralAggregateDMViaState[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
   dmSelf:ActorPath
 ) extends GeneralAggregateBase[E, S](dmSelf) {
@@ -213,7 +228,7 @@ abstract class GeneralAggregateDMViaState[E:ClassTag, S <: AggregateState[E, S]:
   def generateDMs:PartialFunction[S, ResultingDMs]
 }
 
-abstract class GeneralAggregateDMViaStateAndEvent[E:ClassTag, S <: AggregateState[E, S]:ClassTag]
+abstract class GeneralAggregateDMViaStateAndEvent[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
   dmSelf:ActorPath
 ) extends GeneralAggregateBase[E, S](dmSelf) {

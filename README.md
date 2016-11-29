@@ -25,6 +25,10 @@ Version-information:
 Changelog
 ----------------------------
 
+Version 1.0.13 - NOT RELEASED YET
+
+* Added AggregateStateBase - It is now possible to return new/extra event from inside state-transition
+
 Version 1.0.12 - 2016-11-16
 
 * Added error-logging to JdbcEventsByPersistenceIdActor
