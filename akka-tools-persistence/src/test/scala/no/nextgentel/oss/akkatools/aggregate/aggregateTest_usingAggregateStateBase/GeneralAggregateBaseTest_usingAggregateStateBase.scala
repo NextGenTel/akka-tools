@@ -124,20 +124,21 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
       dest.expectMsg(ValueWasAdded(4))
 
       // kill it
-      main ! PoisonPill
+      system.stop(main)
 
       // Wait for it to die
       Thread.sleep(1000)
 
       // recreate it
-      val recoveredMain = system.actorOf(Props( new XAggregate(null, dmForwardAndConfirm(dest.ref).path)), "XAggregate-" + id)
+      val dest2 = TestProbe()
+      val recoveredMain = system.actorOf(Props( new XAggregate(null, dmForwardAndConfirm(dest2.ref).path)), "XAggregate-" + id)
 
       // get its state
       val recoveredState = AggregateStateGetter[Any](recoveredMain).getState(None).asInstanceOf[XState]
       assert( recoveredState == XState(4))
 
       // make sure we get no msgs
-      dest.expectNoMsg()
+      dest2.expectNoMsg()
 
     }
   }
