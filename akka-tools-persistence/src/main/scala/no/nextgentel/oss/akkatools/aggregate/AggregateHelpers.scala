@@ -89,7 +89,7 @@ trait AggregateViewStarter extends AggregateViewAsker {
     ActorCache.props( {id:String => createViewProps(id)}),
     "viewCache_"+viewName)
 
-  def createViewProps(aggregateId:String):Props = ??? //FIXME - Must re-add this functionality
+  def createViewProps(aggregateId:String):Props
 
   // Will create or reuse existing view and ask it
   def askView(aggregateId:String, msg:AnyRef)(implicit timeout: Timeout):Future[Any] = {
