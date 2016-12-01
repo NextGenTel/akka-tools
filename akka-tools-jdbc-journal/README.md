@@ -145,7 +145,7 @@ If migrating from **akka-tools 1.0.6 or earlier**, you need to apply the followi
 
     ALTER TABLE t_cluster_nodes ADD joined INT;
 
-If migrating from **akka-tools 1.0.7 or earlier**, you need to apply the following DB-changes which was added in **akka-tools 1.1.0**:
+If migrating from **akka-tools 1.0.x**, you need to apply the following DB-changes which was added in **akka-tools 1.1.0**:
 
     ALTER TABLE t_snapshot RENAME COLUMN processorId TO persistenceId;
 
