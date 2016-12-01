@@ -123,11 +123,12 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
       dest.expectMsg(ValueWasAdded(3))
       dest.expectMsg(ValueWasAdded(4))
 
+      Thread.sleep(2000)
       // kill it
       system.stop(main)
 
       // Wait for it to die
-      Thread.sleep(1000)
+      Thread.sleep(2000)
 
       // recreate it
       val dest2 = TestProbe()
