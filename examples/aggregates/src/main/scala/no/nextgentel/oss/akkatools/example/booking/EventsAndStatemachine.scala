@@ -43,7 +43,7 @@ case class BookingState
       case (OPEN,     e:SeatCancelledEvent) => cancelReservation(e.id)
       case (OPEN,     e:BookingClosedEvent) => closeBooking()
       case (CLOSED, _)                      => throw BookingError("Booking is closed")
-
+      case _ => throw BookingError("Invalid event")
     }
   }
 

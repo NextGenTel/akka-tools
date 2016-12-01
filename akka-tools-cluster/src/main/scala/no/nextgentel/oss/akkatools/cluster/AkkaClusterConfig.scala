@@ -2,13 +2,13 @@ package no.nextgentel.oss.akkatools.cluster
 
 import java.net.{UnknownHostException, InetAddress}
 import java.util.{List => JList}
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object AkkaClusterConfig {
 
   // Java API
   def create(hostname:String, port:Int, seedNodes:JList[String]):AkkaClusterConfig = {
-    AkkaClusterConfig(Option(hostname), port, seedNodes.toList)
+    AkkaClusterConfig(Option(hostname), port, seedNodes.asScala.toList)
   }
 }
 

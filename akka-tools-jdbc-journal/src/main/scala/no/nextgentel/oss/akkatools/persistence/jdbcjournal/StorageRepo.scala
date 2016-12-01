@@ -51,7 +51,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   def this(sql2o:Sql2o, schemaName:String, _errorHandler:JdbcJournalErrorHandler) = this(sql2o, Option(schemaName), _errorHandler)
   def this(dataSource:DataSource, schemaName:Option[String], _errorHandler:JdbcJournalErrorHandler) = this(new Sql2o(dataSource, new OracleQuirks()), schemaName, _errorHandler)
 
-  import scala.collection.JavaConversions._
+  import scala.collection.JavaConverters._
 
   // wrap it
   val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler)
@@ -80,7 +80,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
 
         query.addParameter("fromSequenceNr", fromSequenceNr).addParameter("toSequenceNr", toSequenceNr).addParameter("max", max)
         val table = query.executeAndFetchTable
-        table.rows.toList.map{
+        table.rows.asScala.toList.map{
           r:Row =>
             JournalEntryDto(
               persistenceId,
@@ -285,7 +285,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
     val sql = s"select nodeName from ${schemaPrefix}t_cluster_nodes where lastSeen >= :aliveAfter" + (if (onlyJoined) " and joined = 1" else "") + " order by joined desc, lastSeen desc"
     val c = sql2o.open()
     try {
-      c.createQuery(sql).addParameter("aliveAfter", Date.from(aliveAfter.toInstant)).executeScalarList(classOf[String]).toList
+      c.createQuery(sql).addParameter("aliveAfter", Date.from(aliveAfter.toInstant)).executeScalarList(classOf[String]).asScala.toList
     } finally {
       c.close()
     }
