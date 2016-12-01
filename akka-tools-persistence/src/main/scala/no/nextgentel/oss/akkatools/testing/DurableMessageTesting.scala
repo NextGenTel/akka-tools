@@ -12,18 +12,29 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.reflect.ClassTag
 
 object DurableMessageTesting extends DurableMessageTesting {
-  val defaultTimeout = FiniteDuration(3, TimeUnit.SECONDS)
 
 }
 
 trait DurableMessageTesting {
-  import DurableMessageTesting.defaultTimeout
 
-  def sendDM(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = defaultTimeout)(implicit system:ActorSystem):DurableMessageConfirmationChecker = {
+  private def resolveTimeout(timeout:FiniteDuration, system:ActorSystem): FiniteDuration = {
+    if ( timeout != null ) {
+      timeout
+    } else if (system.settings.config.hasPath("akka.test.single-expect-default")) {
+      val l:Long = system.settings.config.getDuration("akka.test.single-expect-default", TimeUnit.MILLISECONDS)
+      FiniteDuration(l, TimeUnit.MILLISECONDS)
+    } else {
+      FiniteDuration(3, TimeUnit.SECONDS)
+    }
+  }
+
+  def sendDM(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = null)(implicit system:ActorSystem):DurableMessageConfirmationChecker = {
+
+    val timeoutToUse = resolveTimeout(timeout, system)
 
     val resultPromise = Promise[Boolean]
     val messageSentPromise = Promise[Unit]
-    val receiver = system.actorOf(Props(new TestingDurableMessageSendAndReceiver(resultPromise, dest, payload, sender, timeout, messageSentPromise)))
+    val receiver = system.actorOf(Props(new TestingDurableMessageSendAndReceiver(resultPromise, dest, payload, sender, timeoutToUse, messageSentPromise)))
 
     // Waiting for the message being sent
     Await.result(messageSentPromise.future, timeout)
@@ -31,8 +42,9 @@ trait DurableMessageTesting {
     new DurableMessageConfirmationChecker(resultPromise.future, timeout)
   }
 
-  def sendDMBlocking(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = defaultTimeout)(implicit system:ActorSystem): Unit = {
-    sendDM(dest, payload, sender, timeout).isConfirmed()
+  def sendDMBlocking(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = null)(implicit system:ActorSystem): Unit = {
+    val timeoutToUse = resolveTimeout(timeout, system)
+    sendDM(dest, payload, sender, timeoutToUse).isConfirmed()
   }
 
 }
@@ -69,10 +81,12 @@ class TestingDurableMessageSendAndReceiver private [testing] (promise:Promise[Bo
       val errorMsg = s"Timeout out waiting for confirmation of TestingDurableMessage with messageId=$messageId"
       log.error(errorMsg)
       promise.failure(new Exception(errorMsg))
+      context.stop(self)
     case x:DurableMessageReceived =>
       log.debug(s"Got confirmation for DurableMessage with messageId=$messageId")
       promise.success(true)
       timer.cancel()
+      context.stop(self)
     case x:AnyRef =>
       log.warning(s"Received something else while waiting for messageId=$messageId: " + x)
   }
