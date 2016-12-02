@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 
 class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
 
-  def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
+  def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test-TestingAggregateNowSendingMoreDMs.conf")))
 
   override def afterAll {
     TestKit.shutdownActorSystem(system)
@@ -23,6 +23,8 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
   private def generateId() = UUID.randomUUID().toString
 
   val seatIds = List("s1","id-used-in-Failed-in-onAfterValidationSuccess", "s2", "s3-This-id-is-going-to-be-discarded", "s4")
+  
+  val sleepTime = 800
 
   trait TestEnv extends AggregateTesting[XState] {
     val id = generateId()
@@ -52,10 +54,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       dest.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)).confirm(system, null)
       dest.expectNoMsg()
 
-      // stop it
-      main ! PoisonPill
-      Thread.sleep(500)
-      // Make sure it stops before we continue
+      // kill it
+      system.stop(main)
+
+      // Wait for it to die
+      Thread.sleep(sleepTime)
 
       // ---------------------------------------------
       // Recreate it to make it recover.
@@ -68,9 +71,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       // And make sure no DMs where actually sent
       dest2.expectNoMsg()
 
-      // Stop it
-      main2 ! PoisonPill
-      Thread.sleep(500) // Make sure it stops before we continue
+      // kill it
+      system.stop(main2)
+
+      // Wait for it to die
+      Thread.sleep(sleepTime)
 
       // ---------------------------------------------
       // Start it again, but now use XAggregateVersion2Sending2DMs which is
@@ -94,9 +99,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         dest3.expectNoMsg()
 
-        // Stop it
-        main3 ! PoisonPill
-        Thread.sleep(500) // Make sure it stops before we continue
+        // kill it
+        system.stop(main3)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // Lets do this twice just to make sure
@@ -113,9 +120,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         dest4.expectNoMsg()
 
-        // Stop it
-        main4 ! PoisonPill
-        Thread.sleep(500) // Make sure it stops before we continue
+        // kill it
+        system.stop(main4)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // Now do it again, but this time we're going to send a new cmd, which should result in new event and new dms. - nothing special since we have already fixed the problem
@@ -142,9 +151,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
       dest4.expectNoMsg()
 
-      // Stop it
-      main4 ! PoisonPill
-      Thread.sleep(500) // Make sure it stops before we continue
+      // kill it
+      system.stop(main4)
+
+      // Wait for it to die
+      Thread.sleep(sleepTime)
 
       // ----------------
       // Do it all again - now with a new DMGeneratingVersion which sends 3 DMs pr event
@@ -163,9 +174,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         dest4.expectNoMsg()
 
-        // Stop it
-        main4 ! PoisonPill
-        Thread.sleep(500) // Make sure it stops before we continue
+        // kill it
+        system.stop(main4)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // ----------------
@@ -187,9 +200,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         dest5.expectNoMsg()
 
-        // Stop it
-        main5 ! PoisonPill
-        Thread.sleep(500) // Make sure it stops before we continue
+        // kill it
+        system.stop(main5)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       //------
@@ -211,9 +226,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
       dest5.expectMsg(DurableMessage(4, ValueWasAdded(4), main5.path.toString, aggregateId)) // NOT CONFIRMING IT - .confirm(system, null)
 
-      // Stop it
-      main5 ! PoisonPill
-      Thread.sleep(500) // Make sure it stops before we continue
+      // kill it
+      system.stop(main5)
+
+      // Wait for it to die
+      Thread.sleep(sleepTime)
 
     }
   }
@@ -227,9 +244,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
       dest.expectMsg(DurableMessage(1, ValueWasAdded(1), main.path.toString, aggregateId)).confirm(system, null)
 
-      // stop it
-      main ! PoisonPill
-      Thread.sleep(500)
+      // kill it
+      system.stop(main)
+
+      // Wait for it to die
+      Thread.sleep(sleepTime)
 
       // Start again with new impl using new dmGeneratingVersion but still only sending one DM pr event.
       for( i <- 1 to 2) { // do it twice
@@ -241,9 +260,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         d.expectNoMsg()
 
-        // stop it
-        m ! PoisonPill
-        Thread.sleep(500)
+        // kill it
+        system.stop(m)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // Start it again
@@ -260,9 +281,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         d.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)) // NOT confirming it - .confirm(system, null)
 
-        // stop it
-        m ! PoisonPill
-        Thread.sleep(500)
+        // kill it
+        system.stop(m)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // Start it again - make sure the unconfrmed message is resent
@@ -275,9 +298,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         d.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)).confirm(system, null)
 
-        // stop it
-        m ! PoisonPill
-        Thread.sleep(500)
+        // kill it
+        system.stop(m)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
       // Start it again - make sure nothing gets sent
@@ -290,9 +315,11 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
 
         d.expectNoMsg()
 
-        // stop it
-        m ! PoisonPill
-        Thread.sleep(500)
+        // kill it
+        system.stop(m)
+
+        // Wait for it to die
+        Thread.sleep(sleepTime)
       }
 
 
