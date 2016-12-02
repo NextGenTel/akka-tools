@@ -9,16 +9,24 @@ import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 
 object JdbcJournalConfig {
 
+  val defaultConfigName = "default"
+
   private var name2Config = Map[String, JdbcJournalConfig]()
 
-  def setConfig(configName:String, config:JdbcJournalConfig): Unit ={
+  def setConfig(config:JdbcJournalConfig): Unit = {
+    setConfig(defaultConfigName, config)
+  }
+
+  def setConfig(configName:String, config:JdbcJournalConfig): Unit = {
     name2Config = name2Config + (configName -> config)
   }
 
   def getConfig(configName:String):JdbcJournalConfig = {
     name2Config.getOrElse(configName, throw new Exception(s"Configuration with name '$configName' has not ben set."))
   }
-
+  def createJdbcJournalRuntimeData(): JdbcJournalRuntimeData = {
+    createJdbcJournalRuntimeData(defaultConfigName)
+  }
   def createJdbcJournalRuntimeData(configName:String): JdbcJournalRuntimeData = {
     val config = getConfig(configName)
     val repo = new StorageRepoImpl(config.dataSource, config.schemaName, config.fatalErrorHandler)

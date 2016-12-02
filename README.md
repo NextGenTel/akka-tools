@@ -19,14 +19,17 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.0.12         | [master](https://github.com/NextGenTel/akka-tools)                   |
-| 2.3.x | 0.9.0          | [akka_2.3](https://github.com/NextGenTel/akka-tools/tree/akka_2.3)   |
+| 2.4   | 1.1.0          | [master](https://github.com/NextGenTel/akka-tools)                   |
 
 Changelog
 ----------------------------
 
 The changes can be found in this [file](CHANGES.md).
 
+Migration from akka-tools 1.0.x
+-------------------------------
+
+Info about how to migrate your source from akka-tools 1.0.x to 1.1.x can be found in [MIGRATION-info.md](MIGRATION-info.md).
 
 Below is a summary of the various modules
 
