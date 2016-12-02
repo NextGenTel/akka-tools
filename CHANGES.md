@@ -1,6 +1,8 @@
-Version 1.0.13 - NOT RELEASED YET
+Version 1.1.0 - NOT RELEASED YET
 
 * Added AggregateStateBase - It is now possible to return new/extra event from inside state-transition
+* Simplified jdbc-journal-condifuration
+* Breaking source-changes, see [MIGRATION-info.md](MIGRATION-info.md) for info.  
 
 Version 1.0.12 - 2016-11-16
 
