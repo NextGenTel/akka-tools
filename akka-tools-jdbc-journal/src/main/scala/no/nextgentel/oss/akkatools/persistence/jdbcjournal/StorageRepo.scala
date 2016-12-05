@@ -192,9 +192,15 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
     }
   }
 
-  def writeSnapshot(e: SnapshotEntry) {
+  def writeSnapshot(e: SnapshotEntry): Unit = {
+    writeSnapshotInternal(e, retryIfAlreadyExists = true)
+  }
+  def writeSnapshotInternal(e: SnapshotEntry, retryIfAlreadyExists:Boolean) {
     val sql = s"insert into ${schemaPrefix}t_snapshot (persistenceId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:persistenceId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
     val c = sql2o.open()
+
+    var deleteAndRetry = false
+
     try {
       c.createQuery(sql)
         .addParameter("persistenceId", e.persistenceId)
@@ -206,16 +212,27 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
         .executeUpdate
     } catch {
       case ex: Sql2oException => {
-        errorHandler.onError(ex)
-        throw ex
+
+        if ( ex.getMessage().contains("Unique index or primary key violation") || ex.getMessage().contains("ORA-00001")) {
+          // Not doing it here since we want to close this connection before we do more sql operations
+          deleteAndRetry = true
+        } else {
+          errorHandler.onError(ex)
+          throw ex
+        }
       }
     } finally {
       c.close()
     }
+
+    if ( deleteAndRetry ) {
+      deleteSnapshot(e.persistenceId, e.sequenceNr, 0)
+      writeSnapshotInternal(e, retryIfAlreadyExists = false)
+    }
   }
 
   def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry] = {
-    val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by timestamp desc) where rownum <= 1"
+    val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by sequenceNr desc) where rownum <= 1"
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
