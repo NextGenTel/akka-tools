@@ -284,6 +284,72 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
 
 }
 
+class JdbcReadJournalTest5 extends JdbcReadJournalTestBase("JdbcReadJournalTest5") {
+  test("eventsByTag - multiple tags") {
+
+    val tag1 = "pb"
+    val tag2 = "pb"
+
+    val source: Source[EventEnvelope, NotUsed] =
+      readJournal.eventsByTag(s"$tag1|$tag2", 0)
+
+
+    val id1 = uniquePersistenceId(tag1)
+    val id2 = uniquePersistenceId(tag2)
+    val pa1 = system.actorOf(Props(new TestPersistentActor(id1)))
+    val pa2 = system.actorOf(Props(new TestPersistentActor(id2)))
+
+    val streamResult = TestProbe()
+
+    // materialize stream, consuming events
+    implicit val mat = ActorMaterializer()
+    source.runForeach {
+      event =>
+        println("Stream received Event: " + event)
+        streamResult.ref ! event
+    }
+
+    Thread.sleep(halfRefreshIntervalInMills)
+
+    Await.ready(ask(pa1, TestCmd("a1")), timeout)
+    Thread.sleep(100)
+    Await.ready(ask(pa2, TestCmd("a2")), timeout)
+    Thread.sleep(100)
+
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
+    streamResult.expectMsgAllOf(
+      EventEnvelope(1, id1, 1, TestEvent("a1")),
+      EventEnvelope(2, id2, 2, TestEvent("a2")))
+
+    Await.ready(ask(pa1, TestCmd("b1")), timeout)
+    Thread.sleep(100)
+    Await.ready(ask(pa2, TestCmd("b2")), timeout)
+    Thread.sleep(100)
+    Await.ready(ask(pa1, TestCmd("c1")), timeout)
+    Thread.sleep(100)
+    Await.ready(ask(pa2, TestCmd("c2")), timeout)
+
+
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+
+    streamResult.expectMsgAllOf(
+      EventEnvelope(3, id1, 3, TestEvent("b1")),
+      EventEnvelope(4, id2, 4, TestEvent("b2")),
+      EventEnvelope(5, id1, 5, TestEvent("c1")),
+      EventEnvelope(6, id2, 6, TestEvent("c2")))
+
+    Await.ready(ask(pa1, TestCmd("d1")), timeout)
+    Thread.sleep(100)
+    Await.ready(ask(pa2, TestCmd("d2")), timeout)
+
+    Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
+    streamResult.expectMsgAllOf(
+      EventEnvelope(7, id1, 7, TestEvent("d1")),
+      EventEnvelope(8, id2, 8, TestEvent("d2")))
+  }
+}
+
 case class TestCmd(v: String)
 
 case class TestEvent(v: String)

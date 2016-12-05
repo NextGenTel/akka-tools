@@ -162,7 +162,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
             }
 
             val persistentRepr = persistenceIdObject match {
-              case p:PersistenceIdTagOnly =>
+              case p:PersistenceIdTagsOnly =>
                 // Must create a new modified one..
                 val newPayload = JournalEntry(persistenceIdParser.parse(rawPersistentRepr.persistenceId), rawPersistentRepr.payload.asInstanceOf[AnyRef])
                 PersistentRepr(newPayload).update(sequenceNr = rawPersistentRepr.sequenceNr, persistenceId = rawPersistentRepr.persistenceId, sender = rawPersistentRepr.sender)

@@ -50,6 +50,10 @@ Get a live stream of all events for a specific type/tag of aggregates/Persistent
 
     val source = readJournal.eventsByTag("booking", 0)
     
+Get a live stream of all events from multiple type/tags
+    
+    val source = readJournal.eventsByTag("booking|customer", 0)
+    
 Get a stream of all events for a specific type/tag of aggregates/PersistentActors - which stops when all current events are read
 (Look at PersistenceIdParser to understand how this works) 
 

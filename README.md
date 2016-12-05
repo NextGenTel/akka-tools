@@ -69,7 +69,7 @@ akka-tools-jdbc-journal
 
 When used together with **akka-tools-json-serializing**, it also writes the json as 'plain-text' so that a human can understand the written data.
 
-It supports **Persistence Query** with **EventsByTagQuery** amongst others
+It supports **Persistence Query** with **EventsByTagQuery** (Also multiple tags in the same stream) amongst others
 
 
 akka-tools-cluster

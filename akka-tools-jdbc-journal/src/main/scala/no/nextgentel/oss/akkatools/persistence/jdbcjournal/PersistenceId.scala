@@ -3,7 +3,15 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 trait PersistenceId
 
 case class PersistenceIdSingle(tag:String, uniqueId:String) extends PersistenceId
-case class PersistenceIdTagOnly(tag:String) extends PersistenceId
+
+trait PersistenceIdTagsOnly {
+  def tags:List[String]
+}
+case class PersistenceIdSingleTagOnly(tag:String) extends PersistenceId with PersistenceIdTagsOnly{
+  override def tags: List[String] = List(tag)
+}
+
+case class PersistenceIdMultipleTags(tags:List[String]) extends PersistenceId with PersistenceIdTagsOnly
 
 
 trait PersistenceIdParser {
