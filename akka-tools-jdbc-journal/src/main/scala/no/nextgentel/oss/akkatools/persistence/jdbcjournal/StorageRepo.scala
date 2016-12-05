@@ -61,7 +61,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
     val sequenceNrColumnName = persistenceId match {
       case p:PersistenceIdSingle    => "sequenceNr"
-      case p:PersistenceIdTagOnly => "journalIndex"
+      case p:PersistenceIdTagsOnly => "journalIndex"
     }
 
     val preSql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where "
@@ -78,9 +78,13 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
               .addParameter("typePath", p.tag)
               .addParameter("id", p.uniqueId)
 
-          case p:PersistenceIdTagOnly =>
+          case p:PersistenceIdSingleTagOnly =>
             conn.createQuery(preSql + " typePath = :typePath " + postSql)
               .addParameter("typePath", p.tag)
+
+          case p:PersistenceIdMultipleTags =>
+            conn.createQuery(preSql + " typePath in (:typePathList) " + postSql)
+              .addParameter("typePathList", p.tags.asJava)
         }
         query.addParameter("fromSequenceNr", fromSequenceNr).addParameter("toSequenceNr", toSequenceNr).addParameter("max", max)
 
@@ -157,7 +161,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
 
     val sequenceNrColumnName = persistenceId match {
       case p:PersistenceIdSingle    => "sequenceNr"
-      case p:PersistenceIdTagOnly => "journalIndex"
+      case p:PersistenceIdTagsOnly  => "journalIndex"
     }
 
     val preSql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where "
@@ -171,9 +175,14 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
           c.createQuery( preSql + " typePath = :typePath and id = :id " + postSql)
             .addParameter("typePath", p.tag)
             .addParameter("id", p.uniqueId)
-        case p:PersistenceIdTagOnly =>
+
+        case p:PersistenceIdSingleTagOnly =>
           c.createQuery( preSql + " typePath = :typePath " + postSql)
             .addParameter("typePath", p.tag)
+
+        case p:PersistenceIdMultipleTags =>
+          c.createQuery( preSql + " typePath in (:typePathList) " + postSql)
+            .addParameter("typePathList", p.tags.asJava)
       }
 
       query.addParameter("fromSequenceNr", fromSequenceNr)

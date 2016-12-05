@@ -81,13 +81,28 @@ with JdbcJournalRuntimeDataExtractor {
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
+
+  private def parseTag(tagOrTags:String):PersistenceId = {
+    val tags = tagOrTags.split("|")
+
+    if ( tags.size == 1) {
+      PersistenceIdSingleTagOnly(tags(0))
+    } else {
+      PersistenceIdMultipleTags(tags.toList)
+    }
+
+  }
+
+
   override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, true, refreshInterval, PersistenceIdTagOnly(tag), offset, Long.MaxValue))
+    val persistenceId = parseTag(tag)
+    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
   override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
-    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, false, refreshInterval, PersistenceIdTagOnly(tag), offset, Long.MaxValue))
+    val persistenceId = parseTag(tag)
+    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 }
@@ -110,14 +125,22 @@ class JdbcEventsByPersistenceIdActor(configName:String, runtimeData:JdbcJournalR
 
   if ( live ) {
 
-    val subscriptionTopic:String = persistenceId match {
+    val subscriptionTopics:List[String] = persistenceId match {
       case p:PersistenceIdSingle =>
-        EntryWrittenToTag.topic(configName, p.tag)
-      case p:PersistenceIdTagOnly =>
-        EntryWrittenToTag.topic(configName, p.tag)
+        List(EntryWrittenToTag.topic(configName, p.tag))
+      case p:PersistenceIdTagsOnly =>
+        p.tags.map {
+          tag =>
+            EntryWrittenToTag.topic(configName, tag)
+        }
+
     }
 
-    pubsubMediator ! Subscribe( subscriptionTopic, self)
+    subscriptionTopics.foreach {
+      subscriptionTopic =>
+        pubsubMediator ! Subscribe( subscriptionTopic, self)
+    }
+
 
   }
 
@@ -127,7 +150,19 @@ class JdbcEventsByPersistenceIdActor(configName:String, runtimeData:JdbcJournalR
 
   def receive = {
     case entryWrittenToTag: EntryWrittenToTag =>
-      if ( persistenceId.isInstanceOf[PersistenceIdTagOnly] ) {
+      persistenceId match {
+        case p:PersistenceIdTagsOnly =>
+          // We're tracking a tags
+          doWork()
+
+        case p:PersistenceIdSingle =>
+          // we're tracking single id
+          if( runtimeData.persistenceIdParser.parse(entryWrittenToTag.persistenceId) == persistenceId) {
+            // This means one of our events have been written
+            doWork()
+          }
+      }
+      if ( persistenceId.isInstanceOf[PersistenceIdSingleTagOnly] ) {
         // We're tracking a tag
         doWork()
       } else if(entryWrittenToTag.persistenceId == persistenceId) {
