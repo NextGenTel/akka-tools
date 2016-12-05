@@ -1,18 +1,14 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
-trait PersistenceId {
-  def tag:String
-  def uniqueId:String
-}
+trait PersistenceId
 
 case class PersistenceIdSingle(tag:String, uniqueId:String) extends PersistenceId
-case class PersistenceIdTagOnly(tag:String) extends PersistenceId {
-  override def uniqueId: String = throw new Exception(s"${this} does not have a uniqueId")
-}
+case class PersistenceIdTagOnly(tag:String) extends PersistenceId
 
 
 trait PersistenceIdParser {
   def parse(persistenceId:String):PersistenceIdSingle
+  def reverse(persistenceId: PersistenceIdSingle):String
 }
 
 class PersistenceIdParserImpl(splitChar:Char = '/', includeSplitCharInTag:Boolean = false) extends PersistenceIdParser {
@@ -26,5 +22,13 @@ class PersistenceIdParserImpl(splitChar:Char = '/', includeSplitCharInTag:Boolea
     }
     val uniqueId = persistenceId.substring(i + 1, persistenceId.length)
     PersistenceIdSingle(tag, uniqueId)
+  }
+
+  override def reverse(persistenceId: PersistenceIdSingle): String = {
+    if (includeSplitCharInTag) {
+      persistenceId.tag + persistenceId.uniqueId
+    } else {
+      persistenceId.tag + splitChar + persistenceId.uniqueId
+    }
   }
 }

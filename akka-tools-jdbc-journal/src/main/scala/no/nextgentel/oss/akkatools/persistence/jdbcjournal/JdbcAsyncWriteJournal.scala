@@ -58,7 +58,8 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               }
 
               val payloadJson = tryToExtractPayloadAsJson(p)
-              JournalEntryDto(persistenceIdParser.parse(p.persistenceId), p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null), timestamp = null)
+              val persistenceId = persistenceIdParser.parse(p.persistenceId)
+              JournalEntryDto(persistenceId.tag, persistenceId.uniqueId, p.sequenceNr, serialization.serialize(p).get, payloadJson.getOrElse(null), timestamp = null)
           }
 
           try {
@@ -69,11 +70,9 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
               throw e
           }
 
-          // Find all unique tags
-          dtoList.map (_.persistenceId).toSet.foreach {
-            persistenceId:PersistenceId =>
-              val tagName = persistenceId.tag
-              val persistenceIdString = persistenceId.tag + persistenceId.uniqueId
+          dtoList.map ( dto => (dto.typePath, dto.uniqueId) ).foreach {
+            case (tagName, uniqueId) =>
+              val persistenceIdString = persistenceIdParser.reverse(PersistenceIdSingle(tagName, uniqueId))
               // publish msg to tell any JdbcReadJournal / PersistenceQuery that it can read more events
               pubsubMediator ! Publish( EntryWrittenToTag.topic(configName, tagName), EntryWrittenToTag(persistenceIdString) )
           }

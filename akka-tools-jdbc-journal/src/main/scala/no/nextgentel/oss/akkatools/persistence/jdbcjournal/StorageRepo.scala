@@ -11,14 +11,14 @@ import org.sql2o.quirks.OracleQuirks
 
 import scala.concurrent.duration.FiniteDuration
 
-case class JournalEntryDto(persistenceId: PersistenceId, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String, timestamp:OffsetDateTime)
+case class JournalEntryDto(typePath:String, uniqueId:String, sequenceNr:Long, persistentRepr:Array[Byte], payloadWriteOnly:String, timestamp:OffsetDateTime)
 case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, snapshot:Array[Byte], manifest:String, serializerId:Option[Int])
 
 
 trait StorageRepo {
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto])
 
-  def deleteJournalEntryTo(persistenceId: PersistenceId, toSequenceNr: Long)
+  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long)
 
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto]
 
@@ -64,26 +64,32 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
       case p:PersistenceIdTagOnly => "journalIndex"
     }
 
-    val sql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where typePath = :typePath " +
-      (if (persistenceId.isInstanceOf[PersistenceIdSingle]) " and id = :id " else "") +
-      s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
+    val preSql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where "
+    val postSql = s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
+
+
 
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
-        val query = conn.createQuery(sql).addParameter("typePath", persistenceId.tag)
-        persistenceId match {
+        val query =  persistenceId match {
           case p:PersistenceIdSingle =>
-            query.addParameter("id", p.uniqueId)
-          case _ =>
-        }
+            conn.createQuery(preSql + " typePath = :typePath and id = :id " + postSql)
+              .addParameter("typePath", p.tag)
+              .addParameter("id", p.uniqueId)
 
+          case p:PersistenceIdTagOnly =>
+            conn.createQuery(preSql + " typePath = :typePath " + postSql)
+              .addParameter("typePath", p.tag)
+        }
         query.addParameter("fromSequenceNr", fromSequenceNr).addParameter("toSequenceNr", toSequenceNr).addParameter("max", max)
+
         val table = query.executeAndFetchTable
         table.rows.asScala.toList.map{
           r:Row =>
             JournalEntryDto(
-              persistenceId,
+              r.getString("typePath"),
+              r.getString("id"),
               r.getLong(sequenceNrColumnName),
               r.getObject("persistentRepr", classOf[Array[Byte]]),
               null,
@@ -108,15 +114,15 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
           val insert = c.createQuery(sql)
           try {
 
-            insert.addParameter("typePath", dto.persistenceId.tag)
-              .addParameter("id", dto.persistenceId.uniqueId)
+            insert.addParameter("typePath", dto.typePath)
+              .addParameter("id", dto.uniqueId)
               .addParameter("sequenceNr", dto.sequenceNr)
               .addParameter("persistentRepr", dto.persistentRepr)
               .addParameter("payload_write_only", dto.payloadWriteOnly)
               .executeUpdate
           } catch {
             case e: Sql2oException => {
-              val exception = new Exception("Error updating journal for persistenceId=" + dto.persistenceId + " and sequenceNr=" + dto.sequenceNr + ": " + e.getMessage, e)
+              val exception = new Exception(s"Error updating journal for typePath=${dto.typePath}, id=${dto.uniqueId} and sequenceNr=${dto.sequenceNr}: ${e.getMessage}", e)
               errorHandler.onError(e)
               throw exception
             }
@@ -136,7 +142,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
 
   // Since we need to keep track of the highest sequenceNr even after we have deleted an entry,
   // This method only clears the columns persistentRepr and payload_write_only to save space
-  def deleteJournalEntryTo(persistenceId: PersistenceId, toSequenceNr: Long) {
+  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long) {
     val sql = s"update ${schemaPrefix}t_journal set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
@@ -154,17 +160,22 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
       case p:PersistenceIdTagOnly => "journalIndex"
     }
 
+    val preSql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where "
+    val postSql = s" and $sequenceNrColumnName>=:fromSequenceNr"
 
-    val sql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where typePath = :typePath " + (if (persistenceId.isInstanceOf[PersistenceIdSingle]) " and id = :id " else "") + s" and $sequenceNrColumnName>=:fromSequenceNr"
-    val c = sql2o.open()
+    val c = sql2o.open
     try {
 
-      val query = c.createQuery(sql).addParameter("typePath", persistenceId.tag)
-      persistenceId match {
+      val query = persistenceId match {
         case p:PersistenceIdSingle =>
-          query.addParameter("id", p.uniqueId)
-        case _ =>
+          c.createQuery( preSql + " typePath = :typePath and id = :id " + postSql)
+            .addParameter("typePath", p.tag)
+            .addParameter("id", p.uniqueId)
+        case p:PersistenceIdTagOnly =>
+          c.createQuery( preSql + " typePath = :typePath " + postSql)
+            .addParameter("typePath", p.tag)
       }
+
       query.addParameter("fromSequenceNr", fromSequenceNr)
       val table = query.executeAndFetchTable
 

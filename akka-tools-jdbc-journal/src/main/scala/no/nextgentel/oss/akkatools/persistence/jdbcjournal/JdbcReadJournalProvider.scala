@@ -109,7 +109,15 @@ class JdbcEventsByPersistenceIdActor(configName:String, runtimeData:JdbcJournalR
   val pubsubMediator = DistributedPubSub(context.system).mediator
 
   if ( live ) {
-    pubsubMediator ! Subscribe( EntryWrittenToTag.topic(configName, persistenceId.tag), self)
+
+    val subscriptionTopic:String = persistenceId match {
+      case p:PersistenceIdSingle =>
+        EntryWrittenToTag.topic(configName, p.tag)
+      case p:PersistenceIdTagOnly =>
+        EntryWrittenToTag.topic(configName, p.tag)
+    }
+
+    pubsubMediator ! Subscribe( subscriptionTopic, self)
 
   }
 

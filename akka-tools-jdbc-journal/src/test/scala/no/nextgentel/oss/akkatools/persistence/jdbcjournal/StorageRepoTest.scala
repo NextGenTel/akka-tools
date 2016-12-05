@@ -23,7 +23,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
   test("writing and loading one dto") {
     val pid1 = PersistenceIdSingle("pId", getNextId())
-    val dto1 = JournalEntryDto(pid1, 1L, "persistentRepr".getBytes, "This is the payload", null)
+    val dto1 = JournalEntryDto(pid1.tag, pid1.uniqueId, 1L, "persistentRepr".getBytes, "This is the payload", null)
 
     repo.insertPersistentReprList(Seq(dto1))
 
@@ -51,7 +51,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     val dummyPersistentRepr = Array[Byte]()
 
-    val dto1 = JournalEntryDto(pid1, 1L, dummyPersistentRepr, null, null)
+    val dto1 = JournalEntryDto(pid1.tag, pid1.uniqueId, 1L, dummyPersistentRepr, null, null)
 
     repo.insertPersistentReprList(Seq(dto1))
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
@@ -61,7 +61,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     assert( 1 == repo.findHighestSequenceNr(pid1, 0))
 
-    val dto2 = JournalEntryDto(pid1, 2L, dummyPersistentRepr, null, null)
+    val dto2 = JournalEntryDto(pid1.tag, pid1.uniqueId, 2L, dummyPersistentRepr, null, null)
     repo.insertPersistentReprList(Seq(dto2))
 
     assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
