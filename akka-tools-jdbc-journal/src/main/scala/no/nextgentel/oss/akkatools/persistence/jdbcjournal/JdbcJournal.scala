@@ -29,19 +29,19 @@ object JdbcJournalConfig {
   }
   def createJdbcJournalRuntimeData(configName:String): JdbcJournalRuntimeData = {
     val config = getConfig(configName)
-    val repo = new StorageRepoImpl(config.dataSource, config.schemaName, config.fatalErrorHandler)
+    val repo = new StorageRepoImpl(config.dataSource, config.storageRepoConfig, config.fatalErrorHandler)
     JdbcJournalRuntimeData(repo, repo, config.persistenceIdParser, config.maxRowsPrRead)
   }
 
   // Java helper
-  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(schemaName), fatalErrorHandler)
+  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, fatalErrorHandler, StorageRepoConfig(Option(schemaName)))
 }
 
 case class JdbcJournalConfig
 (
   dataSource: DataSource,
-  schemaName: Option[String],
   fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happened - like getting unique PK key errors - Which is probably a symptom of split brain
+  storageRepoConfig: StorageRepoConfig = StorageRepoConfig(schemaName = None),
   persistenceIdParser:PersistenceIdParser = new PersistenceIdParserImpl('/'),
   maxRowsPrRead: Int = 1000
 )

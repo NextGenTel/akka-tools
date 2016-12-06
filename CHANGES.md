@@ -4,6 +4,7 @@ Version 1.1.0 - NOT RELEASED YET
 * Simplified jdbc-journal-condifuration
 * Breaking source-changes, see [MIGRATION-info.md](MIGRATION-info.md) for info.
 * EventsByTagQuery now supports querying for multiple tags in the same stream
+* Jdbc-journal can now be configured to use different table-names, enabling the same app to have multiple completely separate journals
 
 Version 1.0.12 - 2016-11-16
 

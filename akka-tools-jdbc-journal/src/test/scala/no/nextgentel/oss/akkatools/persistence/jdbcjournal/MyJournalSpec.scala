@@ -21,7 +21,7 @@ class MyJournalSpec extends JournalSpec (
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-  JdbcJournalConfig.setConfig("MyJournalSpec", JdbcJournalConfig(DataSourceUtil.createDataSource("MyJournalSpec"), None, errorHandler, new PersistenceIdParserImpl('-')))
+  JdbcJournalConfig.setConfig("MyJournalSpec", JdbcJournalConfig(DataSourceUtil.createDataSource("MyJournalSpec"), errorHandler, StorageRepoConfig(), new PersistenceIdParserImpl('-')))
 
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = false
 }
@@ -40,6 +40,6 @@ class MySnapshotStoreSpec extends SnapshotStoreSpec (
     override def onError(e: Exception): Unit = log.error("JdbcJournalErrorHandler.onError", e)
   }
 
-  JdbcJournalConfig.setConfig("MySnapshotStoreSpec", JdbcJournalConfig(DataSourceUtil.createDataSource("MySnapshotStoreSpec"), None, errorHandler, new PersistenceIdParserImpl('-')))
+  JdbcJournalConfig.setConfig("MySnapshotStoreSpec", JdbcJournalConfig(DataSourceUtil.createDataSource("MySnapshotStoreSpec"), errorHandler, StorageRepoConfig(), new PersistenceIdParserImpl('-')))
 
 }

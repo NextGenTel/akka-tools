@@ -45,18 +45,28 @@ class JdbcJournalDetectFatalOracleErrorHandler(fatalErrorHandler:JdbcJournalErro
   }
 }
 
-class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:JdbcJournalErrorHandler) extends StorageRepo with ClusterNodeRepo {
+case class StorageRepoConfig
+(
+  schemaName: Option[String] = None,
+  tableName_journal:String = "t_journal",
+  sequenceName_journalIndex:String = "s_journalIndex_seq",
+  tableName_snapshot:String = "t_snapshot"
 
-  // backward compatible constructor
-  def this(sql2o:Sql2o, schemaName:String, _errorHandler:JdbcJournalErrorHandler) = this(sql2o, Option(schemaName), _errorHandler)
-  def this(dataSource:DataSource, schemaName:Option[String], _errorHandler:JdbcJournalErrorHandler) = this(new Sql2o(dataSource, new OracleQuirks()), schemaName, _errorHandler)
+)
+
+class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:JdbcJournalErrorHandler) extends StorageRepo with ClusterNodeRepo {
+
+  def this(dataSource:DataSource, config:StorageRepoConfig, _errorHandler:JdbcJournalErrorHandler) = this(new Sql2o(dataSource, new OracleQuirks()), config, _errorHandler)
 
   import scala.collection.JavaConverters._
 
   // wrap it
   val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler)
 
-  lazy val schemaPrefix = schemaName.map( s => s + ".").getOrElse("")
+  lazy val schemaPrefix = config.schemaName.map( s => s + ".").getOrElse("")
+  lazy val tableName_journal = s"${schemaPrefix}${config.tableName_journal}"
+  lazy val sequenceName_journalIndex = s"${schemaPrefix}${config.sequenceName_journalIndex}"
+  lazy val tableName_snapshot = s"${schemaPrefix}${config.tableName_snapshot}"
 
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
     val sequenceNrColumnName = persistenceId match {
@@ -64,7 +74,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
       case p:PersistenceIdTagsOnly => "journalIndex"
     }
 
-    val preSql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${schemaPrefix}t_journal where "
+    val preSql = s"select * from (select typePath, id, $sequenceNrColumnName, persistentRepr, updated from ${tableName_journal} where "
     val postSql = s" and $sequenceNrColumnName >= :fromSequenceNr and $sequenceNrColumnName <= :toSequenceNr and persistentRepr is not null order by $sequenceNrColumnName) where rownum <= :max"
 
 
@@ -105,8 +115,8 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
 
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
 
-    val sql = s"insert into ${schemaPrefix}t_journal (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
-      s"values (:typePath, :id, :sequenceNr,${schemaPrefix}s_journalIndex_seq.nextval, :persistentRepr, :payload_write_only, sysdate)"
+    val sql = s"insert into ${tableName_journal} (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
+      s"values (:typePath, :id, :sequenceNr,${sequenceName_journalIndex}.nextval, :persistentRepr, :payload_write_only, sysdate)"
 
     // Insert the whole list in one transaction
     val c = sql2o.beginTransaction()
@@ -146,7 +156,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   // Since we need to keep track of the highest sequenceNr even after we have deleted an entry,
   // This method only clears the columns persistentRepr and payload_write_only to save space
   def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long) {
-    val sql = s"update ${schemaPrefix}t_journal set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
+    val sql = s"update ${tableName_journal} set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
       c.createQuery(sql).addParameter("typePath", persistenceId.tag).addParameter("id", persistenceId.uniqueId).addParameter("toSequenceNr", toSequenceNr).executeUpdate
@@ -163,7 +173,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
       case p:PersistenceIdTagsOnly  => "journalIndex"
     }
 
-    val preSql = s"select max($sequenceNrColumnName) from ${schemaPrefix}t_journal where "
+    val preSql = s"select max($sequenceNrColumnName) from ${tableName_journal} where "
     val postSql = s" and $sequenceNrColumnName>=:fromSequenceNr"
 
     val c = sql2o.open
@@ -200,7 +210,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def writeSnapshot(e: SnapshotEntry): Unit = {
-    val sql = s"insert into ${schemaPrefix}t_snapshot (persistenceId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:persistenceId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
+    val sql = s"insert into ${tableName_snapshot} (persistenceId,sequenceNr,timestamp,snapshot,snapshotClassname,serializerId,updated) values (:persistenceId,:sequenceNr,:timestamp,:snapshot,:snapshotClassname,:serializerId,sysdate)"
     val c = sql2o.open()
 
     var deleteAndRetry = false
@@ -225,7 +235,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry] = {
-    val sql = s"select * from (Select * from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by sequenceNr desc, timestamp desc) where rownum <= 1"
+    val sql = s"select * from (Select * from ${tableName_snapshot} where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp order by sequenceNr desc, timestamp desc) where rownum <= 1"
       // Must use open due to clob/blob
       val conn = sql2o.open
       try {
@@ -249,7 +259,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long) {
-    val sql = s"delete from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
+    val sql = s"delete from ${tableName_snapshot} where persistenceId = :persistenceId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
     val c = sql2o.open()
     try {
       c.createQuery(sql).addParameter("persistenceId", persistenceId).addParameter("sequenceNr", sequenceNr).addParameter("timestamp", timestamp).executeUpdate
@@ -259,7 +269,7 @@ class StorageRepoImpl(sql2o: Sql2o, schemaName: Option[String], _errorHandler:Jd
   }
 
   def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long) {
-    val sql = s"delete from ${schemaPrefix}t_snapshot where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
+    val sql = s"delete from ${tableName_snapshot} where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
     val c = sql2o.open()
     try {
       c.createQuery(sql).addParameter("persistenceId", persistenceId).addParameter("maxSequenceNr", maxSequenceNr).addParameter("maxTimestamp", maxTimestamp).executeUpdate
