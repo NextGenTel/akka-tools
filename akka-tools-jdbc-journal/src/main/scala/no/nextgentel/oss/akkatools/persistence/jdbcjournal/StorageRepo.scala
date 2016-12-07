@@ -5,6 +5,7 @@ import java.util.Date
 import javax.sql.DataSource
 
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
+import org.slf4j.LoggerFactory
 import org.sql2o.data.{Row, Table}
 import org.sql2o._
 import org.sql2o.quirks.OracleQuirks
@@ -54,14 +55,18 @@ case class StorageRepoConfig
 
 )
 
-class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:JdbcJournalErrorHandler) extends StorageRepo with ClusterNodeRepo {
+class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Option[JdbcJournalErrorHandler]) extends StorageRepo with ClusterNodeRepo {
 
-  def this(dataSource:DataSource, config:StorageRepoConfig, _errorHandler:JdbcJournalErrorHandler) = this(new Sql2o(dataSource, new OracleQuirks()), config, _errorHandler)
+  def this(dataSource:DataSource, config:StorageRepoConfig = StorageRepoConfig(), _errorHandler:Option[JdbcJournalErrorHandler] = None) = this(new Sql2o(dataSource, new OracleQuirks()), config, _errorHandler)
 
   import scala.collection.JavaConverters._
 
   // wrap it
-  val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler)
+  val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler.getOrElse(
+    new JdbcJournalErrorHandler {
+      override def onError(e: Exception): Unit = LoggerFactory.getLogger(getClass).error("Fatal jdbc-journal-error (custom errorHandler not configured): " + e, e)
+    }
+  ))
 
   lazy val schemaPrefix = config.schemaName.map( s => s + ".").getOrElse("")
   lazy val tableName_journal = s"${schemaPrefix}${config.tableName_journal}"

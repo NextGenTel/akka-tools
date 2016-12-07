@@ -33,7 +33,7 @@ class JdbcSnapshotStoreTest (_system:ActorSystem) extends FunSuite with TestKitB
 
   before {
     // Remember: Since JdbcJournal.init() is static this will break if we run tests in parallel
-    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), errorHandler, StorageRepoConfig(), new PersistenceIdParserImpl('-')))
+    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcSnapshotStoreTest"), Some(errorHandler), StorageRepoConfig(), new PersistenceIdParserImpl('-')))
   }
 
   override protected def afterAll(): Unit = {

@@ -15,7 +15,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     override def onError(e: Exception): Unit = log.error("onError", e)
   }
 
-  lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), StorageRepoConfig(), errorHandler)
+  lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), StorageRepoConfig(), Some(errorHandler))
 
   val nextId = new AtomicInteger(0)
 

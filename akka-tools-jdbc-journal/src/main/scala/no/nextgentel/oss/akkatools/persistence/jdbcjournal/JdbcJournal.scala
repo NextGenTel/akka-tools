@@ -34,13 +34,13 @@ object JdbcJournalConfig {
   }
 
   // Java helper
-  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, fatalErrorHandler, StorageRepoConfig(Option(schemaName)))
+  def create(dataSource: DataSource, schemaName: String, fatalErrorHandler: JdbcJournalErrorHandler) = JdbcJournalConfig(dataSource, Option(fatalErrorHandler), StorageRepoConfig(Option(schemaName)))
 }
 
 case class JdbcJournalConfig
 (
   dataSource: DataSource,
-  fatalErrorHandler: JdbcJournalErrorHandler, // The fatalErrorHandler is called when something bad has happened - like getting unique PK key errors - Which is probably a symptom of split brain
+  fatalErrorHandler: Option[JdbcJournalErrorHandler] = None, // The fatalErrorHandler is called when something bad has happened - like getting unique PK key errors - Which is probably a symptom of split brain
   storageRepoConfig: StorageRepoConfig = StorageRepoConfig(schemaName = None),
   persistenceIdParser:PersistenceIdParser = new PersistenceIdParserImpl('/'),
   maxRowsPrRead: Int = 1000
