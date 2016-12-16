@@ -1,4 +1,4 @@
-Version 1.1.0 - NOT RELEASED YET
+Version 1.1.0 - 2016-12-16
 
 * Added AggregateStateBase - It is now possible to return new/extra event from inside state-transition
 * Simplified jdbc-journal-condifuration
