@@ -42,7 +42,7 @@ abstract class JdbcReadJournalTestBase(configName:String) extends FunSuite with 
   }
 
   lazy val readJournal = {
-    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), Some(errorHandler), StorageRepoConfig(), new PersistenceIdParserImpl('-')))
+    JdbcJournalConfig.setConfig(configName, JdbcJournalConfig(DataSourceUtil.createDataSource("JdbcReadJournalTest"), Some(errorHandler), StorageRepoConfig(), new PersistenceIdParserImpl('-', includeSplitCharInTag = false)))
     PersistenceQuery(system).readJournalFor[JdbcReadJournal](JdbcReadJournal.identifier)
   }
 

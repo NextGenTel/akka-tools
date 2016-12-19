@@ -19,7 +19,7 @@ trait PersistenceIdParser {
   def reverse(persistenceId: PersistenceIdSingle):String
 }
 
-class PersistenceIdParserImpl(splitChar:Char = '/', includeSplitCharInTag:Boolean = false) extends PersistenceIdParser {
+class PersistenceIdParserImpl(splitChar:Char = '/', includeSplitCharInTag:Boolean = true) extends PersistenceIdParser {
   override def parse(persistenceId: String): PersistenceIdSingle = {
     val i:Int = persistenceId.lastIndexOf(splitChar)
     if (i < 0) throw new Exception(s"Did not find '$splitChar' in persistenceId '$persistenceId'")
