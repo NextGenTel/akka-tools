@@ -1,4 +1,4 @@
-Version 1.1.1 - Not released yet
+Version 1.1.1 - 2016-12-19
 
 * Fixing regression-bug in PersistenceIdParserImpl from version 1.0.x to 1.1.0 which used typepath without trailing / by default. PersistenceIdParserImpl.includeSplitCharInTag is now default true 
 
