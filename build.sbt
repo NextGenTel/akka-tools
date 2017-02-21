@@ -38,10 +38,10 @@ lazy val commonSettings = Seq(
 
 
 val akkaVersion = "2.4.14"
-val akkaPersistenceInMemoryVersion = "1.3.14"
+val akkaPersistenceInMemoryVersion = "1.3.16"
 val jacksonVersion = "2.8.4"
 val jacksonScalaModuleVersion = "2.8.4"
-val slf4jVersion = "1.7.7"
+val slf4jVersion = "1.7.16"
 
 lazy val akkaToolsCommonDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -120,7 +120,7 @@ lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test",
+    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test" exclude("com.typesafe.akka", "akka-stream-testkit_2.12"),
       //exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence_2.11"),
     "junit" % "junit" % "4.12" % "test"))
 
@@ -159,4 +159,4 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion ))
+    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion  exclude("com.typesafe.akka", "akka-stream-testkit_2.12")))
