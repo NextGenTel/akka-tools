@@ -156,10 +156,12 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
       onRecoveryCompleted()
-    case event:AnyRef =>
+    case event:E =>
       // Increment counter of events received since last NewDMGeneratingVersionEvent
       recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
-      onReceiveRecover(event.asInstanceOf[E])
+      onReceiveRecover(event)
+    case x:Any =>
+      log.error(s"Ignoring msg of unknown type: ${x.getClass}")
   }
 
   protected def onRecoveryCompleted(): Unit = {
@@ -330,7 +332,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           e match {
             case e:ProcessedDMEvent            => onProcessedDMEvent(e)
             case e:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(e)
-            case e:Any                         => onApplyingLiveEvent(e.asInstanceOf[E])
+            case e:E                         => onApplyingLiveEvent(e)
           }
 
           if (callbacksLeft == 0) {
