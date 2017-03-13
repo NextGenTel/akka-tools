@@ -3,9 +3,10 @@ package no.nextgentel.oss.akkatools.cluster
 import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Props, Cancellable, Actor, ActorLogging}
-import akka.cluster.{ClusterEvent, Cluster}
+import akka.actor.{Actor, ActorLogging, Cancellable, Props}
+import akka.cluster.{Cluster, ClusterEvent}
 import ClusterEvent._
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -16,6 +17,8 @@ trait FatalClusterErrorHandler {
 case class ClusterStartTimeout()
 
 case class DoHousekeeping()
+
+case class AppIsShuttingDown()
 
 
 object ClusterListener {
@@ -59,8 +62,22 @@ class ClusterListener
   var scheduledDoHousekeeping: Option[Cancellable] = None
   var clusterStartTimeout:Option[Cancellable] = Some(context.system.scheduler.scheduleOnce(maxAllowedTimeBeforeClusterIsReady, self, ClusterStartTimeout()))
   val nodeName = clusterConfig.thisHostnameAndPort()
+  var appIsShuttingDown = false
 
   startErrorDetection()
+
+  // When shutting down the app/jvm, it might happen that this takes a long time.
+  // If this happens we must prevent the cluster-error-detection from running while waiting for shutdown.
+  // If not, we might end up thinking that we have a critical cluster-error => trigger restart of application.
+  {
+    val thisActor = self
+    Runtime.getRuntime.addShutdownHook(new Thread() {
+      override def run(): Unit = {
+        LoggerFactory.getLogger(getClass).info("Jvm is shutting down - notifying ClusterListener")
+        thisActor ! AppIsShuttingDown()
+      }
+    })
+  }
 
 
   override def preStart {
@@ -95,6 +112,12 @@ class ClusterListener
       val errorMsg = "Fatal Cluster Error detected: Timed out waiting for clusterStart after " + maxAllowedTimeBeforeClusterIsReady
       log.error(errorMsg)
       fatalClusterErrorHandler.onFatalClusterError(errorMsg)
+    case AppIsShuttingDown() =>
+      log.info("Jvm is shutting down - stopping cluster-error-detection")
+      scheduledDoHousekeeping.foreach(_.cancel())
+      scheduledDoHousekeeping = None
+      appIsShuttingDown = true
+
   }
 
   private def startErrorDetection() {
@@ -122,6 +145,11 @@ class ClusterListener
   private def checkForErrorSituation(): Boolean = {
     if( !weHaveJoinedCluster ) {
       // No error-situation since we have not joined cluster yet
+      return false
+    }
+
+    if ( appIsShuttingDown ) {
+      // No error-situation since we're shutting down
       return false
     }
 

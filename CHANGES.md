@@ -1,3 +1,7 @@
+Version 1.1.2 - Not Released yet
+
+* Stopping error-checking in ClusterListener when JVM/App is shutting down to prevent it sometimes from triggering restart in the middle of a delayed shutdown
+
 Version 1.1.1 - 2016-12-19
 
 * Fixing regression-bug in PersistenceIdParserImpl from version 1.0.x to 1.1.0 which used typepath without trailing / by default. PersistenceIdParserImpl.includeSplitCharInTag is now default true 
