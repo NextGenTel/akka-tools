@@ -67,6 +67,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   private var dmGeneratingVersionFixedDeliveryIds = Set[Long]()
   private var currentDmGeneratingVersion = 0
+  private var addDmGeneratingVersionIfSavingEvents = false // set to true if we should (only) write new dmGenerationVersion-event if/when a new event is saved from app
+  private var recoveredEventsCount_sinceLast_dmGeneratingVersion = 0
 
   // Override this in your code to set the dmGeneratingVersion your code is currently using.
   // You can bump this version if you have changed the code in such a way that it now sends
@@ -150,18 +152,29 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
     case e:NewDMGeneratingVersionEvent =>
+      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
       onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
       onRecoveryCompleted()
     case event:AnyRef =>
+      // Increment counter of events received since last NewDMGeneratingVersionEvent
+      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event.asInstanceOf[E])
   }
 
   protected def onRecoveryCompleted(): Unit = {
     log.debug("Recover complete")
 
+    addDmGeneratingVersionIfSavingEvents = false
     if ( currentDmGeneratingVersion < getDMGeneratingVersion ) {
-      fixDMGeneratingVersionProblem()
+      if ( recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
+        // we have received real events since the last time we increased the dmGeneratingVersion. We should check for issues to fix and store new version right away
+        fixDMGeneratingVersionProblem()
+      } else {
+        // Since we do not have received any real events since the "beginning of time" or since the last time we increased the dmGeneratingVersion,
+        // We should only store the NewDMGeneratingVersionEvent if the app is actually storing any real events
+        addDmGeneratingVersionIfSavingEvents = true
+      }
     }
 
   }
@@ -299,9 +312,14 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
 
       // If inbound cmd came via DM, we must also persist that we've processed This DM
-      val _events:List[Any] = pendingDurableMessage match {
+      var _events:List[Any] = pendingDurableMessage match {
         case Some(dm) => ProcessedDMEvent.createFromDM(dm) :: events
         case None     => events
+      }
+
+      if (addDmGeneratingVersionIfSavingEvents) {
+        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+        _events = NewDMGeneratingVersionEvent(getDMGeneratingVersion) :: _events
       }
 
 

@@ -1,5 +1,6 @@
 Version 1.1.2 - Not Released yet
 
+* Improved DMGeneratingVersion-support. If nothing has happend since last DMGeneratingVersion (or since start of time), we only save new DMGeneratingVersion to journal if app is actually storing new event.
 * Stopping error-checking in ClusterListener when JVM/App is shutting down to prevent it sometimes from triggering restart in the middle of a delayed shutdown
 
 Version 1.1.1 - 2016-12-19
