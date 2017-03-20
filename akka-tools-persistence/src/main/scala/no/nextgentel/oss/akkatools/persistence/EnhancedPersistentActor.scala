@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.event.Logging.MDC
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
-import akka.persistence.{AtLeastOnceDelivery, PersistentActor, PersistentView, RecoveryCompleted}
+import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted}
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
 
@@ -67,8 +67,6 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   private var dmGeneratingVersionFixedDeliveryIds = Set[Long]()
   private var currentDmGeneratingVersion = 0
-  private var addDmGeneratingVersionIfSavingEvents = false // set to true if we should (only) write new dmGenerationVersion-event if/when a new event is saved from app
-  private var recoveredEventsCount_sinceLast_dmGeneratingVersion = 0
 
   // Override this in your code to set the dmGeneratingVersion your code is currently using.
   // You can bump this version if you have changed the code in such a way that it now sends
@@ -152,31 +150,18 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
     case e:NewDMGeneratingVersionEvent =>
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
       onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
       onRecoveryCompleted()
-    case event:E =>
-      // Increment counter of events received since last NewDMGeneratingVersionEvent
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
-      onReceiveRecover(event)
-    case x:Any =>
-      log.error(s"Ignoring msg of unknown type: ${x.getClass}")
+    case event:AnyRef =>
+      onReceiveRecover(event.asInstanceOf[E])
   }
 
   protected def onRecoveryCompleted(): Unit = {
     log.debug("Recover complete")
 
-    addDmGeneratingVersionIfSavingEvents = false
     if ( currentDmGeneratingVersion < getDMGeneratingVersion ) {
-      if ( recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
-        // we have received real events since the last time we increased the dmGeneratingVersion. We should check for issues to fix and store new version right away
-        fixDMGeneratingVersionProblem()
-      } else {
-        // Since we do not have received any real events since the "beginning of time" or since the last time we increased the dmGeneratingVersion,
-        // We should only store the NewDMGeneratingVersionEvent if the app is actually storing any real events
-        addDmGeneratingVersionIfSavingEvents = true
-      }
+      fixDMGeneratingVersionProblem()
     }
 
   }
@@ -201,7 +186,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
     dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
 
-    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+    log.warning(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
 
     // Must also save that we are now using new DMGeneratingVersion
     val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
@@ -314,14 +299,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       persistAndApplyEventHasBeenCalled = true // This will supress the dm-cleanup until after successHandler has been executed
 
       // If inbound cmd came via DM, we must also persist that we've processed This DM
-      var _events:List[Any] = pendingDurableMessage match {
+      val _events:List[Any] = pendingDurableMessage match {
         case Some(dm) => ProcessedDMEvent.createFromDM(dm) :: events
         case None     => events
-      }
-
-      if (addDmGeneratingVersionIfSavingEvents) {
-        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
-        _events = NewDMGeneratingVersionEvent(getDMGeneratingVersion) :: _events
       }
 
 
@@ -332,7 +312,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           e match {
             case e:ProcessedDMEvent            => onProcessedDMEvent(e)
             case e:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(e)
-            case e:E                         => onApplyingLiveEvent(e)
+            case e:Any                         => onApplyingLiveEvent(e.asInstanceOf[E])
           }
 
           if (callbacksLeft == 0) {
@@ -638,13 +618,13 @@ case class EventAndState(eventType:String, event:AnyRef, state:AnyRef)
 
 case class GetEventAndStateHistory()
 
-abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:String, id:String, collectHistory:Boolean = true) extends PersistentView with ActorLogging {
+abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:String, id:String, collectHistory:Boolean = true) extends Actor with ActorLogging {
 
   log.debug(s"Starting view with persistenceIdBase=$persistenceIdBase and id=$id")
 
-  var history:List[EventAndState] = List()
+  ??? // FIXME must use persistent query
 
-  override def viewId = persistenceIdBase + "-view-" + id
+  var history:List[EventAndState] = List()
 
   def currentState():S
 
@@ -662,9 +642,6 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:
   def handleEventException(e:Exception, event:E):Unit = {
     log.error(e, s"Error applying event, ignoring it: $event" )
   }
-
-
-  override def persistenceId: String = persistenceIdBase + id
 
   val onCmd:PartialFunction[AnyRef, Unit]
 

@@ -7,7 +7,7 @@ import akka.actor.{ActorLogging, ExtendedActorSystem, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.persistence.PersistentRepr
-import akka.persistence.query.{EventEnvelope, ReadJournalProvider}
+import akka.persistence.query._
 import akka.persistence.query.scaladsl.{ReadJournal => ScalaReadJournal}
 import akka.persistence.query.javadsl.{ReadJournal => JavaReadJournal}
 import akka.serialization.SerializationExtension
@@ -49,10 +49,10 @@ with akka.persistence.query.javadsl.CurrentEventsByTagQuery {
   override def currentEventsByPersistenceId(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long): javadsl.Source[EventEnvelope, NotUsed] =
     scalaJdbcReadJournal.currentEventsByPersistenceId(persistenceId, fromSequenceNr, toSequenceNr).asJava
 
-  override def eventsByTag(tag: String, offset: Long): javadsl.Source[EventEnvelope, NotUsed] =
+  override def eventsByTag(tag: String, offset: Offset): javadsl.Source[EventEnvelope, NotUsed] =
     scalaJdbcReadJournal.eventsByTag(tag, offset).asJava
 
-  override def currentEventsByTag(tag: String, offset: Long): javadsl.Source[EventEnvelope, NotUsed] =
+  override def currentEventsByTag(tag: String, offset: Offset): javadsl.Source[EventEnvelope, NotUsed] =
     scalaJdbcReadJournal.currentEventsByTag(tag, offset).asJava
 }
 
@@ -94,16 +94,24 @@ with JdbcJournalRuntimeDataExtractor {
   }
 
 
-  override def eventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
+  override def eventsByTag(tag: String, offset: Offset): Source[EventEnvelope, NotUsed] = {
     val persistenceId = parseTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, true, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, true, refreshInterval, persistenceId, fromOffsetToSequence(offset), Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
   }
 
-  override def currentEventsByTag(tag: String, offset: Long): Source[EventEnvelope, NotUsed] = {
+  override def currentEventsByTag(tag: String, offset: Offset): Source[EventEnvelope, NotUsed] = {
     val persistenceId = parseTag(tag)
-    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, false, refreshInterval, persistenceId, offset, Long.MaxValue))
+    val props = Props(new JdbcEventsByPersistenceIdActor(configName, runtimeData, false, refreshInterval, persistenceId, fromOffsetToSequence(offset), Long.MaxValue))
     Source.actorPublisher[EventEnvelope](props).mapMaterializedValue(_ ⇒ NotUsed)
+  }
+
+  private def fromOffsetToSequence(offset:Offset):Long = {
+    offset match {
+      case NoOffset        => 0
+      case Sequence(value) => value
+      case x               => throw new Exception(s"Offset of type ${x.getClass} is not supported")
+    }
   }
 }
 
@@ -202,7 +210,7 @@ class JdbcEventsByPersistenceIdActor(configName:String, runtimeData:JdbcJournalR
               case x:AnyRef => x
             }
 
-            EventEnvelope(entry.sequenceNr, persistentRepr.persistenceId, entry.sequenceNr, event)
+            EventEnvelope(Sequence(entry.sequenceNr), persistentRepr.persistenceId, entry.sequenceNr, event)
 
         }.toVector
 

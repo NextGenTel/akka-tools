@@ -6,7 +6,7 @@ This project main purpose is to make Akka Persistence more easy to use.
 The main components are:
 
 * **GeneralAggregate** - which is built on top of PersistentActor
-* **GeneralAggregateView** - which is built on top of PersistentView 
+* **GeneralAggregateView** - which is built on top of PersistentQuery 
 
 
 It includes features like:

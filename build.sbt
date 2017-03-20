@@ -4,8 +4,8 @@ lazy val commonSettings = Seq(
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
   version := "1.1.3-SNAPSHOT",
-  scalaVersion := "2.12.0",
-  crossScalaVersions := Seq("2.11.8", "2.12.0"),
+  scalaVersion := "2.12.1",
+  crossScalaVersions := Seq("2.11.8", "2.12.1"),
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
@@ -37,11 +37,11 @@ lazy val commonSettings = Seq(
 )
 
 
-val akkaVersion = "2.4.14"
-val akkaPersistenceInMemoryVersion = "1.3.16"
-val jacksonVersion = "2.8.4"
-val jacksonScalaModuleVersion = "2.8.4"
-val slf4jVersion = "1.7.16"
+val akkaVersion = "2.5.0-RC1"
+val akkaPersistenceInMemoryVersion = "2.5.0.0-M2"
+val jacksonVersion = "2.8.7"
+val jacksonScalaModuleVersion = "2.8.7"
+val slf4jVersion = "1.7.7"
 
 lazy val akkaToolsCommonDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -64,7 +64,7 @@ lazy val akkaToolsJsonSerializingDependencies = Seq(
 
 lazy val akkaToolsJdbcJournalDependencies = Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
-  "com.typesafe.akka" %% "akka-persistence-query-experimental" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence-query" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
   "org.sql2o" % "sql2o" % "1.5.4",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVersion % "test"

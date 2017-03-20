@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.persistence.PersistentActor
-import akka.persistence.query.{EventEnvelope, PersistenceQuery}
+import akka.persistence.query.{EventEnvelope, NoOffset, PersistenceQuery, Sequence}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.testkit.{TestKit, TestKitBase, TestProbe}
@@ -93,7 +93,7 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase("JdbcReadJournalTest1
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(1, persistenceId, 1, TestEvent("a")))
+      EventEnvelope(Sequence(1), persistenceId, 1, TestEvent("a")))
 
     Await.ready(ask(pa, TestCmd("b")), timeout)
     Await.ready(ask(paOther, TestCmd("other-b")), timeout)
@@ -104,14 +104,14 @@ class JdbcReadJournalTest1 extends JdbcReadJournalTestBase("JdbcReadJournalTest1
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(2, persistenceId, 2, TestEvent("b")),
-      EventEnvelope(3, persistenceId, 3, TestEvent("c")))
+      EventEnvelope(Sequence(2), persistenceId, 2, TestEvent("b")),
+      EventEnvelope(Sequence(3), persistenceId, 3, TestEvent("c")))
 
     Await.ready(ask(pa, TestCmd("d")), timeout)
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
-      EventEnvelope(4, persistenceId, 4, TestEvent("d")))
+      EventEnvelope(Sequence(4), persistenceId, 4, TestEvent("d")))
   }
 }
 
@@ -149,9 +149,9 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase("JdbcReadJournalTest2
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(1, persistenceId, 1, TestEvent("a")),
-      EventEnvelope(2, persistenceId, 2, TestEvent("b")),
-      EventEnvelope(3, persistenceId, 3, TestEvent("c")))
+      EventEnvelope(Sequence(1), persistenceId, 1, TestEvent("a")),
+      EventEnvelope(Sequence(2), persistenceId, 2, TestEvent("b")),
+      EventEnvelope(Sequence(3), persistenceId, 3, TestEvent("c")))
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
@@ -169,7 +169,7 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
     val tag = "pb"
 
     val source: Source[EventEnvelope, NotUsed] =
-      readJournal.eventsByTag(tag, 0)
+      readJournal.eventsByTag(tag, NoOffset)
 
 
     val id1 = uniquePersistenceId(tag)
@@ -197,8 +197,8 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(1, id1, 1, TestEvent("a1")),
-      EventEnvelope(2, id2, 2, TestEvent("a2")))
+      EventEnvelope(Sequence(1), id1, 1, TestEvent("a1")),
+      EventEnvelope(Sequence(2), id2, 2, TestEvent("a2")))
 
     Await.ready(ask(pa1, TestCmd("b1")), timeout)
     Thread.sleep(100)
@@ -212,10 +212,10 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(3, id1, 3, TestEvent("b1")),
-      EventEnvelope(4, id2, 4, TestEvent("b2")),
-      EventEnvelope(5, id1, 5, TestEvent("c1")),
-      EventEnvelope(6, id2, 6, TestEvent("c2")))
+      EventEnvelope(Sequence(3), id1, 3, TestEvent("b1")),
+      EventEnvelope(Sequence(4), id2, 4, TestEvent("b2")),
+      EventEnvelope(Sequence(5), id1, 5, TestEvent("c1")),
+      EventEnvelope(Sequence(6), id2, 6, TestEvent("c2")))
 
     Await.ready(ask(pa1, TestCmd("d1")), timeout)
     Thread.sleep(100)
@@ -223,8 +223,8 @@ class JdbcReadJournalTest3 extends JdbcReadJournalTestBase("JdbcReadJournalTest3
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
-      EventEnvelope(7, id1, 7, TestEvent("d1")),
-      EventEnvelope(8, id2, 8, TestEvent("d2")))
+      EventEnvelope(Sequence(7), id1, 7, TestEvent("d1")),
+      EventEnvelope(Sequence(8), id2, 8, TestEvent("d2")))
   }
 }
 
@@ -233,7 +233,7 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
     val tag = "pc"
 
     val source: Source[EventEnvelope, NotUsed] =
-      readJournal.currentEventsByTag(tag, 0)
+      readJournal.currentEventsByTag(tag, Sequence(0))
 
 
     val id1 = uniquePersistenceId(tag)
@@ -266,10 +266,10 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(1, id1, 1, TestEvent("a1")),
-      EventEnvelope(2, id2, 2, TestEvent("a2")),
-      EventEnvelope(3, id1, 3, TestEvent("b1")),
-      EventEnvelope(4, id2, 4, TestEvent("b2")))
+      EventEnvelope(Sequence(1), id1, 1, TestEvent("a1")),
+      EventEnvelope(Sequence(2), id2, 2, TestEvent("a2")),
+      EventEnvelope(Sequence(3), id1, 3, TestEvent("b1")),
+      EventEnvelope(Sequence(4), id2, 4, TestEvent("b2")))
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
@@ -291,7 +291,7 @@ class JdbcReadJournalTest5 extends JdbcReadJournalTestBase("JdbcReadJournalTest5
     val tag2 = "pb"
 
     val source: Source[EventEnvelope, NotUsed] =
-      readJournal.eventsByTag(s"$tag1|$tag2", 0)
+      readJournal.eventsByTag(s"$tag1|$tag2", Sequence(0))
 
 
     val id1 = uniquePersistenceId(tag1)
@@ -319,8 +319,8 @@ class JdbcReadJournalTest5 extends JdbcReadJournalTestBase("JdbcReadJournalTest5
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(1, id1, 1, TestEvent("a1")),
-      EventEnvelope(2, id2, 2, TestEvent("a2")))
+      EventEnvelope(Sequence(1), id1, 1, TestEvent("a1")),
+      EventEnvelope(Sequence(2), id2, 2, TestEvent("a2")))
 
     Await.ready(ask(pa1, TestCmd("b1")), timeout)
     Thread.sleep(100)
@@ -334,10 +334,10 @@ class JdbcReadJournalTest5 extends JdbcReadJournalTestBase("JdbcReadJournalTest5
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
     streamResult.expectMsgAllOf(
-      EventEnvelope(3, id1, 3, TestEvent("b1")),
-      EventEnvelope(4, id2, 4, TestEvent("b2")),
-      EventEnvelope(5, id1, 5, TestEvent("c1")),
-      EventEnvelope(6, id2, 6, TestEvent("c2")))
+      EventEnvelope(Sequence(3), id1, 3, TestEvent("b1")),
+      EventEnvelope(Sequence(4), id2, 4, TestEvent("b2")),
+      EventEnvelope(Sequence(5), id1, 5, TestEvent("c1")),
+      EventEnvelope(Sequence(6), id2, 6, TestEvent("c2")))
 
     Await.ready(ask(pa1, TestCmd("d1")), timeout)
     Thread.sleep(100)
@@ -345,8 +345,8 @@ class JdbcReadJournalTest5 extends JdbcReadJournalTestBase("JdbcReadJournalTest5
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
     streamResult.expectMsgAllOf(
-      EventEnvelope(7, id1, 7, TestEvent("d1")),
-      EventEnvelope(8, id2, 8, TestEvent("d2")))
+      EventEnvelope(Sequence(7), id1, 7, TestEvent("d1")),
+      EventEnvelope(Sequence(8), id2, 8, TestEvent("d2")))
   }
 }
 
