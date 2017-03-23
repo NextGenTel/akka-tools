@@ -1,16 +1,30 @@
 package no.nextgentel.oss.akkatools.aggregate
 
+import no.nextgentel.oss.akkatools.persistence.jdbcjournal.{PersistenceId, PersistenceIdSingle, PersistenceIdSingleTagOnly}
 import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentView, GetState}
 
 import scala.reflect.ClassTag
 
 class GeneralAggregateView[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
-  persistenceIdBase:String,
-  id:String,
+  persistenceId:PersistenceId,
   initialState:S,
   collectHistory:Boolean = true
-) extends EnhancedPersistentView[E, S](persistenceIdBase, id, collectHistory) {
+) extends EnhancedPersistentView[E, S](persistenceId, collectHistory) {
+
+  // Backward-compatible constructor
+  def this(persistentIdBase:String, id:String, initialState:S, collectHistory:Boolean) = {
+    this(
+      if ( id == "*") {
+        PersistenceIdSingleTagOnly(persistentIdBase)
+      } else {
+        PersistenceIdSingle(persistentIdBase, id)
+      },
+      initialState,
+      collectHistory
+    )
+
+  }
 
   var state:S = initialState
 

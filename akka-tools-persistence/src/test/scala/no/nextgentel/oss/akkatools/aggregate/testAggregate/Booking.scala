@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.Status.Failure
 import akka.actor.{ActorPath, ActorSystem, Props}
 import no.nextgentel.oss.akkatools.aggregate._
+import no.nextgentel.oss.akkatools.persistence.jdbcjournal.PersistenceIdSingle
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.FiniteDuration
@@ -111,5 +112,5 @@ class BookingStarter(system:ActorSystem) extends AggregateStarter("booking", sys
   }
 
   override def createViewProps(aggregateId: String): Props =
-    Props( new GeneralAggregateView[BookingEvent, BookingState](BookingAggregate.persistenceIdBase, aggregateId, BookingState.empty(), true))
+    Props( new GeneralAggregateView[BookingEvent, BookingState](PersistenceIdSingle(BookingAggregate.persistenceIdBase, aggregateId), BookingState.empty(), true))
 }

@@ -5,12 +5,16 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.event.Logging.MDC
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
+import akka.persistence.query.{EventEnvelope, PersistenceQuery, Sequence, scaladsl}
 import akka.persistence.{AtLeastOnceDelivery, PersistentActor, RecoveryCompleted}
+import akka.stream.ActorMaterializer
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import no.nextgentel.oss.akkatools.persistence.jdbcjournal._
 import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
+import scala.util.{Failure, Success}
 
 case class SendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
 
@@ -618,13 +622,43 @@ case class EventAndState(eventType:String, event:AnyRef, state:AnyRef)
 
 case class GetEventAndStateHistory()
 
-abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:String, id:String, collectHistory:Boolean = true) extends Actor with ActorLogging {
+abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:PersistenceId, collectHistory:Boolean = true) extends Actor with ActorLogging {
 
-  log.debug(s"Starting view with persistenceIdBase=$persistenceIdBase and id=$id")
+  log.debug(s"Starting view with persistenceId=$persistenceId")
 
-  ??? // FIXME must use persistent query
+  implicit val ec = context.dispatcher
+  implicit val mat = ActorMaterializer()
+
+  val readJournal = PersistenceQuery(context.system).readJournalFor[JdbcReadJournal](readJournalIdentifier)
+
+  // We need to know when we have read all events present in the db when we started
+  val sequenceNoWhenStartingView:Long = readJournal.runtimeData.repo.findHighestSequenceNr(persistenceId, 0)
+
+  var ready:Boolean = {
+    if ( sequenceNoWhenStartingView <= 0 )
+      true
+    else
+      false
+  }
+
+  case class SuspendedMessages(sender:ActorRef, msg:Any)
+
+  var suspendedMessages = List[SuspendedMessages]()
+
+
+  def readJournalIdentifier:String = JdbcReadJournal.identifier
+
+  val persistenceIdParser = readJournal.runtimeData.persistenceIdParser
+
+  val source = persistenceId match {
+    case p:PersistenceIdTagsOnly => readJournal.eventsByTag(p.tags.mkString("|"), Sequence(0))
+    case p:PersistenceIdSingle   => readJournal.eventsByPersistenceId(persistenceIdParser.reverse(p), 0, Long.MaxValue)
+    case p:Any => throw new Exception(s"Does not support persistenceId of type ${p.getClass}")
+  }
 
   var history:List[EventAndState] = List()
+
+  self ! "startFlow"
 
   def currentState():S
 
@@ -645,26 +679,82 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceIdBase:
 
   val onCmd:PartialFunction[AnyRef, Unit]
 
-  override def receive = {
-    case GetEventAndStateHistory() =>
-      log.debug("Sending EventAndStateHistory")
-      sender ! history
-    case x:DurableMessageReceived => // We can ignore these in our view
-    case x:GetState =>
-      log.debug("Sending state")
-      sender ! currentState()
-    case x:AnyRef =>
-      if (classTag[E].runtimeClass.isInstance(x) ) {
-        val event = x.asInstanceOf[E]
-        log.debug(s"Applying event to state: $event")
-        internalApplyEventToState(event)
-        history = history :+ EventAndState(event.getClass.getName, event.asInstanceOf[AnyRef], currentState().asInstanceOf[AnyRef])
-      } else {
-        onCmd.applyOrElse(x, {
-          (cmd:AnyRef) =>
-            log.debug(s"No cmdHandler found for $cmd")
-        })
+  def onFlowComplete(): Unit = {
+    crashActor("The stream was completed - This should not happen since this is an infinite stream")
+  }
+
+  def onFlowError(e:Throwable): Unit = {
+    crashActor("Got error from stream", Some(e))
+  }
+
+  def crashActor(errorMsg:String, cause:Option[Throwable] = None): Unit = {
+    val exception:Exception = cause match {
+      case Some(c) => new Exception(errorMsg, c)
+      case None    => new Exception(errorMsg)
+    }
+    // Send the exception to our actor to make sure it gets restarted so that we start over again....
+    self ! exception
+  }
+
+  def receive = {
+
+    case "startFlow" =>
+      log.debug("startFlow")
+      source.runForeach {
+        x => self ! x
+      }.onComplete {
+        case Success(_) => onFlowComplete()
+        case Failure(e) => onFlowError(e)
       }
 
+    case x:GetEventAndStateHistory =>
+
+      if (ready) {
+
+        log.debug("Sending EventAndStateHistory")
+        sender ! history
+      } else {
+        log.debug(s"Suspending $x")
+        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender, x)
+      }
+
+    case x:GetState =>
+      if (ready) {
+        log.debug("Sending state")
+        sender ! currentState()
+      } else {
+        log.debug(s"Suspending $x")
+        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender, x)
+      }
+
+    case EventEnvelope(offset, _, sequenceNr, event) =>
+      event match {
+        case x: DurableMessageReceived =>
+        // We can ignore these in our view
+
+        case x: AnyRef =>
+          val event = x.asInstanceOf[E]
+          log.debug(s"Applying event to state: $event")
+          internalApplyEventToState(event)
+          if (collectHistory) {
+            history = history :+ EventAndState(event.getClass.getName, event.asInstanceOf[AnyRef], currentState().asInstanceOf[AnyRef])
+          }
+      }
+
+      // Check if we're ready
+      if ( !ready && sequenceNr >= sequenceNoWhenStartingView ) {
+        ready = true
+        // Flush suspended messages
+        suspendedMessages.foreach {
+          sm =>
+            self.tell(sm.msg, sm.sender)
+        }
+        suspendedMessages = List()
+      }
+
+    case e:Exception =>
+      // throw it so that we get restarted
+      throw e
   }
+
 }

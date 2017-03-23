@@ -72,7 +72,7 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
 
 object BookingAggregate {
 
-  val persistenceIdBase = "booking-"
+  val persistenceIdBase = "booking/"
 
   def props(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNotifier: ActorPath, seatIdGenerator: SeatIdGenerator = new DefaultSeatIdGenerator()) =
     Props(new BookingAggregate(dmSelf, ticketPrintShop, cinemaNotifier, seatIdGenerator))

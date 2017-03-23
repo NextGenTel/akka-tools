@@ -3,17 +3,22 @@ package no.nextgentel.oss.akkatools.example
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Props, ActorLogging, Actor, ActorSystem}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.util.Timeout
 import akka.pattern.ask
 import no.nextgentel.oss.akkatools.example.booking._
-import no.nextgentel.oss.akkatools.persistence.{EventAndState, GetEventAndStateHistory, DurableMessage}
+import no.nextgentel.oss.akkatools.persistence.jdbcjournal.{JdbcJournalConfig, PersistenceIdParserImpl, PersistenceIdSingle, StorageRepoConfig}
+import no.nextgentel.oss.akkatools.persistence.{DurableMessage, EventAndState, GetEventAndStateHistory}
+import no.nextgentel.oss.akkatools.utils.DataSourceUtil
 
 import scala.concurrent.Await
 import scala.io.StdIn._
 
 
 object ExampleApp extends App {
+  val dataSource = DataSourceUtil.createDataSource("JdbcReadJournalTest")
+  JdbcJournalConfig.setConfig(JdbcJournalConfig(dataSource, None, StorageRepoConfig()))
+
   val infoColor = Console.YELLOW
   val e = new ExampleSystem()
 
@@ -101,6 +106,7 @@ object ExampleApp extends App {
 
   doNextStep("quit") {
     () =>
+      Thread.sleep(500)
       System.exit(10)
   }
 
@@ -111,13 +117,13 @@ object ExampleApp extends App {
   }
 
   def waitForALittleWhile(seconds:Int = 1): Unit ={
-    Thread.sleep(seconds*1000)
+    //Thread.sleep(seconds*1000)
   }
 
   def doNextStep[T](description:String)(work:()=>T): T = {
-    Thread.sleep(1000)
+    //Thread.sleep(1000)
     println(Console.BLUE + "\n\nType 'run + [ENTER]' to execute next step: " + infoColor + description + Console.RESET)
-    var wait = true
+    var wait = false//true
     while(wait) {
       val line = readLine()
 //      println("line: " + line)
