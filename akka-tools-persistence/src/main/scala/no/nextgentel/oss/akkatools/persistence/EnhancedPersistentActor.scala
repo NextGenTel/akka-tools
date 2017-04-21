@@ -730,6 +730,9 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:Pers
     case EventEnvelope(offset, _, sequenceNr, event) =>
       event match {
         case x: DurableMessageReceived =>
+          // We can ignore these in our view
+
+        case x:ProcessedDMEvent =>
         // We can ignore these in our view
 
         case x: AnyRef =>
