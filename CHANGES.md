@@ -1,4 +1,4 @@
-Version 2.5.0.0 - Not released yet
+Version 2.5.0.0 - 2017-06-01
 
 * Upgraded to Akka 2.5.0
 
