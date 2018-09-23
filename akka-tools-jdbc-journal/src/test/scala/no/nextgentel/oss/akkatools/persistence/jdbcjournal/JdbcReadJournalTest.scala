@@ -160,7 +160,7 @@ class JdbcReadJournalTest2 extends JdbcReadJournalTestBase("JdbcReadJournalTest2
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    streamResult.expectNoMsg(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
+    streamResult.expectNoMessage(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
   }
 }
 
@@ -279,7 +279,7 @@ class JdbcReadJournalTest4 extends JdbcReadJournalTestBase("JdbcReadJournalTest4
 
     Thread.sleep(halfRefreshIntervalInMills * 2) // Skip to next read cycle
 
-    streamResult.expectNoMsg(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
+    streamResult.expectNoMessage(FiniteDuration(halfRefreshIntervalInMills, TimeUnit.MILLISECONDS)) // The stream should have stopped
   }
 
 }

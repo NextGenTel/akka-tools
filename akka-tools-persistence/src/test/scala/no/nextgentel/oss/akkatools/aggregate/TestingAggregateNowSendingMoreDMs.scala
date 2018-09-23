@@ -23,7 +23,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
   private def generateId() = UUID.randomUUID().toString
 
   val seatIds = List("s1","id-used-in-Failed-in-onAfterValidationSuccess", "s2", "s3-This-id-is-going-to-be-discarded", "s4")
-  
+
   val sleepTime = 800
 
   trait TestEnv extends AggregateTesting[XState] {
@@ -52,7 +52,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       assertState(XState(2))
 
       dest.expectMsg(DurableMessage(2, ValueWasAdded(2), main.path.toString, aggregateId)).confirm(system, null)
-      dest.expectNoMsg()
+      dest.expectNoMessage()
 
       // kill it
       system.stop(main)
@@ -69,7 +69,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       assert(XState(2) == AggregateStateGetter[Any](main2).getState(Some(aggregateId)).asInstanceOf[XState])
 
       // And make sure no DMs where actually sent
-      dest2.expectNoMsg()
+      dest2.expectNoMessage()
 
       // kill it
       system.stop(main2)
@@ -97,7 +97,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         dest3.expectMsg(DurableMessage(3, ValueWasAdded(2), main.path.toString, aggregateId)) // NOT CONFIRMING IT - .confirm(system, null)
         dest3.expectMsg(DurableMessage(4, ValueWasAdded(102), main.path.toString, aggregateId)) // NOT CONFIRMING IT - .confirm(system, null)
 
-        dest3.expectNoMsg()
+        dest3.expectNoMessage()
 
         // kill it
         system.stop(main3)
@@ -118,7 +118,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         // Make sure we recover into correct state
         assert(XState(2) == AggregateStateGetter[Any](main4).getState(Some(aggregateId)).asInstanceOf[XState])
 
-        dest4.expectNoMsg()
+        dest4.expectNoMessage()
 
         // kill it
         system.stop(main4)
@@ -139,7 +139,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       // Make sure we recover into correct state
       assert(XState(2) == AggregateStateGetter[Any](main4).getState(Some(aggregateId)).asInstanceOf[XState])
 
-      dest4.expectNoMsg()
+      dest4.expectNoMessage()
 
       sendDMBlocking(main4, AddValueCmd(2))
       // Make sure we recover into correct state
@@ -149,7 +149,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       dest4.expectMsg(DurableMessage(5, ValueWasAdded(3), main4.path.toString, aggregateId)) // NOT CONFIRMING IT - .confirm(system, null)
       dest4.expectMsg(DurableMessage(6, ValueWasAdded(103), main4.path.toString, aggregateId)) // NOT CONFIRMING IT - .confirm(system, null)
 
-      dest4.expectNoMsg()
+      dest4.expectNoMessage()
 
       // kill it
       system.stop(main4)
@@ -172,7 +172,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         // Make sure we recover into correct state
         assert(XState(3) == AggregateStateGetter[Any](main4).getState(Some(aggregateId)).asInstanceOf[XState])
 
-        dest4.expectNoMsg()
+        dest4.expectNoMessage()
 
         // kill it
         system.stop(main4)
@@ -198,7 +198,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         // Make sure we recover into correct state
         assert(XState(3) == AggregateStateGetter[Any](main5).getState(Some(aggregateId)).asInstanceOf[XState])
 
-        dest5.expectNoMsg()
+        dest5.expectNoMessage()
 
         // kill it
         system.stop(main5)
@@ -217,7 +217,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
       // Make sure we recover into correct state
       assert(XState(3) == AggregateStateGetter[Any](main5).getState(Some(aggregateId)).asInstanceOf[XState])
 
-      dest5.expectNoMsg()
+      dest5.expectNoMessage()
 
       // Send the new cmd
       sendDMBlocking(main5, AddValueCmd(3))
@@ -258,7 +258,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         // Make sure we recover into correct state
         assert(XState(1) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
 
-        d.expectNoMsg()
+        d.expectNoMessage()
 
         // kill it
         system.stop(m)
@@ -313,7 +313,7 @@ class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKi
         // Make sure we recover into correct state
         assert(XState(2) == AggregateStateGetter[Any](m).getState(Some(aggregateId)).asInstanceOf[XState])
 
-        d.expectNoMsg()
+        d.expectNoMessage()
 
         // kill it
         system.stop(m)

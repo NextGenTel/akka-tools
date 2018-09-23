@@ -36,19 +36,19 @@ class ActorWithDMSupportTest(_system:ActorSystem) extends TestKit(_system) with 
 
     // send noconfirm - with dm
     s.send(a, DurableMessage(1L, "no-confirm", s.ref.path))
-    s.expectNoMsg(FiniteDuration(500, TimeUnit.MILLISECONDS))
+    s.expectNoMessage(FiniteDuration(500, TimeUnit.MILLISECONDS))
 
     // send noconfirm - with dm
     s.send(a, DurableMessage(1L, "no-confirm-custom", s.ref.path))
-    s.expectNoMsg(FiniteDuration(500, TimeUnit.MILLISECONDS))
+    s.expectNoMessage(FiniteDuration(500, TimeUnit.MILLISECONDS))
 
     // send noconfirm - without dm
     s.send(a, "no-confirm")
-    s.expectNoMsg(FiniteDuration(500, TimeUnit.MILLISECONDS))
+    s.expectNoMessage(FiniteDuration(500, TimeUnit.MILLISECONDS))
 
     // send noconfirm - without dm
     s.send(a, "no-confirm-custom")
-    s.expectNoMsg(FiniteDuration(500, TimeUnit.MILLISECONDS))
+    s.expectNoMessage(FiniteDuration(500, TimeUnit.MILLISECONDS))
 
   }
 

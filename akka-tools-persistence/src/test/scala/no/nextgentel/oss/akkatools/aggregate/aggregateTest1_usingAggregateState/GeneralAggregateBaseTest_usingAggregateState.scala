@@ -77,7 +77,7 @@ class GeneralAggregateBaseTest_usingAggregateState(_system:ActorSystem) extends 
       sender.expectMsg(DurableMessageReceived(1L, confirmationRoutingInfo1))
       assertState(XState(1)) // Should stay the same
       // We should NOT get the same ValueWasAdded again - we should not get any at all
-      dest.expectNoMsg()
+      dest.expectNoMessage()
 
       // ----------------------------------------------
       // Now we're sending another CMD - AddValueCmdSendingAckBackUsingDMInSuccessHandler -  as dm2
@@ -99,7 +99,7 @@ class GeneralAggregateBaseTest_usingAggregateState(_system:ActorSystem) extends 
       sender.expectMsg(dm2.withNewPayload(s"ack-1"))
       assertState(XState(2)) // Should stay the same
       // We should NOT get the same ValueWasAdded again - we should not get any at all
-      dest.expectNoMsg()
+      dest.expectNoMessage()
     }
   }
 
