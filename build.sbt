@@ -4,8 +4,8 @@ lazy val commonSettings = Seq(
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
   version := "2.5.0.1-SNAPSHOT",
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.11.8", "2.12.1"),
+  scalaVersion := "2.12.6",
+  crossScalaVersions := Seq("2.11.8", "2.12.6"),
   publishMavenStyle := true,
   publishArtifact in Test := false,
   publishTo := {
@@ -37,10 +37,10 @@ lazy val commonSettings = Seq(
 )
 
 
-val akkaVersion = "2.5.0"
-val akkaPersistenceInMemoryVersion = "2.5.0.0"
-val jacksonVersion = "2.8.7"
-val jacksonScalaModuleVersion = "2.8.7"
+val akkaVersion = "2.5.16"
+val akkaPersistenceInMemoryVersion = "2.5.15.1"
+val jacksonVersion = "2.9.7"
+val jacksonScalaModuleVersion = "2.9.7"
 val slf4jVersion = "1.7.7"
 
 lazy val akkaToolsCommonDependencies = Seq(

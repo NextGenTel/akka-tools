@@ -13,7 +13,7 @@ class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLoggi
 
   val repo = runtimeData.repo
 
-  val serialization = SerializationExtension.get(context.system)
+  val serialization = SerializationExtension(context.system)
 
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
     if (log.isDebugEnabled) {
@@ -63,7 +63,7 @@ class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLoggi
 
     try {
 
-      val serializer = serialization.serializerFor(snapshot.getClass)
+      val serializer = serialization.findSerializerFor(snapshot.getClass)
       val bytes = serializer.toBinary(snapshot.asInstanceOf[AnyRef])
       val manifest:String = serializer match {
         case s:SerializerWithStringManifest => s.manifest(snapshot.asInstanceOf[AnyRef])
