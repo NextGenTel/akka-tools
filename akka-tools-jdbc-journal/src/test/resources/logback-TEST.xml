@@ -10,6 +10,7 @@
 
     <!--<logger name="no.nextgentel" level="debug"/>-->
     <!--<logger name="org.apache.camel.component.file.remote" level="debug"/>-->
+    <logger name="no.nextgentel.oss.akkatools.persistence.jdbcjournal.JdbcEventsByPersistenceIdSource" level="debug"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
