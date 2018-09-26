@@ -69,4 +69,4 @@ class TestActorWithDMSupport extends ActorWithDMSupport {
   }
 }
 
-class CustomLogWarningAndSkipDMConfirm extends Exception with LogWarningAndSkipDMConfirm
+class CustomLogWarningAndSkipDMConfirm extends Exception("") with LogWarningAndSkipDMConfirm
