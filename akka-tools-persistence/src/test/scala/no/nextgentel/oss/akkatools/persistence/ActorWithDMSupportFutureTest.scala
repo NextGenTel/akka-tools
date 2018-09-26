@@ -122,4 +122,3 @@ class TestActorWithDMSupportFuture extends ActorWithDMSupportFuture {
   }
 }
 
-class CustomLogWarningAndSkipDMConfirm extends Exception with LogWarningAndSkipDMConfirm
