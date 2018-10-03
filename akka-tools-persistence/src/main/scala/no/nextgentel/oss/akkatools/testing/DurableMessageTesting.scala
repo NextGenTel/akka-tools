@@ -37,9 +37,9 @@ trait DurableMessageTesting {
     val receiver = system.actorOf(Props(new TestingDurableMessageSendAndReceiver(resultPromise, dest, payload, sender, timeoutToUse, messageSentPromise)))
 
     // Waiting for the message being sent
-    Await.result(messageSentPromise.future, timeout)
+    Await.result(messageSentPromise.future, timeoutToUse)
 
-    new DurableMessageConfirmationChecker(resultPromise.future, timeout)
+    new DurableMessageConfirmationChecker(resultPromise.future, timeoutToUse)
   }
 
   def sendDMBlocking(dest:ActorRef, payload:AnyRef, sender:ActorRef = ActorRef.noSender, timeout:FiniteDuration = null)(implicit system:ActorSystem): Unit = {
