@@ -1,6 +1,7 @@
 package no.nextgentel.oss.akkatools.persistence
 
 import akka.actor.{Actor, ActorPath, ActorRef, DiagnosticActorLogging}
+import no.nextgentel.oss.akkatools.persistence.DMFunctionExecutorActor.{DMFuncMsg}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -141,5 +142,22 @@ abstract class ActorWithDMSupportFuture extends Actor with DiagnosticActorLoggin
     }
 
 
+  }
+}
+
+
+object DMFunctionExecutorActor {
+  case class DMFuncMsg(event:Any, f:() => Future[Option[AnyRef]])
+}
+
+class DMFunctionExecutorActor extends ActorWithDMSupportFuture {
+
+  override def processPayload: PartialFunction[Any, Future[Option[MsgResult]]] = {
+    case DMFuncMsg(_, f) => f.apply().map { r =>
+      r match {
+        case None => None
+        case Some(msg) => Some(MsgResult(msg))
+      }
+    }
   }
 }
