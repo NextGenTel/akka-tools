@@ -1,3 +1,9 @@
+Version 2.5.0.1 - 2018-10-17
+
+* Added AggregateV3 - with improved usability and DM-as-function-support
+* Added ActorWithDMSupportFuture
+* Removed usage of deprecated akka-2.4 stuff
+
 Version 2.5.0.0 - 2017-06-01
 
 * Upgraded to Akka 2.5.0
