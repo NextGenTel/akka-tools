@@ -1,12 +1,12 @@
 Start sbt like this:
 
-    sbt -mem2048
+    SBT_OPTS="-Xms512M -Xmx1024M -Xss2M -XX:MaxMetaspaceSize=1024M" sbt
     
 
 To run test against all versions of scala:
 
-    sbt -mem2048 +test
+    SBT_OPTS="-Xms512M -Xmx1024M -Xss2M -XX:MaxMetaspaceSize=1024M" sbt +test
     
-to publish crossScala-version to sonatype:
+To do full build and release to sonatype:
 
-    sbt -mem2048 +publish-signed
+    SBT_OPTS="-Xms512M -Xmx1024M -Xss2M -XX:MaxMetaspaceSize=1024M" sbt release

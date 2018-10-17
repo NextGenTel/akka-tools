@@ -1,13 +1,17 @@
+import ReleaseTransformations._
+import sbt.{Credentials, Path}
+import sbtrelease.ReleasePlugin.autoImport.releaseStepCommand
+
 
 lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
-  version := "2.5.0.1-SNAPSHOT",
   scalaVersion := "2.12.6",
   crossScalaVersions := Seq("2.11.8", "2.12.6"),
   publishMavenStyle := true,
   publishArtifact in Test := false,
+  sonatypeProfileName := "no.nextgentel",
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -15,6 +19,7 @@ lazy val commonSettings = Seq(
     else
       Some("releases" at nexus + "service/local/staging/deploy/maven2")
   },
+  credentials += Credentials(Path.userHome / ".ivy2" / ".credentials_sonatype"),
   homepage := Some(url("https://github.com/NextGenTel/akka-tools")),
   licenses := Seq("MIT" -> url("https://github.com/NextGenTel/akka-tools/blob/master/LICENSE.txt")),
   startYear := Some(2015),
@@ -33,6 +38,8 @@ lazy val commonSettings = Seq(
   compileOrder in Test := CompileOrder.Mixed,
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   scalacOptions ++= Seq("-unchecked", "-deprecation"),
+  releaseCrossBuild := true,
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
 )
 
@@ -163,3 +170,18 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
     "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion  exclude("com.typesafe.akka", "akka-stream-testkit_2.12")))
+
+
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  publishArtifacts,
+  setNextVersion,
+  commitNextVersion,
+  pushChanges,
+  releaseStepCommand("sonatypeRelease")
+)
