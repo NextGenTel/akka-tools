@@ -1,3 +1,7 @@
+Version 2.5.0.2 - 2018-10-19
+
+* Added support for MySQL and PostgreSQL
+
 Version 2.5.0.1 - 2018-10-17
 
 * Added AggregateV3 - with improved usability and DM-as-function-support
