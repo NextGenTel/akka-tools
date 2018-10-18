@@ -29,7 +29,7 @@ object JdbcJournalConfig {
   }
   def createJdbcJournalRuntimeData(configName:String): JdbcJournalRuntimeData = {
     val config = getConfig(configName)
-    val repo = new StorageRepoImpl(config.dataSource, config.storageRepoConfig, config.fatalErrorHandler)
+    val repo = config.createStorageRepo()
     JdbcJournalRuntimeData(repo, repo, config.persistenceIdParser, config.maxRowsPrRead)
   }
 
@@ -43,8 +43,19 @@ case class JdbcJournalConfig
   fatalErrorHandler: Option[JdbcJournalErrorHandler] = None, // The fatalErrorHandler is called when something bad has happened - like getting unique PK key errors - Which is probably a symptom of split brain
   storageRepoConfig: StorageRepoConfig = StorageRepoConfig(schemaName = None),
   persistenceIdParser:PersistenceIdParser = new PersistenceIdParserImpl('/'),
-  maxRowsPrRead: Int = 1000
-)
+  maxRowsPrRead: Int = 1000,
+  databaseImpl:String = "oracle"
+) {
+
+  def createStorageRepo():StorageRepoWithClusterNodeRepo = {
+    databaseImpl.toLowerCase() match {
+      case "oracle" => new StorageRepoImpl(dataSource, storageRepoConfig, fatalErrorHandler)
+      case "mysql" => new StorageRepoMySQLImpl(dataSource, storageRepoConfig, fatalErrorHandler)
+      case "postgres" => new StorageRepoPostgresImpl(dataSource, storageRepoConfig, fatalErrorHandler)
+      case x => throw new Exception(s"Do not understand databaseImpl=$databaseImpl")
+    }
+  }
+}
 
 
 
