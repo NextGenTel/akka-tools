@@ -2,6 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor.ActorPath
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
+import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, SendAsDM}
 
 import scala.reflect.ClassTag
@@ -47,6 +48,36 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
+  //Overridable handling of snapshot related messages
+  protected val aggregatePersistenceHandling : AggregatePersistenceHandler = new AggregatePersistenceHandler {
+
+    override val onSnapshotOffer : PartialFunction[SnapshotOffer, Unit] = { case offer : SnapshotOffer =>
+      log.error(s"Attempted recover from snapshot $offer but handling is not defined")
+    }
+
+    override val acceptSnapshotRequest : PartialFunction[SaveSnapshotOfCurrentState,Boolean] = {
+      case request : SaveSnapshotOfCurrentState =>
+        log.error(s"Received request to save snapShot $request, but handling is not defined, rejecting")
+        false
+    }
+
+    override val onSnapshotSuccess : PartialFunction[SaveSnapshotSuccess,Unit] = { case success =>
+      log.info(s"Saved snapshot $success")
+    }
+
+    override val onSnapshotFailure : PartialFunction[SaveSnapshotFailure,Unit] = { case failure =>
+      log.info(s"Failed to save snapshot $failure")
+    }
+
+    override val onDeleteMessagesSuccess : PartialFunction[DeleteMessagesSuccess,Unit] = { case success =>
+      log.info(s"Deleted messages $success")
+    }
+
+    override val onDeleteMessagesFailure : PartialFunction[DeleteMessagesFailure,Unit] = { case failure =>
+      log.info(s"Failed to delete messages $failure")
+    }
+
+  }
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
@@ -73,11 +104,30 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   }
 
   final def tryCommand = {
-    case x:AggregateCmd =>
+    case snapFailure: SaveSnapshotFailure => {
+      aggregatePersistenceHandling.onSnapshotFailure.apply(snapFailure)
+    }
+    case snapSuccess: SaveSnapshotSuccess => {
+      aggregatePersistenceHandling.onSnapshotSuccess.apply(snapSuccess)
+    }
+    case deleteMessagesSuccess: DeleteMessagesSuccess => {
+      aggregatePersistenceHandling.onDeleteMessagesSuccess.apply(deleteMessagesSuccess)
+    }
+    case deleteMessagesFailure: DeleteMessagesFailure => {
+      aggregatePersistenceHandling.onDeleteMessagesFailure.apply(deleteMessagesFailure)
+    }
+    case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
         sender ! state
-      } else {
+      }
+      else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
+          val accepted = aggregatePersistenceHandling.acceptSnapshotRequest.apply(x.asInstanceOf[SaveSnapshotOfCurrentState])
+          if (accepted) {
+            saveSnapshot(state)
+          }
+      }
+      else {
         val cmd = x
         val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
@@ -180,6 +230,10 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
     // we need to have a copy of the state that we can modify during the processing/validation
     super.internalProcessUnconfirmedWarning(unconfirmedWarning)
     tmpStateWhileProcessingUnconfirmedWarning = null.asInstanceOf[S]
+  }
+
+  protected override def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
+    aggregatePersistenceHandling.onSnapshotOffer.apply(offer)
   }
 
   /**

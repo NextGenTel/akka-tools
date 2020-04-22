@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.event.Logging.MDC
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
-import akka.persistence.{AtLeastOnceDelivery, PersistentActor, PersistentView, RecoveryCompleted}
+import akka.persistence.{AtLeastOnceDelivery, PersistentActor, PersistentView, RecoveryCompleted, SnapshotOffer}
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
 
@@ -160,8 +160,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       // Increment counter of events received since last NewDMGeneratingVersionEvent
       recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event)
+    case offer: SnapshotOffer => {
+      onSnapshotRecovery(offer)
+    }
     case x:Any =>
       log.error(s"Ignoring msg of unknown type: ${x.getClass}")
+  }
+
+  protected def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
+    log.warning(s"Ignoring recovery from snapshot $offer, override this method to process offer")
   }
 
   protected def onRecoveryCompleted(): Unit = {
