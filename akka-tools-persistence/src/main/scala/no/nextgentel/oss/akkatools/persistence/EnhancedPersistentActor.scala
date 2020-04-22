@@ -168,7 +168,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   protected def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
-    log.warning(s"Ignoring recovery from snapshot $offer, override this method to process offer")
+    throw new Exception("You must override this method to accept snapshots")
   }
 
   protected def onRecoveryCompleted(): Unit = {
@@ -216,7 +216,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       case x:DurableMessageReceived => onDurableMessageReceived(x)
       case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
     }
-    
+
   }
 
   protected def onReceiveRecover(event:E) {

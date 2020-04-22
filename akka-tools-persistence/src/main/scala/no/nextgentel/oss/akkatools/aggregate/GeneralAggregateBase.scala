@@ -3,7 +3,7 @@ package no.nextgentel.oss.akkatools.aggregate
 import akka.actor.ActorPath
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
-import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, SendAsDM}
+import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, InternalCommand, SendAsDM}
 
 import scala.reflect.ClassTag
 
@@ -48,36 +48,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
-  //Overridable handling of snapshot related messages
-  protected val aggregatePersistenceHandling : AggregateSnapshotHandler = new AggregateSnapshotHandler {
-
-    override val onSnapshotOffer : PartialFunction[SnapshotOffer, Unit] = { case offer : SnapshotOffer =>
-      log.error(s"Attempted recover from snapshot $offer but handling is not defined")
-    }
-
-    override val acceptSnapshotRequest : PartialFunction[SaveSnapshotOfCurrentState,Boolean] = {
-      case request : SaveSnapshotOfCurrentState =>
-        log.error(s"Received request to save snapShot $request, but handling is not defined, rejecting")
-        false
-    }
-
-    override val onSnapshotSuccess : PartialFunction[SaveSnapshotSuccess,Unit] = { case success =>
-      log.info(s"Saved snapshot $success")
-    }
-
-    override val onSnapshotFailure : PartialFunction[SaveSnapshotFailure,Unit] = { case failure =>
-      log.info(s"Failed to save snapshot $failure")
-    }
-
-    override val onDeleteMessagesSuccess : PartialFunction[DeleteMessagesSuccess,Unit] = { case success =>
-      log.info(s"Deleted messages $success")
-    }
-
-    override val onDeleteMessagesFailure : PartialFunction[DeleteMessagesFailure,Unit] = { case failure =>
-      log.info(s"Failed to delete messages $failure")
-    }
-
-  }
+  private var deleteMessagesAfterSaveSnapshot = false
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
@@ -104,30 +75,25 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   }
 
   final def tryCommand = {
-    case snapFailure: SaveSnapshotFailure => {
-      aggregatePersistenceHandling.onSnapshotFailure.apply(snapFailure)
-    }
-    case snapSuccess: SaveSnapshotSuccess => {
-      aggregatePersistenceHandling.onSnapshotSuccess.apply(snapSuccess)
-    }
-    case deleteMessagesSuccess: DeleteMessagesSuccess => {
-      aggregatePersistenceHandling.onDeleteMessagesSuccess.apply(deleteMessagesSuccess)
-    }
-    case deleteMessagesFailure: DeleteMessagesFailure => {
-      aggregatePersistenceHandling.onDeleteMessagesFailure.apply(deleteMessagesFailure)
-    }
+    case m: SaveSnapshotFailure => log.error("Saving snapshot failed")
+    case m: SaveSnapshotSuccess =>
+      val sequenceNr = m.metadata.sequenceNr
+      log.debug(s"Snapshot saved successfully for sequenceNo $sequenceNr")
+      if (deleteMessagesAfterSaveSnapshot) {
+        log.debug(s"Deleting messages before saved snapshot for sequenceNo $sequenceNr")
+        deleteMessages(sequenceNr)
+      }
+    case m: DeleteMessagesSuccess => log.debug(s"Messages delete up to sequenceNo ${m.toSequenceNr}")
+    case m: DeleteMessagesFailure => log.error(s"Failed to delete messages up to sequenceNo ${m.toSequenceNr}. Error: $m", m.cause)
     case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
         sender ! state
       }
       else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
-          val accepted = aggregatePersistenceHandling.acceptSnapshotRequest.apply(x.asInstanceOf[SaveSnapshotOfCurrentState])
-          if (accepted) {
-            saveSnapshot(state)
-          }
-      }
-      else {
+        deleteMessagesAfterSaveSnapshot = x.asInstanceOf[SaveSnapshotOfCurrentState].deleteMessageBeforeSnapshot
+          saveSnapshot(state)
+      } else {
         val cmd = x
         val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
@@ -233,7 +199,8 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   }
 
   protected override def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
-    aggregatePersistenceHandling.onSnapshotOffer.apply(offer)
+    log.debug("Receiving snapshot")
+    state = offer.snapshot.asInstanceOf[S]
   }
 
   /**
@@ -309,4 +276,8 @@ case class ResultingDMs(list:List[SendAsDM])
 object ResultingDMs {
   def apply(message:AnyRef, destination:ActorPath):ResultingDMs = ResultingDMs(List(SendAsDM(message, destination)))
   def apply(sendAsDM: SendAsDM):ResultingDMs = ResultingDMs(List(sendAsDM))
+}
+
+case class SaveSnapshotOfCurrentState(dispatchId:Option[String], deleteMessageBeforeSnapshot: Boolean = false) extends AggregateCmd with InternalCommand {
+  override def id(): String = dispatchId.getOrElse(throw new RuntimeException("This GetState does not have a dispatch-id"))
 }

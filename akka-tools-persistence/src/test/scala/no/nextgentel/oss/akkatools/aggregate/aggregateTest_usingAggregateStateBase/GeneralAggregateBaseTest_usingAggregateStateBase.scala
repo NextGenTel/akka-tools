@@ -152,7 +152,7 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
 
 
 
-  test("test recovering from snapshot") {
+  test("test recovering from snapshot - without delete") {
     new TestEnv {
       assertState(XState(0))
 
@@ -171,6 +171,48 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
       assertState(XState(4))
 
       sendDMBlocking(main,SaveSnapshotOfCurrentState(None))
+
+      Thread.sleep(2000)
+      // kill it
+      system.stop(main)
+
+      // Wait for it to die
+      Thread.sleep(2000)
+
+      // recreate it
+      val dest2 = TestProbe()
+      val recoveredMain = system.actorOf(Props( new XAggregate(null, dmForwardAndConfirm(dest2.ref).path)), "XAggregate-" + id)
+
+      // get its state
+      val recoveredState = AggregateStateGetter[Any](recoveredMain).getState(None).asInstanceOf[XState]
+      assert( recoveredState == XState(4))
+
+      // make sure we get no msgs
+      dest2.expectNoMsg()
+
+    }
+  }
+
+  test("test recovering from snapshot - with delete") {
+    // By turning on debug-logging you can se that messages are deleted..
+    new TestEnv {
+      assertState(XState(0))
+
+      sendDMBlocking(main, AddValueCmd(0))
+      assertState(XState(2))
+
+      dest.expectMsg(ValueWasAdded(1))
+      dest.expectMsg(ValueWasAdded(2))
+
+      sendDMBlocking(main, AddValueCmd(2))
+      assertState(XState(4))
+
+      dest.expectMsg(ValueWasAdded(3))
+      dest.expectMsg(ValueWasAdded(4))
+
+      assertState(XState(4))
+
+      sendDMBlocking(main,SaveSnapshotOfCurrentState(None, deleteMessageBeforeSnapshot = true))
 
       Thread.sleep(2000)
       // kill it
@@ -267,34 +309,34 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
   }
 
 
-
-  /**
-   * Always accepts a snapshot offer and makes a snapshot.
-   * If that is a success it deletes the events.
-   */
-   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
-
-    override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
-      state = offer.snapshot.asInstanceOf[XState]
-    }
-
-    override val acceptSnapshotRequest: PartialFunction[SaveSnapshotOfCurrentState, Boolean] = { case x =>
-      true
-    }
-
-    override val onSnapshotSuccess: PartialFunction[SaveSnapshotSuccess, Unit] = { case x =>
-      deleteMessages(x.metadata.sequenceNr)
-    }
-    override val onSnapshotFailure: PartialFunction[SaveSnapshotFailure, Unit] = { case x =>
-      log.error(s"Taking snapshot failed $x")
-    }
-    override val onDeleteMessagesSuccess: PartialFunction[DeleteMessagesSuccess, Unit] = { case x =>
-      log.error(s"Deleting messages succeeded $x")
-    }
-    override val onDeleteMessagesFailure: PartialFunction[DeleteMessagesFailure, Unit] = { case x =>
-      log.error(s"Deleting messages failed $x")
-    }
-  }
+//
+//  /**
+//   * Always accepts a snapshot offer and makes a snapshot.
+//   * If that is a success it deletes the events.
+//   */
+//   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
+//
+//    override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
+//      state = offer.snapshot.asInstanceOf[XState]
+//    }
+//
+//    override val acceptSnapshotRequest: PartialFunction[SaveSnapshotOfCurrentState, Boolean] = { case x =>
+//      true
+//    }
+//
+//    override val onSnapshotSuccess: PartialFunction[SaveSnapshotSuccess, Unit] = { case x =>
+//      deleteMessages(x.metadata.sequenceNr)
+//    }
+//    override val onSnapshotFailure: PartialFunction[SaveSnapshotFailure, Unit] = { case x =>
+//      log.error(s"Taking snapshot failed $x")
+//    }
+//    override val onDeleteMessagesSuccess: PartialFunction[DeleteMessagesSuccess, Unit] = { case x =>
+//      log.error(s"Deleting messages succeeded $x")
+//    }
+//    override val onDeleteMessagesFailure: PartialFunction[DeleteMessagesFailure, Unit] = { case x =>
+//      log.error(s"Deleting messages failed $x")
+//    }
+//  }
 
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
