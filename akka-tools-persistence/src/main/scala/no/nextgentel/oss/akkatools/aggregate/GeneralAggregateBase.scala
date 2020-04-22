@@ -49,7 +49,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
   //Overridable handling of snapshot related messages
-  protected val aggregatePersistenceHandling : AggregatePersistenceHandler = new AggregatePersistenceHandler {
+  protected val aggregatePersistenceHandling : AggregateSnapshotHandler = new AggregateSnapshotHandler {
 
     override val onSnapshotOffer : PartialFunction[SnapshotOffer, Unit] = { case offer : SnapshotOffer =>
       log.error(s"Attempted recover from snapshot $offer but handling is not defined")

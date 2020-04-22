@@ -272,7 +272,7 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
    * Always accepts a snapshot offer and makes a snapshot.
    * If that is a success it deletes the events.
    */
-   override val aggregatePersistenceHandling: AggregatePersistenceHandler = new AggregatePersistenceHandler {
+   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
 
     override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
       state = offer.snapshot.asInstanceOf[XState]

@@ -11,7 +11,7 @@ case class SaveSnapshotOfCurrentState(dispatchId:Option[String]) extends Aggrega
 /**
  * Hooks for handling snapshots of aggregates
  */
-trait AggregatePersistenceHandler {
+trait AggregateSnapshotHandler {
 
   /**
    * Must only recover the state, should not do anything that can fail

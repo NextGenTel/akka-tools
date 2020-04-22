@@ -86,7 +86,7 @@ class SillyAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[S
    * messages are indeed processed)
    *
    */
-   override val aggregatePersistenceHandling: AggregatePersistenceHandler = new AggregatePersistenceHandler {
+   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
 
     override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
       state = offer.snapshot.asInstanceOf[StringState]
