@@ -206,7 +206,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
       val offerState = offer.snapshot.asInstanceOf[FullSnapshotState]
       recoverStateFromSnapshot(offerState.localState)
-      onSnapshotRecovery(SnapshotOffer(offer.metadata, offerState.userData))
+      onSnapshotOffer(SnapshotOffer(offer.metadata, offerState.userData))
     }
     case x:Any =>
       log.error(s"Ignoring msg of unknown type: ${x.getClass}")
@@ -232,9 +232,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
 
-  protected def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
-
-    log.warning(s"Ignoring recovery from snapshot $offer, override this method to process offer")
+  protected def onSnapshotOffer(offer : SnapshotOffer): Unit = {
+    throw new Exception(s"Can not recovery from snapshot $offer, handling not defined")
   }
 
   protected def onRecoveryCompleted(): Unit = {

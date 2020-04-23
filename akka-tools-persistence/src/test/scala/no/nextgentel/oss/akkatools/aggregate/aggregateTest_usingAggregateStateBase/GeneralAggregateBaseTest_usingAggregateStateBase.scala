@@ -272,29 +272,31 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
    * Always accepts a snapshot offer and makes a snapshot.
    * If that is a success it deletes the events.
    */
-   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
 
-    override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
-      state = offer.snapshot.asInstanceOf[XState]
-    }
-
-    override val acceptSnapshotRequest: PartialFunction[SaveSnapshotOfCurrentState, Boolean] = { case x =>
-      true
-    }
-
-    override val onSnapshotSuccess: PartialFunction[SaveSnapshotSuccess, Unit] = { case x =>
-      deleteMessages(x.metadata.sequenceNr)
-    }
-    override val onSnapshotFailure: PartialFunction[SaveSnapshotFailure, Unit] = { case x =>
-      log.error(s"Taking snapshot failed $x")
-    }
-    override val onDeleteMessagesSuccess: PartialFunction[DeleteMessagesSuccess, Unit] = { case x =>
-      log.error(s"Deleting messages succeeded $x")
-    }
-    override val onDeleteMessagesFailure: PartialFunction[DeleteMessagesFailure, Unit] = { case x =>
-      log.error(s"Deleting messages failed $x")
-    }
+  override def onSnapshotOffer(offer: SnapshotOffer): Unit = {
+    state = offer.snapshot.asInstanceOf[XState]
   }
+
+  override def acceptSnapshotRequest(req: SaveSnapshotOfCurrentState): Boolean = {
+    true
+  }
+
+  override def onSnapshotSuccess(success: SaveSnapshotSuccess): Unit = {
+    deleteMessages(success.metadata.sequenceNr)
+  }
+
+  override def onSnapshotFailure(failure: SaveSnapshotFailure): Unit = {
+    log.error(s"Taking snapshot failed $failure")
+  }
+
+  override def onDeleteMessagesSuccess(success: DeleteMessagesSuccess): Unit = {
+    log.error(s"Deleting messages succeeded $success")
+  }
+
+  override def onDeleteMessagesFailure(failure: DeleteMessagesFailure): Unit = {
+    log.error(s"Deleting messages failed $failure")
+  }
+
 
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator

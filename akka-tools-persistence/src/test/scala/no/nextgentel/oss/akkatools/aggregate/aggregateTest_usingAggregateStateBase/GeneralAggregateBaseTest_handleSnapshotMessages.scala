@@ -86,37 +86,36 @@ class SillyAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[S
    * messages are indeed processed)
    *
    */
-   override val aggregatePersistenceHandling: AggregateSnapshotHandler = new AggregateSnapshotHandler {
+  override def onSnapshotOffer(offer: SnapshotOffer): Unit = {
+    state = offer.snapshot.asInstanceOf[StringState]
+  }
 
-    override val onSnapshotOffer: PartialFunction[SnapshotOffer, Unit] = { case offer =>
-      state = offer.snapshot.asInstanceOf[StringState]
+  override def acceptSnapshotRequest(req: SaveSnapshotOfCurrentState): Boolean = {
+    if (state == StringState("WAT")) {
+      state = StringState("SAVED")
+      true
     }
-
-    override val acceptSnapshotRequest: PartialFunction[SaveSnapshotOfCurrentState, Boolean] = { case x =>
-      if(state == StringState("WAT")) {
-        state = StringState("SAVED")
-        true
-      }
-      else {
-        state = StringState("WAT") //So it works second time
-        false
-      }
-    }
-
-    override val onSnapshotSuccess: PartialFunction[SaveSnapshotSuccess, Unit] = { case x =>
-      state = StringState("SUCCESS_SNAP")
-    }
-    override val onSnapshotFailure: PartialFunction[SaveSnapshotFailure, Unit] = { case x =>
-      state = StringState("FAIL_SNAP")
-    }
-    override val onDeleteMessagesSuccess: PartialFunction[DeleteMessagesSuccess, Unit] = { case x =>
-      state = StringState("SUCCESS_MSG")
-    }
-    override val onDeleteMessagesFailure: PartialFunction[DeleteMessagesFailure, Unit] = { case x =>
-      state = StringState("FAIL_MSG")
+    else {
+      state = StringState("WAT") //So it works second time
+      false
     }
   }
 
+  override def onSnapshotSuccess(success: SaveSnapshotSuccess): Unit = {
+    state = StringState("SUCCESS_SNAP")
+  }
+
+  override def onSnapshotFailure(failure: SaveSnapshotFailure): Unit = {
+    state = StringState("FAIL_SNAP")
+  }
+
+  override def onDeleteMessagesSuccess(success: DeleteMessagesSuccess): Unit = {
+    state = StringState("SUCCESS_MSG")
+  }
+
+  override def onDeleteMessagesFailure(failure: DeleteMessagesFailure): Unit = {
+    state = StringState("FAIL_MSG")
+  }
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
   override def persistenceIdBase(): String = "/x/"

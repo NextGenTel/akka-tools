@@ -48,36 +48,32 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   private val defaultSuccessHandler = () => log.debug("No cmdSuccess-handler executed")
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
-  //Overridable handling of snapshot related messages
-  protected val aggregatePersistenceHandling : AggregateSnapshotHandler = new AggregateSnapshotHandler {
 
-    override val onSnapshotOffer : PartialFunction[SnapshotOffer, Unit] = { case offer : SnapshotOffer =>
-      log.error(s"Attempted recover from snapshot $offer but handling is not defined")
-    }
-
-    override val acceptSnapshotRequest : PartialFunction[SaveSnapshotOfCurrentState,Boolean] = {
-      case request : SaveSnapshotOfCurrentState =>
-        log.error(s"Received request to save snapShot $request, but handling is not defined, rejecting")
-        false
-    }
-
-    override val onSnapshotSuccess : PartialFunction[SaveSnapshotSuccess,Unit] = { case success =>
-      log.info(s"Saved snapshot $success")
-    }
-
-    override val onSnapshotFailure : PartialFunction[SaveSnapshotFailure,Unit] = { case failure =>
-      log.info(s"Failed to save snapshot $failure")
-    }
-
-    override val onDeleteMessagesSuccess : PartialFunction[DeleteMessagesSuccess,Unit] = { case success =>
-      log.info(s"Deleted messages $success")
-    }
-
-    override val onDeleteMessagesFailure : PartialFunction[DeleteMessagesFailure,Unit] = { case failure =>
-      log.info(s"Failed to delete messages $failure")
-    }
-
+  protected override def onSnapshotOffer(offer : SnapshotOffer) : Unit = {
+    throw new Exception(s"Handling of snapshot recovery not defined, received ${offer.metadata}")
   }
+
+  protected def acceptSnapshotRequest(request : SaveSnapshotOfCurrentState) : Boolean = {
+    log.info(s"Snapshot handling is not defined, rejecting $request")
+    false
+  }
+
+  protected def onSnapshotSuccess(success : SaveSnapshotSuccess) : Unit = {
+    log.info(s"Saved snapshot $success")
+  }
+
+  protected def onSnapshotFailure(failure : SaveSnapshotFailure) : Unit = {
+    log.info(s"Failed to save snapshot $failure")
+  }
+
+  protected def onDeleteMessagesSuccess(success : DeleteMessagesSuccess) : Unit = {
+    log.info(s"Delete messages succeded for:  $success")
+  }
+
+  protected def onDeleteMessagesFailure(failure : DeleteMessagesFailure) : Unit = {
+    log.info(s"Deleting messages failed: $failure")
+  }
+
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
@@ -105,16 +101,16 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
 
   final def tryCommand = {
     case snapFailure: SaveSnapshotFailure => {
-      aggregatePersistenceHandling.onSnapshotFailure.apply(snapFailure)
+      onSnapshotFailure(snapFailure)
     }
     case snapSuccess: SaveSnapshotSuccess => {
-      aggregatePersistenceHandling.onSnapshotSuccess.apply(snapSuccess)
+      onSnapshotSuccess(snapSuccess)
     }
     case deleteMessagesSuccess: DeleteMessagesSuccess => {
-      aggregatePersistenceHandling.onDeleteMessagesSuccess.apply(deleteMessagesSuccess)
+      onDeleteMessagesSuccess(deleteMessagesSuccess)
     }
     case deleteMessagesFailure: DeleteMessagesFailure => {
-      aggregatePersistenceHandling.onDeleteMessagesFailure.apply(deleteMessagesFailure)
+      onDeleteMessagesFailure(deleteMessagesFailure)
     }
     case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
@@ -122,7 +118,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
         sender ! state
       }
       else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
-        val accepted = aggregatePersistenceHandling.acceptSnapshotRequest.apply(x.asInstanceOf[SaveSnapshotOfCurrentState])
+        val accepted = acceptSnapshotRequest(x.asInstanceOf[SaveSnapshotOfCurrentState])
         if (accepted && this.isInSnapshottableState()) {
           saveSnapshot(state)
         } else {
@@ -235,9 +231,6 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
     tmpStateWhileProcessingUnconfirmedWarning = null.asInstanceOf[S]
   }
 
-  protected override def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
-    aggregatePersistenceHandling.onSnapshotOffer.apply(offer)
-  }
 
   /**
    * If doUnconfirmedWarningProcessing is turned on, then override this method
