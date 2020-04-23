@@ -122,10 +122,13 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
         sender ! state
       }
       else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
-          val accepted = aggregatePersistenceHandling.acceptSnapshotRequest.apply(x.asInstanceOf[SaveSnapshotOfCurrentState])
-          if (accepted) {
-            saveSnapshot(state)
-          }
+        val accepted = aggregatePersistenceHandling.acceptSnapshotRequest.apply(x.asInstanceOf[SaveSnapshotOfCurrentState])
+        if (accepted && this.isInSnapshottableState()) {
+          saveSnapshot(state)
+        } else {
+          //Todo report rejection somehow
+        }
+
       }
       else {
         val cmd = x

@@ -97,7 +97,6 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   case class FullSnapshotState(userData : Any, localState : StoredEnhancedPersistentActorState)
   case class StoredEnhancedPersistentActorState(
                                isProcessingEvent: Boolean,
-                               pendingDurableMessage: Option[DurableMessage],
                                eventLogLevelInfo: Boolean,
                                recoveringEventLogLevelInfo: Boolean,
                                cmdLogLevelInfo: Boolean,
@@ -111,10 +110,14 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
                                processedDMs: Set[ProcessedDMEvent]
                              )
 
+
+  protected def isInSnapshottableState(): Boolean = {
+    timeoutTimer.isEmpty && pendingDurableMessage.isEmpty
+  }
+
+
   private def recoverStateFromSnapshot(storedState : StoredEnhancedPersistentActorState): Unit = {
     isProcessingEvent = storedState.isProcessingEvent
-    pendingDurableMessage = storedState.pendingDurableMessage
-    timeoutTimer = None
     eventLogLevelInfo = storedState.eventLogLevelInfo
     recoveringEventLogLevelInfo = storedState.recoveringEventLogLevelInfo
     cmdLogLevelInfo = storedState.recoveringEventLogLevelInfo
@@ -213,18 +216,17 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   override def saveSnapshot(snapshot: Any): Unit = {
     val actorState = StoredEnhancedPersistentActorState(
       isProcessingEvent = isProcessingEvent,
-      pendingDurableMessage = pendingDurableMessage,
-        eventLogLevelInfo = eventLogLevelInfo,
-        recoveringEventLogLevelInfo = recoveringEventLogLevelInfo,
-        cmdLogLevelInfo = recoveringEventLogLevelInfo,
-        currentLogLevelInfo = currentLogLevelInfo,
-        prevLogLevelTryCommand = prevLogLevelTryCommand,
-        persistAndApplyEventHasBeenCalled = persistAndApplyEventHasBeenCalled,
-        dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds,
-        currentDmGeneratingVersion = currentDmGeneratingVersion,
-        addDmGeneratingVersionIfSavingEvents = addDmGeneratingVersionIfSavingEvents,
-        recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion,
-        processedDMs = processedDMs
+      eventLogLevelInfo = eventLogLevelInfo,
+      recoveringEventLogLevelInfo = recoveringEventLogLevelInfo,
+      cmdLogLevelInfo = recoveringEventLogLevelInfo,
+      currentLogLevelInfo = currentLogLevelInfo,
+      prevLogLevelTryCommand = prevLogLevelTryCommand,
+      persistAndApplyEventHasBeenCalled = persistAndApplyEventHasBeenCalled,
+      dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds,
+      currentDmGeneratingVersion = currentDmGeneratingVersion,
+      addDmGeneratingVersionIfSavingEvents = addDmGeneratingVersionIfSavingEvents,
+      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion,
+      processedDMs = processedDMs
     )
     super.saveSnapshot(FullSnapshotState(snapshot,actorState))
   }
