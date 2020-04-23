@@ -98,7 +98,6 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   case class StoredEnhancedPersistentActorState(
                                isProcessingEvent: Boolean,
                                pendingDurableMessage: Option[DurableMessage],
-                               timeoutTimer: Option[Cancellable],
                                eventLogLevelInfo: Boolean,
                                recoveringEventLogLevelInfo: Boolean,
                                cmdLogLevelInfo: Boolean,
@@ -115,7 +114,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   private def recoverStateFromSnapshot(storedState : StoredEnhancedPersistentActorState): Unit = {
     isProcessingEvent = storedState.isProcessingEvent
     pendingDurableMessage = storedState.pendingDurableMessage
-    timeoutTimer = storedState.timeoutTimer
+    timeoutTimer = None
     eventLogLevelInfo = storedState.eventLogLevelInfo
     recoveringEventLogLevelInfo = storedState.recoveringEventLogLevelInfo
     cmdLogLevelInfo = storedState.recoveringEventLogLevelInfo
@@ -215,7 +214,6 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     val actorState = StoredEnhancedPersistentActorState(
       isProcessingEvent = isProcessingEvent,
       pendingDurableMessage = pendingDurableMessage,
-        timeoutTimer = timeoutTimer,
         eventLogLevelInfo = eventLogLevelInfo,
         recoveringEventLogLevelInfo = recoveringEventLogLevelInfo,
         cmdLogLevelInfo = recoveringEventLogLevelInfo,
