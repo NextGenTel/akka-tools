@@ -92,6 +92,44 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // You know.... idempotent cmds :)
   private var processedDMs = Set[ProcessedDMEvent]() // DMs without payload
 
+
+  //Changes to these two has to be backwards compatible
+  case class FullSnapshotState(userData : Any, localState : StoredEnhancedPersistentActorState)
+  case class StoredEnhancedPersistentActorState(
+                               isProcessingEvent: Boolean,
+                               pendingDurableMessage: Option[DurableMessage],
+                               timeoutTimer: Option[Cancellable],
+                               eventLogLevelInfo: Boolean,
+                               recoveringEventLogLevelInfo: Boolean,
+                               cmdLogLevelInfo: Boolean,
+                               currentLogLevelInfo: Boolean,
+                               prevLogLevelTryCommand: Boolean,
+                               persistAndApplyEventHasBeenCalled: Boolean,
+                               dmGeneratingVersionFixedDeliveryIds: Set[Long],
+                               currentDmGeneratingVersion: Int,
+                               addDmGeneratingVersionIfSavingEvents: Boolean,
+                               recoveredEventsCount_sinceLast_dmGeneratingVersion: Int,
+                               processedDMs: Set[ProcessedDMEvent]
+                             )
+
+  private def recoverStateFromSnapshot(storedState : StoredEnhancedPersistentActorState): Unit = {
+    isProcessingEvent = storedState.isProcessingEvent
+    pendingDurableMessage = storedState.pendingDurableMessage
+    timeoutTimer = storedState.timeoutTimer
+    eventLogLevelInfo = storedState.eventLogLevelInfo
+    recoveringEventLogLevelInfo = storedState.recoveringEventLogLevelInfo
+    cmdLogLevelInfo = storedState.recoveringEventLogLevelInfo
+    currentLogLevelInfo = storedState.currentLogLevelInfo
+    prevLogLevelTryCommand = storedState.prevLogLevelTryCommand
+    persistAndApplyEventHasBeenCalled = storedState.persistAndApplyEventHasBeenCalled
+    dmGeneratingVersionFixedDeliveryIds = storedState.dmGeneratingVersionFixedDeliveryIds
+    currentDmGeneratingVersion = storedState.currentDmGeneratingVersion
+    addDmGeneratingVersionIfSavingEvents = storedState.addDmGeneratingVersionIfSavingEvents
+    recoveredEventsCount_sinceLast_dmGeneratingVersion = storedState.recoveredEventsCount_sinceLast_dmGeneratingVersion
+    processedDMs = storedState.processedDMs
+  }
+
+
   /**
    * @param eventLogLevelInfo Used when processing events live - not recovering
    * @param recoveringEventLogLevelInfo Used when recovering events
@@ -161,13 +199,41 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event)
     case offer: SnapshotOffer => {
-      onSnapshotRecovery(offer)
+      if(!offer.isInstanceOf[FullSnapshotState]) {
+        throw new RuntimeException(s"Snapshot is not of the expected type ${FullSnapshotState.getClass.getName}) but was ${offer.getClass.getName}" )
+      }
+      val offerState = offer.snapshot.asInstanceOf[FullSnapshotState]
+      recoverStateFromSnapshot(offerState.localState)
+      onSnapshotRecovery(SnapshotOffer(offer.metadata, offerState.userData))
     }
     case x:Any =>
       log.error(s"Ignoring msg of unknown type: ${x.getClass}")
   }
 
+
+  override def saveSnapshot(snapshot: Any): Unit = {
+    val actorState = StoredEnhancedPersistentActorState(
+      isProcessingEvent = isProcessingEvent,
+      pendingDurableMessage = pendingDurableMessage,
+        timeoutTimer = timeoutTimer,
+        eventLogLevelInfo = eventLogLevelInfo,
+        recoveringEventLogLevelInfo = recoveringEventLogLevelInfo,
+        cmdLogLevelInfo = recoveringEventLogLevelInfo,
+        currentLogLevelInfo = currentLogLevelInfo,
+        prevLogLevelTryCommand = prevLogLevelTryCommand,
+        persistAndApplyEventHasBeenCalled = persistAndApplyEventHasBeenCalled,
+        dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds,
+        currentDmGeneratingVersion = currentDmGeneratingVersion,
+        addDmGeneratingVersionIfSavingEvents = addDmGeneratingVersionIfSavingEvents,
+        recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion,
+        processedDMs = processedDMs
+    )
+    super.saveSnapshot(FullSnapshotState(snapshot,actorState))
+  }
+
+
   protected def onSnapshotRecovery(offer : SnapshotOffer): Unit = {
+
     log.warning(s"Ignoring recovery from snapshot $offer, override this method to process offer")
   }
 
