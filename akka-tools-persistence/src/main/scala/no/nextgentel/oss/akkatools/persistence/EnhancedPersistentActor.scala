@@ -37,6 +37,39 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   implicit val ec = context.dispatcher
 
+  //Contains state from the user and the state of this actor that needs to be
+  case class FullSnapshotState(userData : Any, localState : InternalDurableState)
+
+  //Contains state that must be stored with a snapshot, and recreated when recovering from a snapshots
+  case class InternalDurableState(
+                           var dmGeneratingVersionFixedDeliveryIds: Set[Long],
+                           var currentDmGeneratingVersion: Int,
+                           var recoveredEventsCount_sinceLast_dmGeneratingVersion: Int,
+                           // Info about all already processed (successfully) inbound DMs.
+                           // If we see one of these again, we know that it is a resending caused by the sender not
+                           // getting the DM-confirm.
+                           // So instead of trying to process them - and fail since we've already processed them,
+                           // we can 'ignore' them...
+                           // But we cannot just ignore them:
+                           // If the sender never got our DMReceived, we must send it again..
+                           // And since the impl might not have just sent confirm, but used the DM with a new payload to send
+                           // a cmd back to the sender via the DM-confirm, we must facilitate for that to also work again..
+                           // You know.... idempotent cmds :)
+                           var processedDMs: Set[ProcessedDMEvent] // DMs without payload
+                         )
+
+  def initialState(): InternalDurableState = {
+    InternalDurableState(
+      dmGeneratingVersionFixedDeliveryIds = Set[Long](),
+      currentDmGeneratingVersion = 0,
+      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0,
+      processedDMs = Set[ProcessedDMEvent]()
+    )
+  }
+
+  //State that will be stored alongside a snapshot, and recovered when starting from a snapshot
+  private var internalDurableState = initialState()
+
   private   var isProcessingEvent = false
   private   var pendingDurableMessage:Option[DurableMessage] = None
   private   var timeoutTimer:Option[Cancellable] = None
@@ -65,10 +98,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeout
   }
 
-  private var dmGeneratingVersionFixedDeliveryIds = Set[Long]()
-  private var currentDmGeneratingVersion = 0
   private var addDmGeneratingVersionIfSavingEvents = false // set to true if we should (only) write new dmGenerationVersion-event if/when a new event is saved from app
-  private var recoveredEventsCount_sinceLast_dmGeneratingVersion = 0
 
   // Override this in your code to set the dmGeneratingVersion your code is currently using.
   // You can bump this version if you have changed the code in such a way that it now sends
@@ -80,57 +110,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // we will not perform the fix described above again
   protected def getDMGeneratingVersion = 0
 
-  // Info about all already processed (successfully) inbound DMs.
-  // If we see one of these again, we know that it is a resending caused by the sender not
-  // getting the DM-confirm.
-  // So instead of trying to process them - and fail since we've already processed them,
-  // we can 'ignore' them...
-  // But we cannot just ignore them:
-  // If the sender never got our DMReceived, we must send it again..
-  // And since the impl might not have just sent confirm, but used the DM with a new payload to send
-  // a cmd back to the sender via the DM-confirm, we must facilitate for that to also work again..
-  // You know.... idempotent cmds :)
-  private var processedDMs = Set[ProcessedDMEvent]() // DMs without payload
-
-
-  //Changes to these two has to be backwards compatible
-  case class FullSnapshotState(userData : Any, localState : StoredEnhancedPersistentActorState)
-  case class StoredEnhancedPersistentActorState(
-                               isProcessingEvent: Boolean,
-                               eventLogLevelInfo: Boolean,
-                               recoveringEventLogLevelInfo: Boolean,
-                               cmdLogLevelInfo: Boolean,
-                               currentLogLevelInfo: Boolean,
-                               prevLogLevelTryCommand: Boolean,
-                               persistAndApplyEventHasBeenCalled: Boolean,
-                               dmGeneratingVersionFixedDeliveryIds: Set[Long],
-                               currentDmGeneratingVersion: Int,
-                               addDmGeneratingVersionIfSavingEvents: Boolean,
-                               recoveredEventsCount_sinceLast_dmGeneratingVersion: Int,
-                               processedDMs: Set[ProcessedDMEvent]
-                             )
-
-
   protected def isInSnapshottableState(): Boolean = {
-    timeoutTimer.isEmpty && pendingDurableMessage.isEmpty
+    timeoutTimer.isEmpty && pendingDurableMessage.isEmpty && !isProcessingEvent
   }
-
-
-  private def recoverStateFromSnapshot(storedState : StoredEnhancedPersistentActorState): Unit = {
-    isProcessingEvent = storedState.isProcessingEvent
-    eventLogLevelInfo = storedState.eventLogLevelInfo
-    recoveringEventLogLevelInfo = storedState.recoveringEventLogLevelInfo
-    cmdLogLevelInfo = storedState.recoveringEventLogLevelInfo
-    currentLogLevelInfo = storedState.currentLogLevelInfo
-    prevLogLevelTryCommand = storedState.prevLogLevelTryCommand
-    persistAndApplyEventHasBeenCalled = storedState.persistAndApplyEventHasBeenCalled
-    dmGeneratingVersionFixedDeliveryIds = storedState.dmGeneratingVersionFixedDeliveryIds
-    currentDmGeneratingVersion = storedState.currentDmGeneratingVersion
-    addDmGeneratingVersionIfSavingEvents = storedState.addDmGeneratingVersionIfSavingEvents
-    recoveredEventsCount_sinceLast_dmGeneratingVersion = storedState.recoveredEventsCount_sinceLast_dmGeneratingVersion
-    processedDMs = storedState.processedDMs
-  }
-
 
   /**
    * @param eventLogLevelInfo Used when processing events live - not recovering
@@ -192,20 +174,20 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
     case e:NewDMGeneratingVersionEvent =>
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
+      internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
       onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
       onRecoveryCompleted()
     case event:E =>
       // Increment counter of events received since last NewDMGeneratingVersionEvent
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
+      internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion = internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event)
     case offer: SnapshotOffer => {
-      if(!offer.isInstanceOf[FullSnapshotState]) {
+      if(!offer.snapshot.isInstanceOf[FullSnapshotState]) {
         throw new RuntimeException(s"Snapshot is not of the expected type ${FullSnapshotState.getClass.getName}) but was ${offer.getClass.getName}" )
       }
       val offerState = offer.snapshot.asInstanceOf[FullSnapshotState]
-      recoverStateFromSnapshot(offerState.localState)
+      internalDurableState = offerState.localState
       onSnapshotOffer(SnapshotOffer(offer.metadata, offerState.userData))
     }
     case x:Any =>
@@ -214,21 +196,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
 
   override def saveSnapshot(snapshot: Any): Unit = {
-    val actorState = StoredEnhancedPersistentActorState(
-      isProcessingEvent = isProcessingEvent,
-      eventLogLevelInfo = eventLogLevelInfo,
-      recoveringEventLogLevelInfo = recoveringEventLogLevelInfo,
-      cmdLogLevelInfo = recoveringEventLogLevelInfo,
-      currentLogLevelInfo = currentLogLevelInfo,
-      prevLogLevelTryCommand = prevLogLevelTryCommand,
-      persistAndApplyEventHasBeenCalled = persistAndApplyEventHasBeenCalled,
-      dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds,
-      currentDmGeneratingVersion = currentDmGeneratingVersion,
-      addDmGeneratingVersionIfSavingEvents = addDmGeneratingVersionIfSavingEvents,
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion,
-      processedDMs = processedDMs
-    )
-    super.saveSnapshot(FullSnapshotState(snapshot,actorState))
+    super.saveSnapshot(FullSnapshotState(snapshot,internalDurableState))
   }
 
 
@@ -240,8 +208,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     log.debug("Recover complete")
 
     addDmGeneratingVersionIfSavingEvents = false
-    if ( currentDmGeneratingVersion < getDMGeneratingVersion ) {
-      if ( recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
+    if ( internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion ) {
+      if ( internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
         // we have received real events since the last time we increased the dmGeneratingVersion. We should check for issues to fix and store new version right away
         fixDMGeneratingVersionProblem()
       } else {
@@ -254,16 +222,16 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def isFixingDMGeneratingVersionProblem():Boolean = {
-    currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
+    internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
   }
 
   private def fixDMGeneratingVersionProblem(): Unit = {
-    val listOfReceivedDMs = if ( dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
+    val listOfReceivedDMs = if ( internalDurableState.dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
 
-      log.warning(s"Found and fixing unconfirmed DMs $dmGeneratingVersionFixedDeliveryIds when going to new dmGeneratingVersion")
+      log.warning(s"Found and fixing unconfirmed DMs ${internalDurableState.dmGeneratingVersionFixedDeliveryIds} when going to new dmGeneratingVersion")
 
       // We must save that we're done with these DMs
-      dmGeneratingVersionFixedDeliveryIds.map {
+      internalDurableState.dmGeneratingVersionFixedDeliveryIds.map {
         deliveryId =>
           // This is the event we're going to save
           DurableMessageReceived(deliveryId, "Added by fixDMGeneratingVersionProblem")
@@ -271,9 +239,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
     } else List()
 
-    dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
+    internalDurableState.dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
 
-    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
 
     // Must also save that we are now using new DMGeneratingVersion
     val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
@@ -281,7 +249,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       case x:DurableMessageReceived => onDurableMessageReceived(x)
       case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
     }
-    
+
   }
 
   protected def onReceiveRecover(event:E) {
@@ -365,8 +333,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     log.debug(s"Remembering DurableMessageReceived with DeliveryId=${msg.deliveryId}, wasRemovedFromUnconfirmedList=$wasRemovedFromUnconfirmedList")
 
     // Since we might be fixing DMGeneratingVersion issues, we must remove this id from dmGeneratingVersionFixedDeliveryIds - if it exists there..
-    if ( dmGeneratingVersionFixedDeliveryIds.contains(msg.deliveryId)) {
-      dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds - msg.deliveryId
+    if ( internalDurableState.dmGeneratingVersionFixedDeliveryIds.contains(msg.deliveryId)) {
+      internalDurableState.dmGeneratingVersionFixedDeliveryIds = internalDurableState.dmGeneratingVersionFixedDeliveryIds - msg.deliveryId
     }
   }
 
@@ -392,7 +360,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
 
       if (addDmGeneratingVersionIfSavingEvents) {
-        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
         _events = NewDMGeneratingVersionEvent(getDMGeneratingVersion) :: _events
       }
 
@@ -419,11 +387,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def onNewDMGeneratingVersionEvent(settingDMGeneratingVersionEvent: NewDMGeneratingVersionEvent): Unit = {
-    this.currentDmGeneratingVersion = settingDMGeneratingVersionEvent.version
+    this.internalDurableState.currentDmGeneratingVersion = settingDMGeneratingVersionEvent.version
   }
 
   private def onProcessedDMEvent(processedDMEvent: ProcessedDMEvent): Unit = {
-    processedDMs = processedDMs + processedDMEvent
+    internalDurableState.processedDMs = internalDurableState.processedDMs + processedDMEvent
   }
 
   /**
@@ -484,7 +452,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     try {
       if (doUnconfirmedWarningProcessing && (command.isInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])) {
         internalProcessUnconfirmedWarning(command.asInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])
-      } else if (pendingDurableMessage.isDefined && processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
+      } else if (pendingDurableMessage.isDefined && internalDurableState.processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
         onAlreadyProcessedCmdViaDMReceivedAgain(command)
       } else {
         tryCommand.apply(command)
@@ -609,7 +577,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         // We need to add all ids to a list, and remove it from the list if we (later) get an event telling us that we knew that this dms was confirmed.
         // then we end up knowing which deliveryIds we actually need to save that now is confirmed.
 
-        dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds + usedDeliveryId
+        internalDurableState.dmGeneratingVersionFixedDeliveryIds = internalDurableState.dmGeneratingVersionFixedDeliveryIds + usedDeliveryId
 
         log.debug(s"Since we're isFixingDMGeneratingVersionProblem, we're confirming deliveryId=$usedDeliveryId right away")
         confirmDelivery(usedDeliveryId)
