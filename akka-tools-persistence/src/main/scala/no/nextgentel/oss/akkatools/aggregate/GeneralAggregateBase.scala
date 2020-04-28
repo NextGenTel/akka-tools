@@ -50,28 +50,12 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
 
 
   protected override def onSnapshotOffer(offer : SnapshotOffer) : Unit = {
-    throw new Exception(s"Handling of snapshot recovery not defined, received ${offer.metadata}")
+    state = offer.snapshot.asInstanceOf[S]
   }
 
   protected def acceptSnapshotRequest(request : SaveSnapshotOfCurrentState) : Boolean = {
     log.info(s"Snapshot handling is not defined, rejecting $request")
     false
-  }
-
-  protected def onSnapshotSuccess(success : SaveSnapshotSuccess) : Unit = {
-    log.info(s"Saved snapshot $success")
-  }
-
-  protected def onSnapshotFailure(failure : SaveSnapshotFailure) : Unit = {
-    log.info(s"Failed to save snapshot $failure")
-  }
-
-  protected def onDeleteMessagesSuccess(success : DeleteMessagesSuccess) : Unit = {
-    log.info(s"Delete messages succeded for:  $success")
-  }
-
-  protected def onDeleteMessagesFailure(failure : DeleteMessagesFailure) : Unit = {
-    log.info(s"Deleting messages failed: $failure")
   }
 
 
@@ -100,27 +84,16 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   }
 
   final def tryCommand = {
-    case snapFailure: SaveSnapshotFailure => {
-      onSnapshotFailure(snapFailure)
-    }
-    case snapSuccess: SaveSnapshotSuccess => {
-      onSnapshotSuccess(snapSuccess)
-    }
-    case deleteMessagesSuccess: DeleteMessagesSuccess => {
-      onDeleteMessagesSuccess(deleteMessagesSuccess)
-    }
-    case deleteMessagesFailure: DeleteMessagesFailure => {
-      onDeleteMessagesFailure(deleteMessagesFailure)
-    }
     case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
         sender ! state
       }
       else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
-        val accepted = acceptSnapshotRequest(x.asInstanceOf[SaveSnapshotOfCurrentState])
+        val msg = x.asInstanceOf[SaveSnapshotOfCurrentState]
+        val accepted = acceptSnapshotRequest(msg)
         if (accepted && this.isInSnapshottableState()) {
-          saveSnapshot(state)
+          saveSnapshot(state,msg.deleteEvents)
         } else {
           //Todo report rejection somehow
         }

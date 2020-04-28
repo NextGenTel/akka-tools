@@ -53,10 +53,10 @@ class GeneralAggregateBaseTest_handleSnapshotMessages(_system:ActorSystem) exten
       sendDMBlocking(main,DeleteMessagesSuccess(4))
       assertState(StringState("SUCCESS_MSG"))
 
-      sendDMBlocking(main,SaveSnapshotOfCurrentState(None))
+      sendDMBlocking(main,SaveSnapshotOfCurrentState(None,false))
       assertState(StringState("WAT"))
 
-      sendDMBlocking(main,SaveSnapshotOfCurrentState(None))
+      sendDMBlocking(main,SaveSnapshotOfCurrentState(None,false))
       assertState(StringState("SAVED"))
 
     }
@@ -124,5 +124,6 @@ class SillyAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[S
 case class StringEv(data: String)
 
 case class StringState(data:String) extends AggregateStateBase[StringEv, StringState] {
-  override def transitionState(event: StringEv): StateTransition[StringEv, StringState] = ???
+  override def transitionState(event: StringEv): StateTransition[StringEv, StringState] =
+    StateTransition(StringState(event.data))
 }

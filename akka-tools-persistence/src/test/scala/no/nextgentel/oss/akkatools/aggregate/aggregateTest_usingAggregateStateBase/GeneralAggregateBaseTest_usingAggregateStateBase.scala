@@ -170,7 +170,7 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
 
       assertState(XState(4))
 
-      sendDMBlocking(main,SaveSnapshotOfCurrentState(None))
+      sendDMBlocking(main,SaveSnapshotOfCurrentState(None,true))
 
       Thread.sleep(2000)
       // kill it
@@ -282,11 +282,12 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
   }
 
   override def onSnapshotSuccess(success: SaveSnapshotSuccess): Unit = {
-    deleteMessages(success.metadata.sequenceNr)
+    log.error("Snapshot succeeded")
   }
 
   override def onSnapshotFailure(failure: SaveSnapshotFailure): Unit = {
     log.error(s"Taking snapshot failed $failure")
+    throw new Exception("Err",failure.cause)
   }
 
   override def onDeleteMessagesSuccess(success: DeleteMessagesSuccess): Unit = {
