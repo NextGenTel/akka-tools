@@ -118,8 +118,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // we will not perform the fix described above again
   protected def getDMGeneratingVersion = 0
 
+  //If this returns false, a request to make a snapshot will be rejected
   protected def isInSnapshottableState(): Boolean = {
-    !isProcessingEvent //Which are correct to put here?
+    !isProcessingEvent
   }
 
   /**
@@ -197,14 +198,13 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       // Increment counter of events received since last NewDMGeneratingVersionEvent
       internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion = internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event)
-    case offer: SnapshotOffer => {
-      if(!offer.snapshot.isInstanceOf[FullSnapshotState]) {
-        throw new RuntimeException(s"Snapshot is not of the expected type ${FullSnapshotState.getClass.getName}) but was ${offer.getClass.getName}" )
+    case offer: SnapshotOffer =>
+      offer.snapshot match {
+        case snapshotData: FullSnapshotState =>
+          internalDurableState = snapshotData.localState
+          onSnapshotOffer(SnapshotOffer(offer.metadata, snapshotData.userData))
+        case _ => throw new RuntimeException(s"Snapshot is not of the expected type, expected ${FullSnapshotState.getClass.getName}) but was ${offer.getClass.getName}" )
       }
-      val offerState = offer.snapshot.asInstanceOf[FullSnapshotState]
-      internalDurableState = offerState.localState
-      onSnapshotOffer(SnapshotOffer(offer.metadata, offerState.userData))
-    }
     case x:Any =>
       log.error(s"Ignoring msg of unknown type: ${x.getClass}")
   }
@@ -213,20 +213,16 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     log.info("Saving snapshot")
     if(deleteMessagesUpTo) {
       internalDurableState.deleteMessagesUpTo = Some(lastSequenceNr)
-      super.saveSnapshot(FullSnapshotState(snapshot,internalDurableState))
     }
-    else {
-      super.saveSnapshot(FullSnapshotState(snapshot,internalDurableState))
-    }
-
+    super.saveSnapshot(FullSnapshotState(snapshot,internalDurableState))
   }
 
   override def saveSnapshot(snapshot: Any): Unit = {
-    throw new Exception("Should not be called directly")
+    saveSnapshot(snapshot,deleteMessagesUpTo = false)
   }
 
   protected def onSnapshotOffer(offer : SnapshotOffer): Unit = {
-    throw new Exception(s"Can not recovery from snapshot $offer, handling not defined")
+    throw new Exception(s"Can not recover from snapshot $offer, handling not defined")
   }
 
 
@@ -235,15 +231,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   protected def onSnapshotFailure(failure : SaveSnapshotFailure) : Unit = {
-    log.info(s"Failed to save snapshot $failure")
+    log.warning(s"Failed to save snapshot $failure")
   }
 
   protected def onDeleteMessagesSuccess(success : DeleteMessagesSuccess) : Unit = {
-    log.info(s"Delete messages succeded for:  $success")
+    log.info(s"Delete messages succeed for:  $success")
   }
 
   protected def onDeleteMessagesFailure(failure : DeleteMessagesFailure) : Unit = {
-    log.info(s"Deleting messages failed: $failure")
+    log.warning(s"Deleting messages failed: $failure")
   }
 
   protected def onRecoveryCompleted(): Unit = {
@@ -265,12 +261,14 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def deletePotentialMessagesMarkedForDeletion(): Unit = {
-    internalDurableState.deleteMessagesUpTo.foreach(deleteMark => {
-      if(deleteMark > internalDurableState.deletedMessages) {
-        log.info(s"Deleting messages up to sequenceNr $deleteMark")
-        deleteMessages(deleteMark)
-      }
-    })
+    internalDurableState.deleteMessagesUpTo match {
+      case Some(deleteMark) =>
+        if(deleteMark > internalDurableState.deletedMessages) {
+          log.info(s"Deleting messages up to sequenceNr $deleteMark")
+          deleteMessages(deleteMark)
+        }
+      case None =>
+    }
   }
 
   private def isFixingDMGeneratingVersionProblem():Boolean = {
@@ -508,25 +506,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         onAlreadyProcessedCmdViaDMReceivedAgain(command)
       } else {
         command match {
-          case snapFailure: SaveSnapshotFailure => {
+          case snapFailure: SaveSnapshotFailure =>
             onSnapshotFailure(snapFailure)
-          }
-          case snapSuccess: SaveSnapshotSuccess => {
+          case snapSuccess: SaveSnapshotSuccess =>
             deletePotentialMessagesMarkedForDeletion()
             onSnapshotSuccess(snapSuccess)
-          }
-          case deleteMessagesSuccess: DeleteMessagesSuccess => {
-            //Try to persist the deleted messages mark, and if ok run update to state and inform user
-            persist(MoveDeletedMessageMarkEvent(deleteMessagesSuccess.toSequenceNr)) {
-              e => {
-                handleMoveDeletedMessageMarkEvent(e)
-                onDeleteMessagesSuccess(deleteMessagesSuccess)
-              }
-            }
-          }
-          case deleteMessagesFailure: DeleteMessagesFailure => {
+          case deleteMessagesSuccess: DeleteMessagesSuccess =>
+            moveDeletedMessageMark(deleteMessagesSuccess)
+          case deleteMessagesFailure: DeleteMessagesFailure =>
             onDeleteMessagesFailure(deleteMessagesFailure)
-          }
           case _  => tryCommand.apply(command)
         }
       }
@@ -549,6 +537,16 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         }
     }
     startTimeoutTimer
+  }
+
+  //Try to persist the deleted messages mark, and if ok run update to state and inform user
+  private def moveDeletedMessageMark(deleteMessagesSuccess: DeleteMessagesSuccess): Unit = {
+    persist(MoveDeletedMessageMarkEvent(deleteMessagesSuccess.toSequenceNr)) {
+      e => {
+        handleMoveDeletedMessageMarkEvent(e)
+        onDeleteMessagesSuccess(deleteMessagesSuccess)
+      }
+    }
   }
 
   protected def onAlreadyProcessedCmdViaDMReceivedAgain(cmd:AnyRef): Unit ={

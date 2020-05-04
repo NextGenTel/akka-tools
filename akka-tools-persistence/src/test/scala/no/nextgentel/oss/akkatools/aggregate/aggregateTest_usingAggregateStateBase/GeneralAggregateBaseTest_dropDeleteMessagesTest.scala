@@ -3,7 +3,7 @@ package no.nextgentel.oss.akkatools.aggregate.aggregateTest_usingAggregateStateB
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
-import akka.actor.{ActorPath, ActorSystem, Props}
+import akka.actor.{ActorPath, ActorRef, ActorSystem, Props}
 import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotMetadata, SnapshotOffer}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
@@ -11,6 +11,9 @@ import no.nextgentel.oss.akkatools.aggregate.{AggregateCmd, _}
 import no.nextgentel.oss.akkatools.testing.{AggregateStateGetter, AggregateTesting}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.Await
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 
 /**
@@ -36,10 +39,18 @@ class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) exten
       assert(getState() == correctState)
     }
 
+    def fetchState(): StringState = {
+      getState()
+    }
+
   }
 
   test("test that snapshot handling messages triggers handling") {
     new TestEnv {
+      def aggregateState(ref : ActorRef): StringState = {
+        AggregateStateGetter[Any](ref).getState(None).asInstanceOf[StringState]
+      }
+
       assertState(StringState("START"))
 
       sendDMBlocking(main,OneCmd("WAT"))
@@ -48,41 +59,40 @@ class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) exten
       sendDMBlocking(main,SaveSnapshotOfCurrentState(None,true))
       assertState(StringState("WAT"))
 
-      Thread.sleep(2000)
-      // kill it
-      system.stop(main)
+      //Wait for first drop attempt
+      awaitCond(!TestStore.first.get(),Duration("5s"),Duration("0.05s"))
 
-      // Wait for it to die
-      Thread.sleep(2000)
+      val stopFut = akka.pattern.gracefulStop(main,FiniteDuration(5,"s"))
+      assert(Await.result(stopFut, Duration("5s")))
 
       // recreate it
       val dest2 = TestProbe()
       val recoveredMain = system.actorOf(Props( new DroppingAggr(null, dmForwardAndConfirm(dest2.ref).path)), "DroppingAggr-" + id)
-
-      Thread.sleep(2000)
-      // get its state
-      val recoveredState = AggregateStateGetter[Any](recoveredMain).getState(None).asInstanceOf[StringState]
-      assert( recoveredState == StringState("WAT"))
-      assert(DropStore.deleted.get() == 1)
+      awaitCond( TestStore.recoverCount.get() == 1,Duration("5s"),Duration("0.05s"))
+      awaitCond( TestStore.deleted.get() == 1,Duration("5s"),Duration("0.05s"))
+      val state = aggregateState(recoveredMain);
+      awaitCond( state ==  StringState("WAT"))
 
       // make sure we get no msgs
       dest2.expectNoMsg()
 
-      Thread.sleep(2000)
       // kill it
-      system.stop(recoveredMain)
-      // Wait for it to die
-      Thread.sleep(2000)
+      val stopFut2 = akka.pattern.gracefulStop(recoveredMain,FiniteDuration(5,"s"))
+      assert(Await.result(stopFut2, Duration("5s")))
 
       // recreate it
       val dest3 = TestProbe()
       val recoveredMain2 = system.actorOf(Props( new DroppingAggr(null, dmForwardAndConfirm(dest3.ref).path)), "DroppingAggr-" + id)
+      awaitCond( TestStore.recoverCount.get() == 2,Duration("5s"),Duration("0.05s"))
+      assert(TestStore.deleted.get() == 1) //We do not delete again, since we have done mark in previous.
 
-      Thread.sleep(2000)
       // get its state
-      val recoveredState2 = AggregateStateGetter[Any](recoveredMain2).getState(None).asInstanceOf[StringState]
-      assert( recoveredState2 == StringState("WAT")) //State is presernved
-      assert(DropStore.deleted.get() == 1) //We do not delete again, so we have done mark in previous.
+      val state2 = aggregateState(recoveredMain2);
+      assert(state2 == StringState("WAT"))
+
+      sendDMBlocking(recoveredMain2,OneCmd("END"))
+      val state3 = aggregateState(recoveredMain2);
+      assert(state3==StringState("END"))
 
       // make sure we get no msgs
       dest3.expectNoMsg()
@@ -95,10 +105,12 @@ case class OneCmd(data : String) extends AggregateCmd {
   override def id(): String = ???
 }
 
-//Needs somewhere to communicate state outside of actor, this is hacky, but works.
-object DropStore {
+//This is used in this single test to store state outside of the aggregate across
+//actor system restarts
+private object TestStore {
   var first = new AtomicBoolean(true)
   var deleted = new AtomicInteger(0)
+  var recoverCount = new AtomicInteger(0)
 }
 
 class DroppingAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[StringEv, StringState](dmSelf) {
@@ -115,12 +127,17 @@ class DroppingAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBas
 
   //This simulates dropping this Message
   override def deleteMessages(toSequenceNr : Long) = {
-    if(DropStore.first.getAndSet(false)) { //Drop first attempt
+    if(TestStore.first.getAndSet(false)) { //Drop first attempt
       log.info(s"Dropped message for deleting messages up to $toSequenceNr")
     }
     else {
       super.deleteMessages(toSequenceNr)
     }
+  }
+
+  override def  onRecoveryCompleted() = {
+    super.onRecoveryCompleted()
+    TestStore.recoverCount.incrementAndGet()
   }
 
   override def acceptSnapshotRequest(req: SaveSnapshotOfCurrentState): Boolean = {
@@ -137,7 +154,7 @@ class DroppingAggr(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBas
 
   override def onDeleteMessagesSuccess(success: DeleteMessagesSuccess): Unit = {
     log.info(s"Successfully deleted messages up to ${success.toSequenceNr}")
-    DropStore.deleted.incrementAndGet()
+    TestStore.deleted.incrementAndGet()
   }
 
   override def onDeleteMessagesFailure(failure: DeleteMessagesFailure): Unit = {

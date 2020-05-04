@@ -53,9 +53,9 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
     state = offer.snapshot.asInstanceOf[S]
   }
 
+  //Override to handle aggregate specific restriction on snapshots, accepts all by default
   protected def acceptSnapshotRequest(request : SaveSnapshotOfCurrentState) : Boolean = {
-    log.info(s"Snapshot handling is not defined, rejecting $request")
-    false
+    true
   }
 
 
@@ -95,7 +95,8 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
         if (accepted && this.isInSnapshottableState()) {
           saveSnapshot(state,msg.deleteEvents)
         } else {
-          //Todo report rejection somehow
+          log.warning(s"Rejected snapshot request $msg when in state $state")
+          sender ! AggregateRejectedSnapshotRequest(this.persistenceId, lastSequenceNr, state)
         }
 
       }

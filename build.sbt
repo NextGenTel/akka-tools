@@ -81,7 +81,8 @@ lazy val akkaToolsClusterDependencies = Seq(
 lazy val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test"
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
+  "org.awaitility" % "awaitility-scala" % "4.0.2" % "test"
 )
 
 lazy val testDbDependencies = Seq(
