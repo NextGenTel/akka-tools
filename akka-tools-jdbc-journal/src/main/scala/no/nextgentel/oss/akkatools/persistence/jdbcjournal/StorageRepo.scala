@@ -124,7 +124,7 @@ class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Opti
 
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
 
-    val lockStatement = s"LOCK TABLE ${tableName_writerLock} IN EXCLUSIVE MODE"
+    val lockStatement = s"SELECT * FROM ${tableName_writerLock} FOR UPDATE"
 
     val sql = s"insert into ${tableName_journal} (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
       s"values (:typePath, :id, :sequenceNr,${sequenceName_journalIndex}.nextval, :persistentRepr, :payload_write_only, sysdate)"
@@ -138,12 +138,12 @@ class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Opti
       * the correct order when there are multiple writers (many nodes scenario). If rows become visible in the wrong
       * order, say journalIndex 10 shows up before 8 and 9, then streams might drop events 8 and 9.
       *
-      * If in a scenario with a single node, this has very little overhead (since we are single threaded anyway),
-      * so this should be the default, for testing to with h2 to still work this is false for now.
-      *
+      * Using SELECT FOR UPDATE on a single row for this is a bit hacky, but it at least can be tested partly using H2, which would
+      * not work with other Oracle methods (TABLE LOCK) or (DBMS_LOCK).
+      * 
       */
       if(config.useWriterLock) {
-        c.createQuery(lockStatement).executeUpdate()
+        c.createQuery(lockStatement).executeScalar()
       }
 
       dtoList.foreach {

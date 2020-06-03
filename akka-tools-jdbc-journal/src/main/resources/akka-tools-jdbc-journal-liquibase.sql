@@ -41,3 +41,5 @@ create TABLE t_writerlock(
     id INT,
     PRIMARY KEY(id)
 );
+
+INSERT INTO t_writerlock VALUES (1);

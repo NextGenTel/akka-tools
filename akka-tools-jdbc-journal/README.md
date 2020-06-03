@@ -161,3 +161,16 @@ for readability and is never read/used in this code.
 
 
 It would be a good idea to use this with the *JacksonJsonSerializer*-module, but it is not mandatory.
+
+In cluster mode, if you are streaming events across actors using eventsByTag(s) you should set the option ```useWriterLock=true``` on the repo, available from **akka-tools 1.1.3**.
+That requires this db-change:
+
+    create TABLE t_writerlock(
+        id INT,
+        PRIMARY KEY(id)
+    );
+    INSERT INTO t_writerlock VALUES (1);
+    
+Without ```useWriterLock=true``` events can be missed by the stream, since their journalIndex may become visible in the wrong order
+if there are overlapping transactions. ```useWriterLock=true``` ensures transactions execute serially even with many writers.
+    
