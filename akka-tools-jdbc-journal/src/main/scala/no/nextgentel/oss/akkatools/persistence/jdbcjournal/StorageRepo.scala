@@ -2,8 +2,8 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 import java.time.{OffsetDateTime, ZoneId}
 import java.util.Date
-
 import javax.sql.DataSource
+
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 import org.slf4j.LoggerFactory
 import org.sql2o.data.{Row, Table}
@@ -59,8 +59,6 @@ case class StorageRepoConfig
 class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Option[JdbcJournalErrorHandler]) extends StorageRepo with ClusterNodeRepo {
 
   def this(dataSource:DataSource, config:StorageRepoConfig = StorageRepoConfig(), _errorHandler:Option[JdbcJournalErrorHandler] = None) = this(new Sql2o(dataSource, new OracleQuirks()), config, _errorHandler)
-
-  val logger = LoggerFactory.getLogger("StorageLogger")
 
   import scala.collection.JavaConverters._
 
