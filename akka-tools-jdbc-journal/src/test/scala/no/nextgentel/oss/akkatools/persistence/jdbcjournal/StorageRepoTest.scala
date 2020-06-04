@@ -58,7 +58,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     val pid1 = PersistenceIdSingle("pId", getNextId())
 
-    assert(0 == repo.findHighestSequenceNr(pid1, 0))
+    assert( 0 == repo.findHighestSequenceNr(pid1, 0))
 
     val dummyPersistentRepr = Array[Byte]()
 
@@ -70,7 +70,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
     assert( List() == repo.loadJournalEntries(pid1, 0, 1, 0))
 
-    assert(1 == repo.findHighestSequenceNr(pid1, 0))
+    assert( 1 == repo.findHighestSequenceNr(pid1, 0))
 
     val dto2 = JournalEntryDto(pid1.tag, pid1.uniqueId, 2L, dummyPersistentRepr, null, null)
     repo.insertPersistentReprList(Seq(dto2))
@@ -81,7 +81,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     assert( fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 2, 2, 10)))
     assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 1)))
 
-    assert(2 == repo.findHighestSequenceNr(pid1, 0))
+    assert( 2 == repo.findHighestSequenceNr(pid1, 0))
 
     repo.deleteJournalEntryTo(pid1, 1)
 
@@ -90,6 +90,6 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     repo.deleteJournalEntryTo(pid1, 2)
     assert( List() == repo.loadJournalEntries(pid1, 0, 2, 10))
 
-    assert(2 == repo.findHighestSequenceNr(pid1, 0))
+    assert( 2 == repo.findHighestSequenceNr(pid1, 0))
   }
 }
