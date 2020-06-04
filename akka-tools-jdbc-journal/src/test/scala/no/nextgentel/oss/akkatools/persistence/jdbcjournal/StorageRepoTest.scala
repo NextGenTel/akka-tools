@@ -49,7 +49,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
   private def runTestOnRepo(repo : StorageRepo) = {
     // Must remove bytearray to please the case class equals
-    def fix(dtos: List[JournalEntryDto]): List[JournalEntryDto] = {
+    def fix(dtos:List[JournalEntryDto]):List[JournalEntryDto] = {
       dtos.map {
         d =>
           d.copy(persistentRepr = null, timestamp = null)
@@ -65,30 +65,30 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     val dto1 = JournalEntryDto(pid1.tag, pid1.uniqueId, 1L, dummyPersistentRepr, null, null)
 
     repo.insertPersistentReprList(Seq(dto1))
-    assert(List() == repo.loadJournalEntries(pid1, 0, 0, 10))
-    assert(fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
-    assert(fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
-    assert(List() == repo.loadJournalEntries(pid1, 0, 1, 0))
+    assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
+    assert( List() == repo.loadJournalEntries(pid1, 0, 1, 0))
 
     assert(1 == repo.findHighestSequenceNr(pid1, 0))
 
     val dto2 = JournalEntryDto(pid1.tag, pid1.uniqueId, 2L, dummyPersistentRepr, null, null)
     repo.insertPersistentReprList(Seq(dto2))
 
-    assert(List() == repo.loadJournalEntries(pid1, 0, 0, 10))
-    assert(fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
-    assert(fix(List(dto1, dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
-    assert(fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 2, 2, 10)))
-    assert(fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 1)))
+    assert( List() == repo.loadJournalEntries(pid1, 0, 0, 10))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 1, 10)))
+    assert( fix(List(dto1, dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
+    assert( fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 2, 2, 10)))
+    assert( fix(List(dto1)) == fix(repo.loadJournalEntries(pid1, 0, 2, 1)))
 
     assert(2 == repo.findHighestSequenceNr(pid1, 0))
 
     repo.deleteJournalEntryTo(pid1, 1)
 
-    assert(fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
+    assert( fix(List(dto2)) == fix(repo.loadJournalEntries(pid1, 0, 2, 10)))
 
     repo.deleteJournalEntryTo(pid1, 2)
-    assert(List() == repo.loadJournalEntries(pid1, 0, 2, 10))
+    assert( List() == repo.loadJournalEntries(pid1, 0, 2, 10))
 
     assert(2 == repo.findHighestSequenceNr(pid1, 0))
   }
