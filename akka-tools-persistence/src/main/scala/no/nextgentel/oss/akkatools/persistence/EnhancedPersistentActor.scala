@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.event.Logging.MDC
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedDelivery
-import akka.persistence.{AtLeastOnceDelivery, PersistentActor, PersistentView, RecoveryCompleted}
+import akka.persistence.{AtLeastOnceDelivery, DeleteMessagesFailure, DeleteMessagesSuccess, PersistentActor, PersistentView, RecoveryCompleted, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import no.nextgentel.oss.akkatools.serializing.JacksonJsonSerializable
 
@@ -13,6 +13,33 @@ import scala.concurrent.duration.FiniteDuration
 import scala.reflect._
 
 case class SendAsDM(payload: AnyRef, destinationActor: ActorPath, confirmationRoutingInfo: AnyRef = null)
+
+//Event that marks the point where messages have been deleted up to
+case class MoveDeletedMessageMarkEvent(minimumMark : Long) extends JacksonJsonSerializable
+
+//Contains state from the user and the state of this actor that needs to be stored in a snapshot
+case class FullSnapshotState(@JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include= JsonTypeInfo.As.PROPERTY, property="@snapshot_data") userData : Any,
+                             localState : InternalDurableState) extends JacksonJsonSerializable
+
+//Contains state that must be stored with a snapshot, and recreated when recovering from a snapshots
+case class InternalDurableState(
+                                 var deleteMessagesUpTo : Option[Long],
+                                 var deletedMessages : Long,
+                                 var dmGeneratingVersionFixedDeliveryIds: Set[Long],
+                                 var currentDmGeneratingVersion: Int,
+                                 var recoveredEventsCount_sinceLast_dmGeneratingVersion: Int,
+                                 // Info about all already processed (successfully) inbound DMs.
+                                 // If we see one of these again, we know that it is a resending caused by the sender not
+                                 // getting the DM-confirm.
+                                 // So instead of trying to process them - and fail since we've already processed them,
+                                 // we can 'ignore' them...
+                                 // But we cannot just ignore them:
+                                 // If the sender never got our DMReceived, we must send it again..
+                                 // And since the impl might not have just sent confirm, but used the DM with a new payload to send
+                                 // a cmd back to the sender via the DM-confirm, we must facilitate for that to also work again..
+                                 // You know.... idempotent cmds :)
+                                 var processedDMs: Set[ProcessedDMEvent] // DMs without payload
+                               )
 
 object EnhancedPersistentActor {
   // Before we calculated the timeout based on redeliverInterval and warnAfterNumberOfUnconfirmedAttempts,
@@ -36,6 +63,20 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   with MdcSupport[E] {
 
   implicit val ec = context.dispatcher
+
+  def initialState(): InternalDurableState = {
+    InternalDurableState(
+      deleteMessagesUpTo = None,
+      deletedMessages = 0,
+      dmGeneratingVersionFixedDeliveryIds = Set[Long](),
+      currentDmGeneratingVersion = 0,
+      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0,
+      processedDMs = Set[ProcessedDMEvent]()
+    )
+  }
+
+  //State that will be stored alongside a snapshot, and recovered when starting from a snapshot
+  private var internalDurableState = initialState()
 
   private   var isProcessingEvent = false
   private   var pendingDurableMessage:Option[DurableMessage] = None
@@ -65,10 +106,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     timeout
   }
 
-  private var dmGeneratingVersionFixedDeliveryIds = Set[Long]()
-  private var currentDmGeneratingVersion = 0
   private var addDmGeneratingVersionIfSavingEvents = false // set to true if we should (only) write new dmGenerationVersion-event if/when a new event is saved from app
-  private var recoveredEventsCount_sinceLast_dmGeneratingVersion = 0
 
   // Override this in your code to set the dmGeneratingVersion your code is currently using.
   // You can bump this version if you have changed the code in such a way that it now sends
@@ -80,17 +118,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // we will not perform the fix described above again
   protected def getDMGeneratingVersion = 0
 
-  // Info about all already processed (successfully) inbound DMs.
-  // If we see one of these again, we know that it is a resending caused by the sender not
-  // getting the DM-confirm.
-  // So instead of trying to process them - and fail since we've already processed them,
-  // we can 'ignore' them...
-  // But we cannot just ignore them:
-  // If the sender never got our DMReceived, we must send it again..
-  // And since the impl might not have just sent confirm, but used the DM with a new payload to send
-  // a cmd back to the sender via the DM-confirm, we must facilitate for that to also work again..
-  // You know.... idempotent cmds :)
-  private var processedDMs = Set[ProcessedDMEvent]() // DMs without payload
+  //If this returns false, a request to make a snapshot will be rejected
+  protected def isInSnapshottableState(): Boolean = {
+    !isProcessingEvent
+  }
 
   /**
    * @param eventLogLevelInfo Used when processing events live - not recovering
@@ -141,6 +172,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     log.mdc( log.mdc - "akkaPersistenceRecovering" )
   }
 
+  def handleMoveDeletedMessageMarkEvent(ev : MoveDeletedMessageMarkEvent): Unit = {
+    internalDurableState.deletedMessages = Math.max(internalDurableState.deletedMessages,ev.minimumMark)
+  }
+
   override def receiveRecover: Receive = {
     case r: DurableMessageReceived =>
       processingRecoveringMessageStarted
@@ -151,25 +186,68 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
+    case e:MoveDeletedMessageMarkEvent => {
+      handleMoveDeletedMessageMarkEvent(e)
+    }
     case e:NewDMGeneratingVersionEvent =>
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
+      internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion = 0 // reset counter
       onNewDMGeneratingVersionEvent(e)
     case c:RecoveryCompleted =>
       onRecoveryCompleted()
     case event:E =>
       // Increment counter of events received since last NewDMGeneratingVersionEvent
-      recoveredEventsCount_sinceLast_dmGeneratingVersion = recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
+      internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion = internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion + 1
       onReceiveRecover(event)
+    case offer: SnapshotOffer =>
+      offer.snapshot match {
+        case snapshotData: FullSnapshotState =>
+          internalDurableState = snapshotData.localState
+          onSnapshotOffer(SnapshotOffer(offer.metadata, snapshotData.userData))
+        case _ => throw new RuntimeException(s"Snapshot is not of the expected type, expected ${FullSnapshotState.getClass.getName}) but was ${offer.getClass.getName}" )
+      }
     case x:Any =>
       log.error(s"Ignoring msg of unknown type: ${x.getClass}")
+  }
+
+  def saveSnapshot(snapshot: Any, deleteMessagesUpTo :Boolean): Unit = {
+    log.info("Saving snapshot")
+    if(deleteMessagesUpTo) {
+      internalDurableState.deleteMessagesUpTo = Some(lastSequenceNr)
+    }
+    super.saveSnapshot(FullSnapshotState(snapshot,internalDurableState))
+  }
+
+  override def saveSnapshot(snapshot: Any): Unit = {
+    saveSnapshot(snapshot,deleteMessagesUpTo = false)
+  }
+
+  protected def onSnapshotOffer(offer : SnapshotOffer): Unit = {
+    throw new Exception(s"Can not recover from snapshot $offer, handling not defined")
+  }
+
+
+  protected def onSnapshotSuccess(success : SaveSnapshotSuccess) : Unit = {
+    log.info(s"Saved snapshot $success")
+  }
+
+  protected def onSnapshotFailure(failure : SaveSnapshotFailure) : Unit = {
+    log.warning(s"Failed to save snapshot $failure")
+  }
+
+  protected def onDeleteMessagesSuccess(success : DeleteMessagesSuccess) : Unit = {
+    log.info(s"Delete messages succeed for:  $success")
+  }
+
+  protected def onDeleteMessagesFailure(failure : DeleteMessagesFailure) : Unit = {
+    log.warning(s"Deleting messages failed: $failure")
   }
 
   protected def onRecoveryCompleted(): Unit = {
     log.debug("Recover complete")
 
     addDmGeneratingVersionIfSavingEvents = false
-    if ( currentDmGeneratingVersion < getDMGeneratingVersion ) {
-      if ( recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
+    if ( internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion ) {
+      if ( internalDurableState.recoveredEventsCount_sinceLast_dmGeneratingVersion > 0) {
         // we have received real events since the last time we increased the dmGeneratingVersion. We should check for issues to fix and store new version right away
         fixDMGeneratingVersionProblem()
       } else {
@@ -179,19 +257,31 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
     }
 
+    deletePotentialMessagesMarkedForDeletion()
+  }
+
+  private def deletePotentialMessagesMarkedForDeletion(): Unit = {
+    internalDurableState.deleteMessagesUpTo match {
+      case Some(deleteMark) =>
+        if(deleteMark > internalDurableState.deletedMessages) {
+          log.info(s"Deleting messages up to sequenceNr $deleteMark")
+          deleteMessages(deleteMark)
+        }
+      case None =>
+    }
   }
 
   private def isFixingDMGeneratingVersionProblem():Boolean = {
-    currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
+    internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
   }
 
   private def fixDMGeneratingVersionProblem(): Unit = {
-    val listOfReceivedDMs = if ( dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
+    val listOfReceivedDMs = if ( internalDurableState.dmGeneratingVersionFixedDeliveryIds.nonEmpty ) {
 
-      log.warning(s"Found and fixing unconfirmed DMs $dmGeneratingVersionFixedDeliveryIds when going to new dmGeneratingVersion")
+      log.warning(s"Found and fixing unconfirmed DMs ${internalDurableState.dmGeneratingVersionFixedDeliveryIds} when going to new dmGeneratingVersion")
 
       // We must save that we're done with these DMs
-      dmGeneratingVersionFixedDeliveryIds.map {
+      internalDurableState.dmGeneratingVersionFixedDeliveryIds.map {
         deliveryId =>
           // This is the event we're going to save
           DurableMessageReceived(deliveryId, "Added by fixDMGeneratingVersionProblem")
@@ -199,9 +289,9 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
     } else List()
 
-    dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
+    internalDurableState.dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
 
-    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
 
     // Must also save that we are now using new DMGeneratingVersion
     val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
@@ -209,7 +299,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       case x:DurableMessageReceived => onDurableMessageReceived(x)
       case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
     }
-    
+
   }
 
   protected def onReceiveRecover(event:E) {
@@ -293,8 +383,8 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     log.debug(s"Remembering DurableMessageReceived with DeliveryId=${msg.deliveryId}, wasRemovedFromUnconfirmedList=$wasRemovedFromUnconfirmedList")
 
     // Since we might be fixing DMGeneratingVersion issues, we must remove this id from dmGeneratingVersionFixedDeliveryIds - if it exists there..
-    if ( dmGeneratingVersionFixedDeliveryIds.contains(msg.deliveryId)) {
-      dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds - msg.deliveryId
+    if ( internalDurableState.dmGeneratingVersionFixedDeliveryIds.contains(msg.deliveryId)) {
+      internalDurableState.dmGeneratingVersionFixedDeliveryIds = internalDurableState.dmGeneratingVersionFixedDeliveryIds - msg.deliveryId
     }
   }
 
@@ -320,7 +410,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
       }
 
       if (addDmGeneratingVersionIfSavingEvents) {
-        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=$currentDmGeneratingVersion)")
+        log.debug(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
         _events = NewDMGeneratingVersionEvent(getDMGeneratingVersion) :: _events
       }
 
@@ -347,11 +437,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def onNewDMGeneratingVersionEvent(settingDMGeneratingVersionEvent: NewDMGeneratingVersionEvent): Unit = {
-    this.currentDmGeneratingVersion = settingDMGeneratingVersionEvent.version
+    this.internalDurableState.currentDmGeneratingVersion = settingDMGeneratingVersionEvent.version
   }
 
   private def onProcessedDMEvent(processedDMEvent: ProcessedDMEvent): Unit = {
-    processedDMs = processedDMs + processedDMEvent
+    internalDurableState.processedDMs = internalDurableState.processedDMs + processedDMEvent
   }
 
   /**
@@ -412,10 +502,21 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     try {
       if (doUnconfirmedWarningProcessing && (command.isInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])) {
         internalProcessUnconfirmedWarning(command.asInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])
-      } else if (pendingDurableMessage.isDefined && processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
+      } else if (pendingDurableMessage.isDefined && internalDurableState.processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
         onAlreadyProcessedCmdViaDMReceivedAgain(command)
       } else {
-        tryCommand.apply(command)
+        command match {
+          case snapFailure: SaveSnapshotFailure =>
+            onSnapshotFailure(snapFailure)
+          case snapSuccess: SaveSnapshotSuccess =>
+            deletePotentialMessagesMarkedForDeletion()
+            onSnapshotSuccess(snapSuccess)
+          case deleteMessagesSuccess: DeleteMessagesSuccess =>
+            moveDeletedMessageMark(deleteMessagesSuccess)
+          case deleteMessagesFailure: DeleteMessagesFailure =>
+            onDeleteMessagesFailure(deleteMessagesFailure)
+          case _  => tryCommand.apply(command)
+        }
       }
 
       if (!persistAndApplyEventHasBeenCalled) {
@@ -436,6 +537,16 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         }
     }
     startTimeoutTimer
+  }
+
+  //Try to persist the deleted messages mark, and if ok run update to state and inform user
+  private def moveDeletedMessageMark(deleteMessagesSuccess: DeleteMessagesSuccess): Unit = {
+    persist(MoveDeletedMessageMarkEvent(deleteMessagesSuccess.toSequenceNr)) {
+      e => {
+        handleMoveDeletedMessageMarkEvent(e)
+        onDeleteMessagesSuccess(deleteMessagesSuccess)
+      }
+    }
   }
 
   protected def onAlreadyProcessedCmdViaDMReceivedAgain(cmd:AnyRef): Unit ={
@@ -537,7 +648,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
         // We need to add all ids to a list, and remove it from the list if we (later) get an event telling us that we knew that this dms was confirmed.
         // then we end up knowing which deliveryIds we actually need to save that now is confirmed.
 
-        dmGeneratingVersionFixedDeliveryIds = dmGeneratingVersionFixedDeliveryIds + usedDeliveryId
+        internalDurableState.dmGeneratingVersionFixedDeliveryIds = internalDurableState.dmGeneratingVersionFixedDeliveryIds + usedDeliveryId
 
         log.debug(s"Since we're isFixingDMGeneratingVersionProblem, we're confirming deliveryId=$usedDeliveryId right away")
         confirmDelivery(usedDeliveryId)

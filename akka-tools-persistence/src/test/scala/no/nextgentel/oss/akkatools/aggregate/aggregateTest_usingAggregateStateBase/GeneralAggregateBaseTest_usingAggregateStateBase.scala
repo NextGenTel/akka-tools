@@ -3,6 +3,7 @@ package no.nextgentel.oss.akkatools.aggregate.aggregateTest_usingAggregateStateB
 import java.util.UUID
 
 import akka.actor.{ActorPath, ActorSystem, PoisonPill, Props}
+import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotMetadata, SnapshotOffer}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.aggregate._
@@ -144,9 +145,58 @@ class GeneralAggregateBaseTest_usingAggregateStateBase(_system:ActorSystem) exte
     }
   }
 
+
+
+
+
+
+
+
+  test("test recovering from snapshot") {
+    new TestEnv {
+      assertState(XState(0))
+
+      sendDMBlocking(main, AddValueCmd(0))
+      assertState(XState(2))
+
+      dest.expectMsg(ValueWasAdded(1))
+      dest.expectMsg(ValueWasAdded(2))
+
+      sendDMBlocking(main, AddValueCmd(2))
+      assertState(XState(4))
+
+      dest.expectMsg(ValueWasAdded(3))
+      dest.expectMsg(ValueWasAdded(4))
+
+      assertState(XState(4))
+
+      sendDMBlocking(main,SaveSnapshotOfCurrentState(None,true))
+
+      Thread.sleep(2000)
+      // kill it
+      system.stop(main)
+
+      // Wait for it to die
+      Thread.sleep(2000)
+
+      // recreate it
+      val dest2 = TestProbe()
+      val recoveredMain = system.actorOf(Props( new XAggregate(null, dmForwardAndConfirm(dest2.ref).path)), "XAggregate-" + id)
+
+      // get its state
+      val recoveredState = AggregateStateGetter[Any](recoveredMain).getState(None).asInstanceOf[XState]
+      assert( recoveredState == XState(4))
+
+      // make sure we get no msgs
+      dest2.expectNoMsg()
+
+    }
+  }
+
 }
 
 trait XEvent
+
 
 case class XAddEvent(from:Int) extends XEvent
 
@@ -173,6 +223,7 @@ case class XState(value:Int) extends AggregateStateBase[XEvent, XState] {
       case e:Any => throw new AggregateError("Invalid event")
     }
   }
+
 }
 
 
@@ -214,6 +265,40 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
         sendAsDM(s"ack-${c.from}", sender.path)
       }
   }
+
+
+
+  /**
+   * Always accepts a snapshot offer and makes a snapshot.
+   * If that is a success it deletes the events.
+   */
+
+  override def onSnapshotOffer(offer: SnapshotOffer): Unit = {
+    state = offer.snapshot.asInstanceOf[XState]
+  }
+
+  override def acceptSnapshotRequest(req: SaveSnapshotOfCurrentState): Boolean = {
+    true
+  }
+
+  override def onSnapshotSuccess(success: SaveSnapshotSuccess): Unit = {
+    log.error("Snapshot succeeded")
+  }
+
+  override def onSnapshotFailure(failure: SaveSnapshotFailure): Unit = {
+    log.error(s"Taking snapshot failed $failure")
+    throw new Exception("Err",failure.cause)
+  }
+
+  override def onDeleteMessagesSuccess(success: DeleteMessagesSuccess): Unit = {
+    log.error(s"Deleting messages succeeded $success")
+  }
+
+  override def onDeleteMessagesFailure(failure: DeleteMessagesFailure): Unit = {
+    log.error(s"Deleting messages failed $failure")
+  }
+
+
 
   // Used as prefix/base when constructing the persistenceId to use - the unique ID is extracted runtime from actorPath which is construced by Sharding-coordinator
   override def persistenceIdBase(): String = "/x/"

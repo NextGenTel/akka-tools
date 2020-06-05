@@ -2,6 +2,7 @@ package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor.ActorPath
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
+import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, SendAsDM}
 
 import scala.reflect.ClassTag
@@ -48,6 +49,16 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   private val defaultErrorHandler = (errorMsg:String) => log.debug("No cmdFailed-handler executed")
 
 
+  protected override def onSnapshotOffer(offer : SnapshotOffer) : Unit = {
+    state = offer.snapshot.asInstanceOf[S]
+  }
+
+  //Override to handle aggregate specific restriction on snapshots, accepts all by default
+  protected def acceptSnapshotRequest(request : SaveSnapshotOfCurrentState) : Boolean = {
+    true
+  }
+
+
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
   override protected def stateInfo(): String = state.toString
@@ -73,11 +84,23 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   }
 
   final def tryCommand = {
-    case x:AggregateCmd =>
+    case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
         sender ! state
-      } else {
+      }
+      else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
+        val msg = x.asInstanceOf[SaveSnapshotOfCurrentState]
+        val accepted = acceptSnapshotRequest(msg)
+        if (accepted && this.isInSnapshottableState()) {
+          saveSnapshot(state,msg.deleteEvents)
+        } else {
+          log.warning(s"Rejected snapshot request $msg when in state $state")
+          sender ! AggregateRejectedSnapshotRequest(this.persistenceId, lastSequenceNr, state)
+        }
+
+      }
+      else {
         val cmd = x
         val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
@@ -181,6 +204,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
     super.internalProcessUnconfirmedWarning(unconfirmedWarning)
     tmpStateWhileProcessingUnconfirmedWarning = null.asInstanceOf[S]
   }
+
 
   /**
    * If doUnconfirmedWarningProcessing is turned on, then override this method
