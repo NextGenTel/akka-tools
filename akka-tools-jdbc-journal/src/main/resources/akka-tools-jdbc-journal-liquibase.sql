@@ -35,3 +35,11 @@ CREATE TABLE t_cluster_nodes (
     joined                                INT,
     PRIMARY KEY(nodeName)
 );
+
+--changeset jowa:Add-writer-lock-table dbms:all
+create TABLE t_writerlock(
+    id INT,
+    PRIMARY KEY(id)
+);
+
+INSERT INTO t_writerlock VALUES (1);

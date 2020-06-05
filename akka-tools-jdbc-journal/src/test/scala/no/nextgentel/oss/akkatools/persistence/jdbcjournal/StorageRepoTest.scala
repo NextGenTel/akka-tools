@@ -17,6 +17,8 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
   lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), StorageRepoConfig(), Some(errorHandler))
 
+  lazy val repoLock = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), StorageRepoConfig(useWriterLock = true), Some(errorHandler))
+
   val nextId = new AtomicInteger(0)
 
   def getNextId():String = nextId.incrementAndGet().toString
@@ -36,7 +38,16 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
   }
 
   test("journal operations") {
+    runTestOnRepo(repo)
+  }
 
+  test("journal operations using lock") {
+    runTestOnRepo(repoLock)
+  }
+
+  // TODO: Write tests for snapshot- and cluster-code
+
+  private def runTestOnRepo(repo : StorageRepo) = {
     // Must remove bytearray to please the case class equals
     def fix(dtos:List[JournalEntryDto]):List[JournalEntryDto] = {
       dtos.map {
@@ -81,7 +92,4 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
 
     assert( 2 == repo.findHighestSequenceNr(pid1, 0))
   }
-
-  // TODO: Write tests for snapshot- and cluster-code
-
 }

@@ -51,8 +51,9 @@ case class StorageRepoConfig
   schemaName: Option[String] = None,
   tableName_journal:String = "t_journal",
   sequenceName_journalIndex:String = "s_journalIndex_seq",
-  tableName_snapshot:String = "t_snapshot"
-
+  tableName_snapshot:String = "t_snapshot",
+  useWriterLock:Boolean = false,
+  tableName_writerLock:String ="t_writerlock"
 )
 
 class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Option[JdbcJournalErrorHandler]) extends StorageRepo with ClusterNodeRepo {
@@ -72,6 +73,7 @@ class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Opti
   lazy val tableName_journal = s"${schemaPrefix}${config.tableName_journal}"
   lazy val sequenceName_journalIndex = s"${schemaPrefix}${config.sequenceName_journalIndex}"
   lazy val tableName_snapshot = s"${schemaPrefix}${config.tableName_snapshot}"
+  lazy val tableName_writerLock = s"${schemaPrefix}${config.tableName_writerLock}"
 
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto] = {
     val sequenceNrColumnName = persistenceId match {
@@ -120,12 +122,27 @@ class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Opti
 
   def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
 
+    val lockStatement = s"SELECT * FROM ${tableName_writerLock} FOR UPDATE"
+
     val sql = s"insert into ${tableName_journal} (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
       s"values (:typePath, :id, :sequenceNr,${sequenceName_journalIndex}.nextval, :persistentRepr, :payload_write_only, sysdate)"
 
     // Insert the whole list in one transaction
     val c = sql2o.beginTransaction()
     try {
+
+      /*
+      * A write lock is needed to ensure that rows with sequentially increasing journalIndex become visible in
+      * the correct order when there are multiple writers (many nodes scenario). If rows become visible in the wrong
+      * order, say journalIndex 10 shows up before 8 and 9, then streams might drop events 8 and 9.
+      *
+      * Using SELECT FOR UPDATE on a single row for this is a bit hacky, but it at least can be tested partly using H2, which would
+      * not work with other Oracle methods (TABLE LOCK) or (DBMS_LOCK).
+      * 
+      */
+      if(config.useWriterLock) {
+        c.createQuery(lockStatement).executeScalar()
+      }
 
       dtoList.foreach {
         dto =>
@@ -148,7 +165,6 @@ class StorageRepoImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Opti
             insert.close()
           }
       }
-
       c.commit(true)
     } catch {
       case e:Throwable =>
