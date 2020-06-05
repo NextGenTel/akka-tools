@@ -19,7 +19,7 @@ Version-information:
 
 | Akka  | akka-tools     | branch                                                               |
 | ----- | -------------- | -------------------------------------------------------------------- |
-| 2.4   | 1.1.2          | [master](https://github.com/NextGenTel/akka-tools)                   |
+| 2.4   | 1.1.3          | [master](https://github.com/NextGenTel/akka-tools)                   |
 
 Changelog
 ----------------------------
