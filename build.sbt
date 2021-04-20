@@ -61,7 +61,8 @@ lazy val akkaToolsPersistenceDependencies = Seq(
   "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "org.slf4j" % "slf4j-api" % slf4jVersion,
-  "com.google.guava" % "guava" % "30.1.1-jre")
+  "com.google.guava" % "guava" % "30.1.1-jre",
+)
 
 lazy val akkaToolsJsonSerializingDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
@@ -132,6 +133,7 @@ lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
     "com.typesafe.akka" %% "akka-persistence-testkit" % akkaVersion % "test",
+    "com.typesafe.akka" %% "akka-persistence-tck" % akkaVersion % "test",
     "junit" % "junit" % "4.13.2" % "test"))
 
 

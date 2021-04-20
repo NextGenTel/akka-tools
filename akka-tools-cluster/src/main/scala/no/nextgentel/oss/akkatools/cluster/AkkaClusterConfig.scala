@@ -44,13 +44,12 @@ case class AkkaClusterConfig
     if (seedNodes == null || seedNodes.isEmpty) throw new Exception("seedNodes is not specified")
 
     val seedNodesString = "[" + seedNodes.map {
-      hostAndPort => "\"akka.tcp://" + actorSystemName + "@" + hostAndPort + "\""
+      hostAndPort => "\"akka://" + actorSystemName + "@" + hostAndPort + "\""
     }.mkString(",") + "]"
 
     s"""akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
-      |akka.remote.enabled-transports = ["akka.remote.netty.tcp"]
-      |akka.remote.netty.tcp.hostname="$thisHostname"
-      |akka.remote.netty.tcp.port=$port
+      |akka.remote.artery.canonical.hostname="$thisHostname"
+      |akka.remote.artery.canonical.port=$port
       |akka.cluster.seed-nodes = $seedNodesString
     """.stripMargin
   }

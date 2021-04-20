@@ -23,10 +23,9 @@ class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_sys
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.parseString(
     s"""akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
-        |akka.remote.enabled-transports = ["akka.remote.netty.tcp"]
-        |akka.remote.netty.tcp.hostname="localhost"
-        |akka.remote.netty.tcp.port=${GeneralAggregateWithShardingTest.port}
-        |akka.cluster.seed-nodes = ["akka.tcp://test-actor-system@localhost:${GeneralAggregateWithShardingTest.port}"]
+        |akka.remote.artery.canonical.hostname="localhost"
+        |akka.remote.artery.canonical.port=${GeneralAggregateWithShardingTest.port}
+        |akka.cluster.seed-nodes = ["akka://test-actor-system@localhost:${GeneralAggregateWithShardingTest.port}"]
     """.stripMargin
   ).withFallback(ConfigFactory.load("application-test.conf"))))
 

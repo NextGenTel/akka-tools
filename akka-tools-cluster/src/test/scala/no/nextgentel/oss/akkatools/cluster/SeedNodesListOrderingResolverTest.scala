@@ -17,7 +17,7 @@ class SeedNodesListOrderingResolverTest extends AnyFunSuite {
   }
 
   test("alive nodes found") {
-    val repo = new OurClusterNodeRepo(List(NodeInfo("akka.tcp://MobilityService@host1:9999", true)))
+    val repo = new OurClusterNodeRepo(List(NodeInfo("akka://MobilityService@host1:9999", true)))
     assert(AkkaClusterConfig(Some("host2"), 9999, List("host1:9999", "host2:9999")) ==
       SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host2"), 9999, List("host1:9999", "host2:9999"))))
 
@@ -26,7 +26,7 @@ class SeedNodesListOrderingResolverTest extends AnyFunSuite {
   }
 
   test("alive node (not joined yet) found ") {
-    val repo = new OurClusterNodeRepo(List(NodeInfo("akka.tcp://MobilityService@host1:9999", false)))
+    val repo = new OurClusterNodeRepo(List(NodeInfo("akka://MobilityService@host1:9999", false)))
     assert(AkkaClusterConfig(Some("host2"), 9999, List("host1:9999", "host2:9999")) ==
       SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host2"), 9999, List("host1:9999", "host2:9999"))))
 
@@ -35,7 +35,7 @@ class SeedNodesListOrderingResolverTest extends AnyFunSuite {
   }
 
   test("This node is not a seedNode - with alive Nodes") {
-    val repo = new OurClusterNodeRepo(List(NodeInfo("akka.tcp://MobilityService@host1:9999", true), NodeInfo("akka.tcp://MobilityService@host2:9999", true)))
+    val repo = new OurClusterNodeRepo(List(NodeInfo("akka://MobilityService@host1:9999", true), NodeInfo("akka://MobilityService@host2:9999", true)))
     assert(AkkaClusterConfig(Some("host3"), 9999, List("host1:9999", "host2:9999")) ==
       SeedNodesListOrderingResolver.resolveSeedNodesList(repo, AkkaClusterConfig(Some("host3"), 9999, List("host1:9999", "host2:9999"))))
   }
