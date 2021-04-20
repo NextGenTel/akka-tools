@@ -1,12 +1,11 @@
 package no.nextgentel.oss.akkatools.cluster
 
+import org.scalatest.funsuite.AnyFunSuite
+
 import java.time.OffsetDateTime
-
-import org.scalatest.{Matchers, FunSuite}
-
 import scala.concurrent.duration.FiniteDuration
 
-class SeedNodesListOrderingResolverTest extends FunSuite with Matchers {
+class SeedNodesListOrderingResolverTest extends AnyFunSuite {
 
   test("no live nodes") {
     val repo = new OurClusterNodeRepo(List())

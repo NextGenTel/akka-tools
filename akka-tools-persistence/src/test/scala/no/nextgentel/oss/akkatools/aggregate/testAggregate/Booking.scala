@@ -53,8 +53,8 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
 
       ResultingEvent(event)
         .onSuccess{
-          sender ! seatId } // Send the seatId back
-        .onError ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
+          sender() ! seatId } // Send the seatId back
+        .onError ( errorMsg => sender() ! Failure(new Exception(errorMsg)) )
         .onAfterValidationSuccess{
           if (c.shouldFailIn_onAfterValidationSuccess) {
             throw BookingError("Failed in onAfterValidationSuccess")
@@ -63,15 +63,15 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
 
     case c: CancelSeatCmd =>
       ResultingEvent(CancelationEvent(c.seatId))
-        .onSuccess( sender ! "ok")
-        .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
+        .onSuccess( sender() ! "ok")
+        .onError( (errorMsg) => sender() ! Failure(new Exception(errorMsg)) )
 
     case c: CmdThatFailsWhenGeneratingEvent =>
       ResultingEvent {
           println("This is executed later - when our onError-code is ready to be used")
           throw BookingError("The error is: " + c.error)
-        }.onSuccess(sender ! "ok")
-        .onError((errorMsg) => sender ! Failure(new Exception(errorMsg)))
+        }.onSuccess(sender() ! "ok")
+        .onError((errorMsg) => sender() ! Failure(new Exception(errorMsg)))
   }
 
   override def generateDMs = {

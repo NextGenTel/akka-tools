@@ -7,16 +7,15 @@ import javax.sql.DataSource
 import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 import org.slf4j.LoggerFactory
 import org.sql2o.data.Row
-import org.sql2o.quirks.OracleQuirks
 import org.sql2o.{Sql2o, Sql2oException}
 
 import scala.concurrent.duration.FiniteDuration
 
 class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHandler:Option[JdbcJournalErrorHandler]) extends StorageRepoWithClusterNodeRepo {
 
-  def this(dataSource:DataSource, config:StorageRepoConfig = StorageRepoConfig(), _errorHandler:Option[JdbcJournalErrorHandler] = None) = this(new Sql2o(dataSource, new OracleQuirks()), config, _errorHandler)
+  def this(dataSource:DataSource, config:StorageRepoConfig = StorageRepoConfig(), _errorHandler:Option[JdbcJournalErrorHandler] = None) = this(new Sql2o(dataSource), config, _errorHandler)
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   // wrap it
   val errorHandler = new JdbcJournalDetectFatalOracleErrorHandler(_errorHandler.getOrElse(
@@ -75,7 +74,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
       }
   }
 
-  def insertPersistentReprList(dtoList: Seq[JournalEntryDto]) {
+  def insertPersistentReprList(dtoList: Seq[JournalEntryDto]): Unit = {
 
     val sql = s"insert into ${tableName_journal} (typePath, id, sequenceNr, journalIndex, persistentRepr, payload_write_only, updated) " +
       s"values (:typePath, :id, :sequenceNr, nextval('${sequenceName_journalIndex}'), :persistentRepr, :payload_write_only, current_timestamp)"
@@ -117,7 +116,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
 
   // Since we need to keep track of the highest sequenceNr even after we have deleted an entry,
   // This method only clears the columns persistentRepr and payload_write_only to save space
-  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long) {
+  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long): Unit = {
     val sql = s"update ${tableName_journal} set persistentRepr = null, payload_write_only = null where typePath = :typePath and id = :id and sequenceNr <= :toSequenceNr"
     val c = sql2o.open()
     try {
@@ -220,7 +219,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
       }
   }
 
-  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long) {
+  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long): Unit = {
     val sql = s"delete from ${tableName_snapshot} where persistenceId = :persistenceId  and sequenceNr = :sequenceNr  and (:timestamp = 0 OR timestamp = :timestamp)"
     val c = sql2o.open()
     try {
@@ -230,7 +229,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
     }
   }
 
-  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long) {
+  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Unit = {
     val sql = s"delete from ${tableName_snapshot} where persistenceId = :persistenceId  and sequenceNr <= :maxSequenceNr  and timestamp <= :maxTimestamp"
     val c = sql2o.open()
     try {
@@ -240,7 +239,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
     }
   }
 
-  def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime, joined:Boolean) {
+  def writeClusterNodeAlive(nodeName: String, timestamp: OffsetDateTime, joined:Boolean): Unit = {
     var sql = s"update ${schemaPrefix}t_cluster_nodes set lastSeen = :timestamp, joined = :joined where nodeName = :nodeName"
     val c = sql2o.open()
     try {
@@ -263,7 +262,7 @@ class StorageRepoPostgresImpl(sql2o: Sql2o, config:StorageRepoConfig, _errorHand
     }
   }
 
-  def removeClusterNodeAlive(nodeName: String) {
+  def removeClusterNodeAlive(nodeName: String): Unit = {
     val sql: String = s"delete from ${schemaPrefix}t_cluster_nodes where nodeName = :nodeName"
     val c = sql2o.open()
     try {

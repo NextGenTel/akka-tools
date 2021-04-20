@@ -103,7 +103,7 @@ abstract class ActorWithDMSupportFuture extends Actor with DiagnosticActorLoggin
 
       val payload:Any = dm.map(_.payload).getOrElse(msg)
 
-      val originalDMSender:ActorRef = sender
+      val originalDMSender:ActorRef = sender()
       try {
         processPayload.apply(payload).map {
           case Some(MsgResult(resultMsg, Some(differentDest))) =>

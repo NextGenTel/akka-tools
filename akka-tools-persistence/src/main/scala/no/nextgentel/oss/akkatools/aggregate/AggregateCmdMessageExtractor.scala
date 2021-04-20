@@ -11,10 +11,10 @@ class AggregateCmdMessageExtractor(val maxNumberOfNodes:Int = 2, val shardsPrNod
   private def extractId(x:AnyRef):String = {
     x match {
       case a:AggregateCmd =>
-        if (a.id == null) {
+        if (a.id() == null) {
           log.warn("id() returned null in message: " + x)
         }
-        a.id
+        a.id()
       case q:AnyRef =>
         log.error("Do not know how to extract entryId for message of type " + x.getClass + ": " + x)
         null

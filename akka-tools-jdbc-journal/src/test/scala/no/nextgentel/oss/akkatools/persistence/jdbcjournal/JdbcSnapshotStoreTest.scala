@@ -1,7 +1,6 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.serialization.SerializerWithStringManifest
@@ -9,12 +8,13 @@ import akka.testkit.{TestKit, TestKitBase}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class JdbcSnapshotStoreTest (_system:ActorSystem) extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+class JdbcSnapshotStoreTest (_system:ActorSystem) extends AnyFunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll {
 
   val configName = "JdbcSnapshotStoreTest"
 
@@ -145,7 +145,7 @@ class TestPersistentUsingSnapshotActor(val persistenceId:String) extends Actor w
   override def receiveCommand: Receive = {
     case GetDataCmd() =>
       log.debug(s"GetDataCmd '$data'")
-      sender ! data
+      sender() ! data
     case SetDataCmd(v) =>
       log.debug(s"SetDataCmd '$v'")
       val event = SetDataEvent(v)

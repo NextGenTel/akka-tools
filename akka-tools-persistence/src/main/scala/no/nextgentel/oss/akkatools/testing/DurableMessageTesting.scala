@@ -32,8 +32,8 @@ trait DurableMessageTesting {
 
     val timeoutToUse = resolveTimeout(timeout, system)
 
-    val resultPromise = Promise[Boolean]
-    val messageSentPromise = Promise[Unit]
+    val resultPromise = Promise[Boolean]()
+    val messageSentPromise = Promise[Unit]()
     val receiver = system.actorOf(Props(new TestingDurableMessageSendAndReceiver(resultPromise, dest, payload, sender, timeoutToUse, messageSentPromise)))
 
     // Waiting for the message being sent
@@ -73,7 +73,7 @@ class TestingDurableMessageSendAndReceiver private [testing] (promise:Promise[Bo
   log.debug(s"Sending durableMessage with payload=$payload with messageId=$messageId to dest=$dest")
 
   dest.tell(DurableMessage(0L, payload, self.path), sender)
-  messageSentPromise.success(Unit)
+  messageSentPromise.success(())
 
 
   def receive = {

@@ -183,7 +183,7 @@ class JdbcAsyncWriteJournal(val config: Config) extends AsyncWriteJournal with A
       if (log.isDebugEnabled) {
         log.debug("JdbcAsyncWriteJournal doAsyncReplayMessages: DONE - persistenceId=" + persistenceId + " fromSequenceNr=" + fromSequenceNr + " toSequenceNr=" + toSequenceNr + " max=" + max + " - numberOfReads=" + numberOfReads)
       }
-      promise.success(Unit)
+      promise.success(())
     }
     catch {
       case e: Exception => {

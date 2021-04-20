@@ -68,10 +68,10 @@ class ActorCache[K:ClassTag](cacheLoader:(K)=>Props, expireAfter: Duration) exte
   }
 
   @throws(classOf[Exception])
-  override def postStop {
-    super.postStop
-    cache.invalidateAll
-    cache.cleanUp
+  override def postStop(): Unit = {
+    super.postStop()
+    cache.invalidateAll()
+    cache.cleanUp()
   }
 
 }

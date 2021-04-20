@@ -1,21 +1,21 @@
 package no.nextgentel.oss.akkatools.aggregate.TestingAggregateNowSendingMoreDMsPackage
 
 import java.util.UUID
-
 import akka.actor.{ActorPath, ActorSystem, PoisonPill, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.aggregate._
 import no.nextgentel.oss.akkatools.persistence.{DurableMessage, SendAsDM}
 import no.nextgentel.oss.akkatools.testing.{AggregateStateGetter, AggregateTesting}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.funsuite.AnyFunSuiteLike
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import org.slf4j.LoggerFactory
 
-class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class TestingAggregateNowSendingMoreDMsTest (_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test-TestingAggregateNowSendingMoreDMs.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -376,8 +376,8 @@ class XAggregateVersion1Sending1DM(dmSelf:ActorPath, dest:ActorPath) extends Gen
       ResultingEvent {
         XAddEvent(c.from)
       }.onSuccess {
-        log.info(s"Success-handler: ending ack as DM back to ${sender.path} ")
-        sendAsDM(s"ack-${c.from}", sender.path)
+        log.info(s"Success-handler: ending ack as DM back to ${sender().path} ")
+        sendAsDM(s"ack-${c.from}", sender().path)
       }
   }
 

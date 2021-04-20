@@ -118,7 +118,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   // DMs so that thay are not sent after all.. Then we stores a new event, SettingDMGeneratingVersionEvent( getDMGeneratingVersion() ).
   // The next time we recover, we will process the SettingDMGeneratingVersionEvent and modifying currentDmGeneratingVersion so that
   // we will not perform the fix described above again
-  protected def getDMGeneratingVersion = 0
+  protected def getDMGeneratingVersion() = 0
 
   //If this returns false, a request to make a snapshot will be rejected
   protected def isInSnapshottableState(): Boolean = {
@@ -130,7 +130,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
    * @param recoveringEventLogLevelInfo Used when recovering events
    * @param cmdLogLevelInfo Used when processing commands
    */
-  protected def setLogLevels(eventLogLevelInfo: Boolean, recoveringEventLogLevelInfo: Boolean, cmdLogLevelInfo: Boolean) {
+  protected def setLogLevels(eventLogLevelInfo: Boolean, recoveringEventLogLevelInfo: Boolean, cmdLogLevelInfo: Boolean): Unit = {
     this.eventLogLevelInfo = eventLogLevelInfo
     this.recoveringEventLogLevelInfo = recoveringEventLogLevelInfo
     this.cmdLogLevelInfo = cmdLogLevelInfo
@@ -160,17 +160,17 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     startTimeoutTimer()
   }
 
-  override def postStop {
-    super.postStop
+  override def postStop(): Unit = {
+    super.postStop()
     log.debug("Stopped")
     cancelTimeoutTimer()
   }
 
-  private def processingRecoveringMessageStarted {
+  private def processingRecoveringMessageStarted(): Unit = {
     log.mdc( log.mdc + ("akkaPersistenceRecovering" -> "[recovering]") )
   }
 
-  private def processingRecoveringMessageEnded {
+  private def processingRecoveringMessageEnded(): Unit = {
     log.mdc( log.mdc - "akkaPersistenceRecovering" )
   }
 
@@ -180,11 +180,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   override def receiveRecover: Receive = {
     case r: DurableMessageReceived =>
-      processingRecoveringMessageStarted
+      processingRecoveringMessageStarted()
       try {
         onDurableMessageReceived(r)
       } finally {
-        processingRecoveringMessageEnded
+        processingRecoveringMessageEnded()
       }
     case e:ProcessedDMEvent =>
       onProcessedDMEvent(e)
@@ -242,7 +242,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   protected def onRecoveryCompleted(): Unit = {
     log.debug("Recover complete")
 
-    if ( internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion ) {
+    if ( internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion() ) {
       fixDMGeneratingVersionProblem()
     }
 
@@ -261,7 +261,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
   }
 
   private def isFixingDMGeneratingVersionProblem():Boolean = {
-    internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion && recoveryRunning
+    internalDurableState.currentDmGeneratingVersion < getDMGeneratingVersion() && recoveryRunning
   }
 
   private def fixDMGeneratingVersionProblem(): Unit = {
@@ -280,10 +280,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
     internalDurableState.dmGeneratingVersionFixedDeliveryIds = Set() // Clear it
 
-    log.info(s"Saving new dmGeneratingVersion=$getDMGeneratingVersion (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
+    log.info(s"Saving new dmGeneratingVersion=${getDMGeneratingVersion()} (old: dmGeneratingVersion=${internalDurableState.currentDmGeneratingVersion})")
 
     // Must also save that we are now using new DMGeneratingVersion
-    val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion)
+    val eventList = listOfReceivedDMs :+ NewDMGeneratingVersionEvent(getDMGeneratingVersion())
     persistAll(eventList) {
       case x:DurableMessageReceived => onDurableMessageReceived(x)
       case x:NewDMGeneratingVersionEvent => onNewDMGeneratingVersionEvent(x)
@@ -291,15 +291,15 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     
   }
 
-  protected def onReceiveRecover(event:E) {
+  protected def onReceiveRecover(event:E): Unit = {
     val prevLogLevel = currentLogLevelInfo
     currentLogLevelInfo = recoveringEventLogLevelInfo
-    processingRecoveringMessageStarted
+    processingRecoveringMessageStarted()
     try {
       onEventInternal(event)
     } finally {
       currentLogLevelInfo = prevLogLevel
-      processingRecoveringMessageEnded
+      processingRecoveringMessageEnded()
     }
   }
 
@@ -311,7 +311,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     }
   }
 
-  protected def onApplyingLiveEvent(event: E) {
+  protected def onApplyingLiveEvent(event: E): Unit = {
     val prevLogLevel = currentLogLevelInfo
     currentLogLevelInfo = eventLogLevelInfo
     try {
@@ -341,14 +341,14 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     classTag[Ex].runtimeClass.isInstance(e)
   }
 
-  private def onEventInternal(event:E) {
+  private def onEventInternal(event:E): Unit = {
 
     isProcessingEvent = true
     beforeOnEvent(event)
     logMessage("Applying: " + toStringForLogging(event))
     try {
       onEvent.apply(event)
-      logState
+      logState()
     }
     catch {
       case e:Exception =>
@@ -365,7 +365,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   def onEvent:PartialFunction[E,Unit]
 
-  private def onDurableMessageReceived(msg: DurableMessageReceived) {
+  private def onDurableMessageReceived(msg: DurableMessageReceived): Unit = {
     // We also need to confirm it here: If live, this is the second time, but if recovering it is the first real time.
     val wasRemovedFromUnconfirmedList = confirmDelivery(msg.deliveryId)
 
@@ -377,11 +377,11 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     }
   }
 
-  protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => Unit})
+  protected def persistAndApplyEvent(event:E):Unit = persistAndApplyEvent(event, {() => ()}): Unit
 
-  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = persistAndApplyEvents( List(event), successHandler)
+  protected def persistAndApplyEvent(event:E, successHandler: () => Unit):Unit = persistAndApplyEvents( List(event), successHandler): Unit
 
-  protected def persistAndApplyEvents(events: List[E]):Unit = persistAndApplyEvents(events, { () => Unit})
+  protected def persistAndApplyEvents(events: List[E]):Unit = persistAndApplyEvents(events, { () => ()}): Unit
 
   // All events in events are persisted and onApplyingLiveEvent() is executed.
   // When all events in list are successfully processed, we exeute the successHandler
@@ -460,7 +460,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
   def tryCommand:PartialFunction[AnyRef,Unit]
 
-  private def tryCommandInternal(rawCommand: AnyRef) {
+  private def tryCommandInternal(rawCommand: AnyRef): Unit = {
 
     // We will set persistAndApplyEventHasBeenCalled=true IF persistAndApplyEvent
     // has been called during tryCommand-processing...
@@ -471,7 +471,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
 
     prevLogLevelTryCommand = currentLogLevelInfo
     currentLogLevelInfo = cmdLogLevelInfo && !(rawCommand.isInstanceOf[InternalCommand]) // Prevent using info-cmd-logging when command is InternalCommand
-    cancelTimeoutTimer
+    cancelTimeoutTimer()
     pendingDurableMessage = None
     val command: AnyRef = rawCommand match {
       case dm:DurableMessage =>
@@ -484,7 +484,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
     logMessage("Processing: " + toStringForLogging(command))
 
     try {
-      if (doUnconfirmedWarningProcessing && (command.isInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])) {
+      if (doUnconfirmedWarningProcessing() && (command.isInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])) {
         internalProcessUnconfirmedWarning(command.asInstanceOf[AtLeastOnceDelivery.UnconfirmedWarning])
       } else if (pendingDurableMessage.isDefined && internalDurableState.processedDMs.contains( ProcessedDMEvent.createFromDM(pendingDurableMessage.get) )) {
         onAlreadyProcessedCmdViaDMReceivedAgain(command)
@@ -520,7 +520,7 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
           doTryCommandCleanupAndConfirmDMIfSuccess(false)
         }
     }
-    startTimeoutTimer
+    startTimeoutTimer()
   }
 
   //Try to persist the deleted messages mark, and if ok run update to state and inform user
@@ -561,10 +561,10 @@ abstract class EnhancedPersistentActor[E:ClassTag, Ex <: Exception : ClassTag]
  *
    * @param originalPayload
    */
-  protected def durableMessageNotDeliveredHandler(originalPayload:Any, errorMsg: String) {
+  protected def durableMessageNotDeliveredHandler(originalPayload:Any, errorMsg: String): Unit = {
   }
 
-  protected def internalProcessUnconfirmedWarning(unconfirmedWarning: AtLeastOnceDelivery.UnconfirmedWarning) {
+  protected def internalProcessUnconfirmedWarning(unconfirmedWarning: AtLeastOnceDelivery.UnconfirmedWarning): Unit = {
 
     unconfirmedWarning.unconfirmedDeliveries.map {
       ud: UnconfirmedDelivery =>
@@ -738,7 +738,8 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:Pers
   log.debug(s"Starting view with persistenceId=$persistenceId")
 
   implicit val ec = context.dispatcher
-  implicit val mat = ActorMaterializer()
+  //implicit val mat = ActorMaterializer()
+  implicit val actorSystem = context.system
 
   val readJournal = PersistenceQuery(context.system).readJournalFor[JdbcReadJournal](readJournalIdentifier)
 
@@ -773,7 +774,7 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:Pers
 
   def currentState():S
 
-  def applyEventToState(event:E)
+  def applyEventToState(event:E): Unit
 
   private def internalApplyEventToState(event:E): Unit = {
     try {
@@ -823,19 +824,19 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:Pers
       if (ready) {
 
         log.debug("Sending EventAndStateHistory")
-        sender ! history
+        sender() ! history
       } else {
         log.debug(s"Suspending $x")
-        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender, x)
+        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender(), x)
       }
 
     case x:GetState =>
       if (ready) {
         log.debug("Sending state")
-        sender ! currentState()
+        sender() ! currentState()
       } else {
         log.debug(s"Suspending $x")
-        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender, x)
+        suspendedMessages = suspendedMessages :+ SuspendedMessages(sender(), x)
       }
 
     case EventEnvelope(offset, _, sequenceNr, event) =>

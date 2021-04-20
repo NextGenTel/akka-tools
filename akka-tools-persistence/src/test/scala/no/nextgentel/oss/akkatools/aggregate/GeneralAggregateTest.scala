@@ -1,10 +1,9 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import java.util.UUID
-
 import akka.actor.Status.Failure
 import akka.actor.{ActorRef, ActorSystem}
-import akka.testkit.{TestProbe, TestKit}
+import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.aggregate.testAggregate.StateName
 import no.nextgentel.oss.akkatools.aggregate.testAggregate._
@@ -12,12 +11,13 @@ import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest._
 import org.slf4j.LoggerFactory
 import StateName._
+import org.scalatest.funsuite.{AnyFunSuite, AnyFunSuiteLike}
 
-class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -134,7 +134,7 @@ class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with Fu
 }
 
 
-class ResultingEventTest extends FunSuite with Matchers {
+class ResultingEventTest extends AnyFunSuite {
   test("new api") {
     var msg = ""
     val r = ResultingEvent("A")

@@ -79,7 +79,7 @@ class JdbcSnapshotStore(val config:Config) extends SnapshotStore with ActorLoggi
           bytes,
           manifest,
           Some(serializer.identifier)))
-      promise.success(Unit)
+      promise.success(())
     } catch {
       case e: Exception => {
         val errorMessage: String = "Error storing snapshot"

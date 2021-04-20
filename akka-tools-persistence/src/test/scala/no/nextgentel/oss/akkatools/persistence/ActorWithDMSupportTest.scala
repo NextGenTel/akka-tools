@@ -5,11 +5,12 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Props, ActorSystem}
 import akka.testkit.{TestProbe, TestKit}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, FunSuiteLike}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 import scala.concurrent.duration.FiniteDuration
 
-class ActorWithDMSupportTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class ActorWithDMSupportTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
   def this() = this(ActorSystem("ActorWithDMSupportTest", ConfigFactory.load("application-test.conf")))
 
   test("success with dm") {
@@ -59,9 +60,9 @@ class TestActorWithDMSupport extends ActorWithDMSupport {
   // All raw messages or payloads in DMs are passed to this function.
   override def receivePayload = {
     case "sendok" =>
-      send(sender.path, "ok")
+      send(sender().path, "ok")
     case "silent" =>
-      Unit
+      ()
     case "no-confirm" =>
       throw new LogWarningAndSkipDMConfirmException("something went wrong")
     case "no-confirm-custom" =>

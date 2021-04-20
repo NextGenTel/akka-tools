@@ -1,7 +1,6 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import java.util.{Arrays, UUID}
-
 import akka.actor.ActorSystem
 import akka.actor.Status.Failure
 import akka.testkit.{TestKit, TestProbe}
@@ -10,6 +9,7 @@ import no.nextgentel.oss.akkatools.aggregate.testAggregate.StateName._
 import no.nextgentel.oss.akkatools.aggregate.testAggregate.{StateName, _}
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuiteLike
 import org.slf4j.LoggerFactory
 
 import scala.util.Random
@@ -19,7 +19,7 @@ object GeneralAggregateWithShardingTest {
 }
 
 
-class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.parseString(
     s"""akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
@@ -30,7 +30,7 @@ class GeneralAggregateWithShardingTest(_system:ActorSystem) extends TestKit(_sys
     """.stripMargin
   ).withFallback(ConfigFactory.load("application-test.conf"))))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 

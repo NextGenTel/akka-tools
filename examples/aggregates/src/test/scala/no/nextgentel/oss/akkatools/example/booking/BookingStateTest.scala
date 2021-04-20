@@ -1,8 +1,9 @@
 package no.nextgentel.oss.akkatools.example.booking
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
 
-class BookingStateTest extends FunSuite with Matchers {
+
+class BookingStateTest extends AnyFunSuite {
 
   test("Booking before open should fail") {
     val s = BookingState.empty()

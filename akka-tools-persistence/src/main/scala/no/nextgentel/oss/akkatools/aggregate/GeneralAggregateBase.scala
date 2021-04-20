@@ -78,7 +78,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
         val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(c, defaultCmdToEvent)
         Option(eventResult.successHandler).map( _.apply() )
 
-      case _ => Unit // Nothing we can do..
+      case _ => () // Nothing we can do..
     }
 
   }
@@ -87,7 +87,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
     case x: AggregateCmd =>
       // Can't get pattern-matching to work with generics..
       if (x.isInstanceOf[GetState]) {
-        sender ! state
+        sender() ! state
       }
       else if (x.isInstanceOf[SaveSnapshotOfCurrentState]) {
         val msg = x.asInstanceOf[SaveSnapshotOfCurrentState]
@@ -96,7 +96,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
           saveSnapshot(state,msg.deleteEvents)
         } else {
           log.warning(s"Rejected snapshot request $msg when in state $state")
-          sender ! AggregateRejectedSnapshotRequest(this.persistenceId, lastSequenceNr, state)
+          sender() ! AggregateRejectedSnapshotRequest(this.persistenceId, lastSequenceNr, state)
         }
 
       }

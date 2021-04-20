@@ -34,7 +34,7 @@ Get a live stream of all events for a specific persistenceId:
 
     val source = readJournal.eventsByPersistenceId(persistenceId, 0, Long.MaxValue)
     // materialize stream, consuming events
-    implicit val mat = ActorMaterializer()
+    implicit val actorSystem = context.system
     source.runForeach {
       event =>
         println("Stream received Event: " + event)

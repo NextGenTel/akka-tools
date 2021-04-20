@@ -1,22 +1,22 @@
 package no.nextgentel.oss.akkatools.example.booking
 
 import java.util.UUID
-
 import akka.actor.Status.Failure
 import akka.actor.ActorSystem
-import akka.testkit.{TestProbe, TestKit}
+import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.example.booking.StateName._
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuiteLike
 import org.slf4j.LoggerFactory
 
 
-class BookingTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class BookingTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 

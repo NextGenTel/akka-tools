@@ -9,7 +9,8 @@ import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.aggregate.{AggregateCmd, _}
 import no.nextgentel.oss.akkatools.testing.{AggregateStateGetter, AggregateTesting}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.funsuite.AnyFunSuiteLike
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
@@ -19,11 +20,11 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 /**
   * Testing that internal snapshot related messages are handled
   */
-class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -74,7 +75,7 @@ class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) exten
       awaitCond( state ==  StringState("WAT"))
 
       // make sure we get no msgs
-      dest2.expectNoMsg()
+      dest2.expectNoMessage()
 
       // kill it
       val stopFut2 = akka.pattern.gracefulStop(recoveredMain,FiniteDuration(5,"s"))
@@ -95,7 +96,7 @@ class GeneralAggregateBaseTest_dropDeleteMessagesTest(_system:ActorSystem) exten
       assert(state3==StringState("END"))
 
       // make sure we get no msgs
-      dest3.expectNoMsg()
+      dest3.expectNoMessage()
     }
   }
 

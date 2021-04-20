@@ -8,7 +8,8 @@ import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.aggregate._
 import no.nextgentel.oss.akkatools.persistence.{DurableMessage, DurableMessageReceived}
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.funsuite.AnyFunSuiteLike
 import org.slf4j.LoggerFactory
 
 
@@ -16,11 +17,11 @@ import org.slf4j.LoggerFactory
   * Testing aggregate using AggregateState
   */
 
-class GeneralAggregateBaseTest_usingAggregateState(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class GeneralAggregateBaseTest_usingAggregateState(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -150,8 +151,8 @@ class XAggregate(dmSelf:ActorPath, dest:ActorPath) extends GeneralAggregateBase[
       ResultingEvent {
         XAddEvent(c.from)
       }.onSuccess {
-        log.info(s"Success-handler: ending ack as DM back to ${sender.path} ")
-        sendAsDM(s"ack-${c.from}", sender.path)
+        log.info(s"Success-handler: ending ack as DM back to ${sender().path} ")
+        sendAsDM(s"ack-${c.from}", sender().path)
       }
   }
 

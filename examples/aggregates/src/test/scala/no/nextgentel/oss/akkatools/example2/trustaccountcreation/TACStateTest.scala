@@ -1,10 +1,10 @@
 package no.nextgentel.oss.akkatools.example2.trustaccountcreation
 
-import org.scalatest.{Matchers, FunSuite}
 
 import StateName._
+import org.scalatest.funsuite.AnyFunSuite
 
-class TACStateTest extends FunSuite with Matchers {
+class TACStateTest extends AnyFunSuite {
 
   test("Normal flow") {
     var s = TACState.empty()

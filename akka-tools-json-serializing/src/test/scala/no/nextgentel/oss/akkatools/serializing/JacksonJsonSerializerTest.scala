@@ -3,12 +3,12 @@ package no.nextgentel.oss.akkatools.serializing
 import akka.actor.ActorSystem
 import akka.serialization.SerializationExtension
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.databind.{SerializationFeature, ObjectMapper}
+import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.typesafe.config.{ConfigFactory, Config}
-import org.scalatest.{Matchers, FunSuite}
+import com.typesafe.config.{Config, ConfigFactory}
+import org.scalatest.funsuite.AnyFunSuite
 
-class JacksonJsonSerializerTest extends FunSuite with Matchers {
+class JacksonJsonSerializerTest extends AnyFunSuite /*with Matchers*/ {
 
   val objectMapper = new ObjectMapper()
   objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)

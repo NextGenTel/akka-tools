@@ -48,7 +48,7 @@ class ESigningSystem(tacSystem:ActorRef, autoContinue:Boolean = false) extends A
 
   def receive = {
     case dm:DurableMessage =>
-      val m = dm.payloadAs[DoPerformESigning]
+      val m = dm.payloadAs[DoPerformESigning]()
       if ( autoContinue ) {
         log.info(Console.GREEN+s"E-SigningSystem: Going to complete e-signing in $delay: $m"+Console.RESET)
 
@@ -62,7 +62,7 @@ class ESigningSystem(tacSystem:ActorRef, autoContinue:Boolean = false) extends A
         }
       }
     case CompleteIt(dm) =>
-      val m = dm.payloadAs[DoPerformESigning]
+      val m = dm.payloadAs[DoPerformESigning]()
       log.info(Console.GREEN+s"E-SigningSystem: Completing it now: $m"+Console.RESET)
 
       val completeCmd = ESigningCompletedCmd(m.tackId)
@@ -93,7 +93,7 @@ class TrustAccountProcessingSystem(tacSystem:ActorRef, autoContinue:Boolean = fa
 
   def receive = {
     case dm:DurableMessage =>
-      val m = dm.payloadAs[DoCreateTrustAccount]
+      val m = dm.payloadAs[DoCreateTrustAccount]()
       if ( autoContinue ) {
         log.info(Console.GREEN+s"TrustAccountProcessingSystem: Going to Create TAC in $delay: $m"+Console.RESET)
 
@@ -107,7 +107,7 @@ class TrustAccountProcessingSystem(tacSystem:ActorRef, autoContinue:Boolean = fa
         }
       }
     case CompleteIt(dm) =>
-      val m = dm.payloadAs[DoCreateTrustAccount]
+      val m = dm.payloadAs[DoCreateTrustAccount]()
       val trustAccountId = "TA-" + random.nextInt(9999)
       log.info(Console.GREEN+s"TrustAccountProcessingSystem: Creating TAC with trustAccountId=$trustAccountId now: $m"+Console.RESET)
 

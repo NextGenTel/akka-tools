@@ -156,7 +156,7 @@ class JdbcEventsByPersistenceIdSource
                   case x: AnyRef => x
                 }
 
-                EventEnvelope(Sequence(entry.sequenceNr), persistentRepr.persistenceId, entry.sequenceNr, event)
+                EventEnvelope(Sequence(entry.sequenceNr), persistentRepr.persistenceId, entry.sequenceNr, event, persistentRepr.timestamp, persistentRepr.metadata)
 
             }.toVector
 
@@ -167,7 +167,7 @@ class JdbcEventsByPersistenceIdSource
 
 
           } catch {
-            case e: Exception ⇒
+            case e: Exception =>
               log.error(e, s"JdbcEventsByPersistenceIdActor stopped for persistenceId=$persistenceId")
               failStage(e)
           }

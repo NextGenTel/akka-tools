@@ -3,7 +3,8 @@ package no.nextgentel.oss.akkatools.cluster
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.funsuite.AnyFunSuiteLike
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import org.slf4j.LoggerFactory
 
 import scala.util.Random
@@ -12,7 +13,7 @@ object ClusterSingletonHelperTest {
   val port = 20000 + Random.nextInt(20000)
 }
 
-class ClusterSingletonHelperTest (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class ClusterSingletonHelperTest (_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.parseString(
       s"""akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
@@ -23,7 +24,7 @@ class ClusterSingletonHelperTest (_system:ActorSystem) extends TestKit(_system) 
     """.stripMargin
     ).withFallback(ConfigFactory.load("application-test.conf"))))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -47,6 +48,6 @@ class OurClusterSingleton(started:ActorRef) extends Actor {
 
   started ! "started"
   def receive = {
-    case "ping" => sender ! "pong"
+    case "ping" => sender() ! "pong"
   }
 }

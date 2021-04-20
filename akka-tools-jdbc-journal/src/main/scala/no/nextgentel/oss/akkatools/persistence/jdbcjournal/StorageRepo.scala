@@ -8,7 +8,6 @@ import no.nextgentel.oss.akkatools.cluster.ClusterNodeRepo
 import org.slf4j.LoggerFactory
 import org.sql2o.data.{Row, Table}
 import org.sql2o._
-import org.sql2o.quirks.OracleQuirks
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -17,27 +16,27 @@ case class SnapshotEntry(persistenceId:String, sequenceNr:Long, timestamp:Long, 
 
 
 trait StorageRepo {
-  def insertPersistentReprList(dtoList: Seq[JournalEntryDto])
+  def insertPersistentReprList(dtoList: Seq[JournalEntryDto]): Unit
 
-  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long)
+  def deleteJournalEntryTo(persistenceId: PersistenceIdSingle, toSequenceNr: Long): Unit
 
   def loadJournalEntries(persistenceId: PersistenceId, fromSequenceNr: Long, toSequenceNr: Long, max: Long): List[JournalEntryDto]
 
   def findHighestSequenceNr(persistenceId: PersistenceId, fromSequenceNr: Long): Long
 
-  def writeSnapshot(snapshotEntry: SnapshotEntry)
+  def writeSnapshot(snapshotEntry: SnapshotEntry): Unit
 
   def findSnapshotEntry(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Option[SnapshotEntry]
 
-  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long)
+  def deleteSnapshot(persistenceId: String, sequenceNr: Long, timestamp: Long): Unit
 
-  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long)
+  def deleteSnapshotsMatching(persistenceId: String, maxSequenceNr: Long, maxTimestamp: Long): Unit
 }
 
 trait StorageRepoWithClusterNodeRepo extends StorageRepo with ClusterNodeRepo
 
 trait JdbcJournalErrorHandler {
-  def onError(e:Exception)
+  def onError(e:Exception): Unit
 }
 
 class JdbcJournalDetectFatalOracleErrorHandler(fatalErrorHandler:JdbcJournalErrorHandler) extends JdbcJournalErrorHandler {

@@ -2,7 +2,6 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 
 import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.persistence.PersistentActor
@@ -18,12 +17,14 @@ import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import akka.pattern.ask
 import akka.util.Timeout
+import org.scalatest.funsuite.AnyFunSuite
+import akka.stream.Materializer
 
 
 // Need separate actorSystems for each test to prevent them from interacting with each other
 
 
-abstract class JdbcReadJournalTestBase(configName:String) extends FunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll with Matchers {
+abstract class JdbcReadJournalTestBase(configName:String) extends AnyFunSuite with TestKitBase with BeforeAndAfter with BeforeAndAfterAll {
 
   implicit lazy val system = ActorSystem(getClass.getSimpleName, ConfigFactory.parseString(
     s"""
@@ -365,7 +366,7 @@ class TestPersistentActor(val persistenceId: String) extends Actor with Persiste
       persist(event) {
         e =>
           log.info(s"Persisted $event")
-          sender ! "ok"
+          sender() ! "ok"
       }
   }
 

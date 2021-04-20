@@ -87,7 +87,7 @@ trait AggregateViewStarter extends AggregateViewAsker {
 
   private lazy val viewCache = system.actorOf(
     ActorCache.props( {id:String => createViewProps(id)}),
-    "viewCache_"+viewName)
+    "viewCache_"+viewName())
 
   def createViewProps(aggregateId:String):Props
 

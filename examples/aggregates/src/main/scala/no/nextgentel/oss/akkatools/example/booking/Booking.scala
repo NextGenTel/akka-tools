@@ -36,13 +36,13 @@ class BookingAggregate(dmSelf: ActorPath, ticketPrintShop: ActorPath, cinemaNoti
       val event = SeatReservedEvent(seatId)
 
       ResultingEvent(event)
-        .onSuccess( sender ! seatId ) // Send the seatId back
-        .onError ( errorMsg => sender ! Failure(new Exception(errorMsg)) )
+        .onSuccess( sender() ! seatId ) // Send the seatId back
+        .onError ( errorMsg => sender() ! Failure(new Exception(errorMsg)) )
 
     case c: CancelSeatCmd =>
       ResultingEvent(SeatCancelledEvent(c.seatId))
-        .onSuccess( sender ! "ok")
-        .onError( (errorMsg) => sender ! Failure(new Exception(errorMsg)) )
+        .onSuccess( sender() ! "ok")
+        .onError( (errorMsg) => sender() ! Failure(new Exception(errorMsg)) )
   }
 
   override def generateDMs = {

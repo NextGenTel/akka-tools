@@ -1,13 +1,12 @@
 package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 
 import java.util.concurrent.atomic.AtomicInteger
-
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.slf4j.LoggerFactory
 import org.sql2o.Sql2o
-import org.sql2o.quirks.OracleQuirks
 
-class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with BeforeAndAfter{
+class StorageRepoTest extends AnyFunSuite with BeforeAndAfterAll with BeforeAndAfter{
 
   val log = LoggerFactory.getLogger(getClass)
 
@@ -15,7 +14,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     override def onError(e: Exception): Unit = log.error("onError", e)
   }
 
-  lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest"), new OracleQuirks), StorageRepoConfig(), Some(errorHandler))
+  lazy val repo = new StorageRepoImpl(new Sql2o(DataSourceUtil.createDataSource("StorageRepoTest")), StorageRepoConfig(), Some(errorHandler))
 
   val nextId = new AtomicInteger(0)
 
@@ -30,7 +29,7 @@ class StorageRepoTest extends FunSuite with Matchers with BeforeAndAfterAll with
     val read = repo.loadJournalEntries(pid1, 0, 1, 10)(0)
 
     // Must special-equals it due to the byte-array
-    assert(dto1.persistentRepr.deep == read.persistentRepr.deep)
+    assert(dto1.persistentRepr.toList == read.persistentRepr.toList)
     assert( read.timestamp != null )
     assert(dto1.copy(persistentRepr = null, payloadWriteOnly = null) == read.copy(persistentRepr = null, timestamp = null))
   }

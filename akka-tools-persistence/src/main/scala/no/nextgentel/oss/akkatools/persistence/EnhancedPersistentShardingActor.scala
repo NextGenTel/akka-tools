@@ -47,13 +47,13 @@ abstract class EnhancedPersistentShardingActor[E:ClassTag, Ex <: Exception : Cla
       }
     }
 
-    persistenceIdBase + id
+    persistenceIdBase() + id
 
   }
 
   override def persistenceId: String = resolvedPersistenceId
 
-  protected def onInactiveTimeout() {
+  protected def onInactiveTimeout(): Unit = {
     context.parent ! ShardRegion.Passivate(PoisonPill)
   }
 

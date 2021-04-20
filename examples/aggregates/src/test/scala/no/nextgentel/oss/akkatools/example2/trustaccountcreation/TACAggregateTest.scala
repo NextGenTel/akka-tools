@@ -1,23 +1,23 @@
 package no.nextgentel.oss.akkatools.example2.trustaccountcreation
 
 import java.util.UUID
-
 import akka.actor.Status.Failure
 import akka.actor.ActorSystem
-import akka.testkit.{TestProbe, TestKit}
+import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.example2.other.{DoCreateTrustAccount, DoPerformESigning, DoSendEmailToCustomer}
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, FunSuiteLike}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 import org.slf4j.LoggerFactory
 import StateName._
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 
-class TACAggregateTest (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class TACAggregateTest (_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("tac-test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 

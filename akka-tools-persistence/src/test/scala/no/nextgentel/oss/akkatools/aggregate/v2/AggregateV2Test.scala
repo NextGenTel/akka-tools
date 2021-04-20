@@ -8,15 +8,16 @@ import com.typesafe.config.ConfigFactory
 import no.nextgentel.oss.akkatools.persistence.SendAsDM
 import no.nextgentel.oss.akkatools.aggregate._
 import no.nextgentel.oss.akkatools.testing.AggregateTesting
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.funsuite.AnyFunSuiteLike
 import org.slf4j.LoggerFactory
 
 
-class GeneralAggregateV2Test (_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class GeneralAggregateV2Test (_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
 
   def this() = this(ActorSystem("test-actor-system", ConfigFactory.load("application-test.conf")))
 
-  override def afterAll {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -90,10 +91,10 @@ case class V2TestEmptyState() extends V2TestState {
     case (aggregate, StartCmd(_, data)) => ResultingEvent {
       V2TestStartEvent(data)
     }.onSuccess {
-      aggregate.sender ! "ok-" + aggregate.config.customMessage
+      aggregate.sender() ! "ok-" + aggregate.config.customMessage
     }.onError {
       errorMsg =>
-        aggregate.sender ! s"Error: $errorMsg"
+        aggregate.sender() ! s"Error: $errorMsg"
     }
   }
 

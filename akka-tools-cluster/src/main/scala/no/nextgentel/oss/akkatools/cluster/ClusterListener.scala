@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.FiniteDuration
 
 trait FatalClusterErrorHandler {
-  def onFatalClusterError(errorMsg: String)
+  def onFatalClusterError(errorMsg: String): Unit
 }
 
 case class ClusterStartTimeout()
@@ -80,11 +80,11 @@ class ClusterListener
   }
 
 
-  override def preStart {
+  override def preStart(): Unit = {
     cluster.subscribe(self, initialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
   }
 
-  override def postStop {
+  override def postStop(): Unit = {
     removeClusterNodeAlive() // do some cleanup
     cluster.unsubscribe(self)
   }
@@ -120,30 +120,30 @@ class ClusterListener
 
   }
 
-  private def startErrorDetection() {
+  private def startErrorDetection(): Unit = {
     log.info("Starting Cluster Error detection")
 
     writeClusterNodeAlive()
     scheduleDoHousekeeping()
   }
 
-  private def doHousekeeping() {
-    writeClusterNodeAlive
+  private def doHousekeeping(): Unit = {
+    writeClusterNodeAlive()
     if (!checkForErrorSituation()) {
       scheduleDoHousekeeping()
     }
   }
 
-  private def weHaveJoinedCluster = upMembers.nonEmpty
+  private def weHaveJoinedCluster(): Boolean = upMembers.nonEmpty
 
-  private def writeClusterNodeAlive() {
+  private def writeClusterNodeAlive(): Unit = {
 
-    log.debug(s"Updating writeClusterNodeAlive for $nodeName - weHaveJoinedCluster: $weHaveJoinedCluster")
-    repo.writeClusterNodeAlive(nodeName, OffsetDateTime.now, weHaveJoinedCluster)
+    log.debug(s"Updating writeClusterNodeAlive for $nodeName - weHaveJoinedCluster: ${weHaveJoinedCluster()}")
+    repo.writeClusterNodeAlive(nodeName, OffsetDateTime.now, weHaveJoinedCluster())
   }
 
   private def checkForErrorSituation(): Boolean = {
-    if( !weHaveJoinedCluster ) {
+    if( !weHaveJoinedCluster() ) {
       // No error-situation since we have not joined cluster yet
       return false
     }
@@ -167,12 +167,12 @@ class ClusterListener
     } else false
   }
 
-  private def removeClusterNodeAlive() {
+  private def removeClusterNodeAlive(): Unit = {
     log.debug("removeClusterNodeAlive for {}", nodeName)
     repo.removeClusterNodeAlive(nodeName)
   }
 
-  protected def scheduleDoHousekeeping() {
+  protected def scheduleDoHousekeeping(): Unit = {
     scheduledDoHousekeeping.map { c => c.cancel() }
     scheduledDoHousekeeping = Some(context.system.scheduler.scheduleOnce(writeClusterNodeAliveInterval, self, DoHousekeeping()))
   }

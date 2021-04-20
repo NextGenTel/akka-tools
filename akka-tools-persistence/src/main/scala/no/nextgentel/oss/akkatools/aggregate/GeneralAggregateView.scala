@@ -36,6 +36,6 @@ class GeneralAggregateView[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 
   override val onCmd: PartialFunction[AnyRef, Unit] = {
     case x:GetState =>
-      sender ! state
+      sender() ! state
   }
 }

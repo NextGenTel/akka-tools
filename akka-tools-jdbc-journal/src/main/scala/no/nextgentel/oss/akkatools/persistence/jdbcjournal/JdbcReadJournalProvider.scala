@@ -3,16 +3,10 @@ package no.nextgentel.oss.akkatools.persistence.jdbcjournal
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
-import akka.actor.{ActorLogging, ExtendedActorSystem, Props}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
-import akka.persistence.PersistentRepr
+import akka.actor.ExtendedActorSystem
 import akka.persistence.query._
 import akka.persistence.query.scaladsl.{ReadJournal => ScalaReadJournal}
 import akka.persistence.query.javadsl.{ReadJournal => JavaReadJournal}
-import akka.serialization.SerializationExtension
-import akka.stream.actor.ActorPublisher
-import akka.stream.actor.ActorPublisherMessage.{Cancel, Request}
 import akka.stream.javadsl
 import akka.stream.scaladsl.Source
 import com.typesafe.config.Config

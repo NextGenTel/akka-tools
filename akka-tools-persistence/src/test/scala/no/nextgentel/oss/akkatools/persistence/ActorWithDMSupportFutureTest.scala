@@ -5,12 +5,13 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorPath, ActorSystem, Props}
 import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuiteLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-class ActorWithDMSupportFutureTest(_system:ActorSystem) extends TestKit(_system) with FunSuiteLike with Matchers with BeforeAndAfterAll with BeforeAndAfter {
+class ActorWithDMSupportFutureTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {
   def this() = this(ActorSystem("ActorWithDMSupportFutureTest", ConfigFactory.load("application-test.conf")))
 
   test("success with dm") {
