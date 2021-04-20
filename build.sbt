@@ -7,8 +7,8 @@ lazy val commonSettings = Seq(
   organization := "no.nextgentel.oss.akka-tools",
   organizationName := "NextGenTel AS",
   organizationHomepage := Some(url("http://www.nextgentel.net")),
-  scalaVersion := "2.12.6",
-  crossScalaVersions := Seq("2.11.8", "2.12.6"),
+  scalaVersion := "2.13.5",
+  crossScalaVersions := Seq("2.12.13", "2.13.5"),
   publishMavenStyle := true,
   publishArtifact in Test := false,
   sonatypeProfileName := "no.nextgentel",
@@ -36,19 +36,19 @@ lazy val commonSettings = Seq(
         </developer>
       </developers>),
   compileOrder in Test := CompileOrder.Mixed,
-  javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
+  javacOptions ++= Seq("-source", "1.16", "-target", "1.16"),
   scalacOptions ++= Seq("-unchecked", "-deprecation"),
   releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
-  resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
+  //resolvers += "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
 )
 
 
-val akkaVersion = "2.5.16"
-val akkaPersistenceInMemoryVersion = "2.5.15.1"
-val jacksonVersion = "2.9.7"
-val jacksonScalaModuleVersion = "2.9.7"
-val slf4jVersion = "1.7.7"
+val akkaVersion = "2.6.14"
+val jacksonVersion = "2.12.3"
+val jacksonScalaModuleVersion = jacksonVersion
+val slf4jVersion = "1.7.30"
+val scalaTestVersion = "3.2.7"
 
 lazy val akkaToolsCommonDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -61,7 +61,7 @@ lazy val akkaToolsPersistenceDependencies = Seq(
   "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "org.slf4j" % "slf4j-api" % slf4jVersion,
-  "com.google.guava" % "guava" % "18.0")
+  "com.google.guava" % "guava" % "30.1.1-jre")
 
 lazy val akkaToolsJsonSerializingDependencies = Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
@@ -73,7 +73,7 @@ lazy val akkaToolsJdbcJournalDependencies = Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
   "com.typesafe.akka" %% "akka-persistence-query" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
-  "org.sql2o" % "sql2o" % "1.5.4",
+  "org.sql2o" % "sql2o" % "1.6.0",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVersion % "test"
 )
 
@@ -86,25 +86,25 @@ lazy val akkaToolsClusterDependencies = Seq(
 )
 
 lazy val testDependencies = Seq(
-  "org.scalatest" %% "scalatest" % "3.0.0" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3" % "test",
+  "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion % "test",
-  "org.awaitility" % "awaitility-scala" % "4.0.2" % "test"
+  "org.awaitility" % "awaitility-scala" % "4.0.3" % "test"
 )
 
 lazy val testDbDependencies = Seq(
-  "org.liquibase" % "liquibase-core" % "3.4.1" % "test",
-  "com.mattbertolini" % "liquibase-slf4j" % "1.2.1" % "test",
-  "com.h2database" % "h2" % "1.4.189" % "test"
+  "org.liquibase" % "liquibase-core" % "4.3.3" % "test",
+  "com.mattbertolini" % "liquibase-slf4j" % "4.0.0" % "test",
+  "com.h2database" % "h2" % "1.4.200" % "test"
 )
 
 lazy val exampleAggregatesDependencies = Seq(
-  "org.scalatest" %% "scalatest" % "3.0.0" % "test",
-  "ch.qos.logback" % "logback-classic" % "1.1.3",
+  "org.scalatest" %% "scalatest" % scalaTestVersion % "test",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
   "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-  "org.liquibase" % "liquibase-core" % "3.4.1",
-  "com.mattbertolini" % "liquibase-slf4j" % "1.2.1",
-  "com.h2database" % "h2" % "1.4.189"
+  "org.liquibase" % "liquibase-core" % "4.3.3",
+  "com.mattbertolini" % "liquibase-slf4j" % "4.0.0",
+  "com.h2database" % "h2" % "1.4.200"
 )
 
 lazy val root = (project in file("."))
@@ -131,9 +131,8 @@ lazy val akkaToolsPersistence = (project in file("akka-tools-persistence"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion % "test" exclude("com.typesafe.akka", "akka-stream-testkit_2.12"),
-      //exclude("com.github.krasserm", "akka-persistence-testkit_2.11") exclude("com.typesafe.akka", "akka-persistence_2.11"),
-    "junit" % "junit" % "4.12" % "test"))
+    "com.typesafe.akka" %% "akka-persistence-testkit" % akkaVersion % "test",
+    "junit" % "junit" % "4.13.2" % "test"))
 
 
 lazy val akkaToolsJsonSerializing = (project in file("akka-tools-json-serializing"))
@@ -170,7 +169,7 @@ lazy val akkaExampleAggregates = (project in file("examples/aggregates"))
   .settings(libraryDependencies ++= (testDependencies))
   .settings(libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-testkit" % akkaVersion % "test",
-    "com.github.dnvriend" %% "akka-persistence-inmemory" % akkaPersistenceInMemoryVersion  exclude("com.typesafe.akka", "akka-stream-testkit_2.12")))
+    "com.typesafe.akka" %% "akka-persistence-testkit" % akkaVersion % "test"))
 
 
 releaseProcess := Seq[ReleaseStep](
