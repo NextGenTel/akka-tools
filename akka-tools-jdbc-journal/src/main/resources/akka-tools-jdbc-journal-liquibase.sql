@@ -2,8 +2,8 @@
 CREATE TABLE t_journal (
   typePath                                VARCHAR(255),
   id                                      VARCHAR(255),
-  sequenceNr                              INT,
-  journalIndex                            INT,
+  sequenceNr                              BIGINT,
+  journalIndex                            BIGINT,
   persistentRepr                          BLOB,
   payload_write_only                      CLOB,
   updated                                 TIMESTAMP,
@@ -19,12 +19,12 @@ CREATE UNIQUE INDEX IX_journalIndex ON t_journal(typePath, journalIndex);
 
 CREATE TABLE t_snapshot (
   persistenceId                           VARCHAR(255),
-  sequenceNr                              INT,
+  sequenceNr                              BIGINT,
   timestamp                               NUMERIC,
   snapshot                                BLOB,
   snapshotClassname                       VARCHAR(255),
   updated                                 TIMESTAMP,
-  serializerId                            INT,
+  serializerId                            BIGINT,
 
   PRIMARY KEY(persistenceId, sequenceNr, timestamp)
 );
@@ -32,6 +32,6 @@ CREATE TABLE t_snapshot (
 CREATE TABLE t_cluster_nodes (
     nodeName                              VARCHAR(255),
     lastSeen                              TIMESTAMP,
-    joined                                INT,
+    joined                                BIGINT,
     PRIMARY KEY(nodeName)
 );
