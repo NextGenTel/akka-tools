@@ -11,6 +11,7 @@ import no.nextgentel.oss.akkatools.testing.AggregateTesting
 import org.scalatest._
 import org.slf4j.LoggerFactory
 import StateName._
+import akka.persistence.testkit.{PersistenceTestKitPlugin, PersistenceTestKitSnapshotPlugin}
 import org.scalatest.funsuite.{AnyFunSuite, AnyFunSuiteLike}
 
 class GeneralAggregateTest(_system:ActorSystem) extends TestKit(_system) with AnyFunSuiteLike with BeforeAndAfterAll with BeforeAndAfter {

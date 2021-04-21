@@ -58,6 +58,7 @@ lazy val akkaToolsPersistenceDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-sharding" % akkaVersion,
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "org.slf4j" % "slf4j-api" % slf4jVersion,
