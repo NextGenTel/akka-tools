@@ -52,7 +52,9 @@ val scalaTestVersion = "3.2.7"
 
 lazy val akkaToolsCommonDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "org.slf4j" % "slf4j-api" % slf4jVersion)
+  "org.slf4j" % "slf4j-api" % slf4jVersion,
+  "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.3",
+)
 
 lazy val akkaToolsPersistenceDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
