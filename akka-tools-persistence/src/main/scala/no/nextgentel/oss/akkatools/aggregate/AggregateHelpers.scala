@@ -1,11 +1,13 @@
 package no.nextgentel.oss.akkatools.aggregate
 
 import akka.actor._
-import akka.cluster.sharding.{ClusterShardingSettings, ClusterSharding}
+import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings}
 import akka.util.Timeout
 import no.nextgentel.oss.akkatools.aggregate.AggregateStarter.AggregatePropsCreator
-import no.nextgentel.oss.akkatools.utils.{ForwardToCachedActor, ActorCache}
+import no.nextgentel.oss.akkatools.utils.{ActorCache, ForwardToCachedActor}
 
+import java.time.Duration
+import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
@@ -100,8 +102,10 @@ trait AggregateViewStarter extends AggregateViewAsker {
     viewCache.tell(ForwardToCachedActor(aggregateId, msg), sender)
   }
 
-
 }
+
+// Java-API: If extending the trait AggregateViewStarter from Java, the 'lazy val viewCache' is re-inited each time...
+abstract class AggregateViewStarterJava(val system:ActorSystem) extends AggregateViewStarter
 
 
 class DispatcherActor(name:String) extends Actor with ActorLogging {

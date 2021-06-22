@@ -1,9 +1,12 @@
 package no.nextgentel.oss.akkatools.persistence
 
 import akka.actor.{Actor, ActorPath, ActorRef, DiagnosticActorLogging}
-import no.nextgentel.oss.akkatools.persistence.DMFunctionExecutorActor.{DMFuncMsg}
+import no.nextgentel.oss.akkatools.persistence.DMFunctionExecutorActor.DMFuncMsg
 
+import java.util.concurrent.CompletableFuture
+import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.runtime.BoxedUnit
 
 // Use this trait to "attach" LogWarningAndSkipDMConfirm to your own exception-type
 trait LogWarningAndSkipDMConfirm
@@ -73,11 +76,25 @@ abstract class ActorWithDMSupport extends Actor with DiagnosticActorLogging {
   }
 }
 
+abstract class ActorWithDMSupportJava extends ActorWithDMSupport {
+
+  override def receivePayload: PartialFunction[Any, Unit] = {
+    case payload: Any => onReceivePayload(payload)
+  }
+
+  def onReceivePayload(payload: Any): Unit
+}
+
+object MsgResult {
+  def create(msg:AnyRef): MsgResult = MsgResult(msg, None) // Java-API
+  def create(msg:AnyRef, differentDest: ActorPath): MsgResult = MsgResult(msg, Option(differentDest)) // Java-API
+}
+
+case class MsgResult(msg:AnyRef, differentDest:Option[ActorPath] = None)
 
 abstract class ActorWithDMSupportFuture extends Actor with DiagnosticActorLogging {
 
   implicit val ec:ExecutionContextExecutor = context.dispatcher
-  case class MsgResult(msg:AnyRef, differentDest:Option[ActorPath] = None)
 
   def errorHandling(isProcessingDM:Boolean):PartialFunction[Throwable,Unit] = {
 
@@ -143,6 +160,17 @@ abstract class ActorWithDMSupportFuture extends Actor with DiagnosticActorLoggin
 
 
   }
+}
+
+abstract class ActorWithDMSupportFutureJava extends ActorWithDMSupportFuture {
+  import scala.compat.java8.FunctionConverters._
+
+  override def processPayload: PartialFunction[Any, Future[Option[MsgResult]]] = {
+    case payload =>
+      onProcessPayload(payload).toScala.map( r => Option(r))
+  }
+
+  def onProcessPayload(payload: Any): CompletableFuture[MsgResult]
 }
 
 

@@ -55,6 +55,18 @@ case class JdbcJournalConfig
       case x => throw new Exception(s"Do not understand databaseImpl=$databaseImpl")
     }
   }
+
+  def withPersistenceIdParser(persistenceIdParser:PersistenceIdParser): JdbcJournalConfig = {
+    this.copy(persistenceIdParser = persistenceIdParser)
+  }
+
+  def withMaxRowsPrRead(maxRowsPrRead: Int): JdbcJournalConfig = {
+    this.copy(maxRowsPrRead = maxRowsPrRead)
+  }
+
+  def withDatabaseImpl(databaseImpl:String): JdbcJournalConfig = {
+    this.copy(databaseImpl = databaseImpl)
+  }
 }
 
 

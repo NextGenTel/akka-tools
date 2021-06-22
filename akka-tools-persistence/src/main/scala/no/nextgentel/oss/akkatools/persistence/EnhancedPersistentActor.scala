@@ -729,7 +729,7 @@ trait EnhancedPersistentJavaActorLike {
 
 // The only purpose of this class, EventAndState, is to transport the data to json..
 // Therefor generic types etc is just in the way..
-case class EventAndState(eventType:String, event:AnyRef, state:AnyRef)
+case class EventAndState(eventType:String, event:AnyRef, stateName: String, state:AnyRef)
 
 case class GetEventAndStateHistory()
 
@@ -852,7 +852,12 @@ abstract class EnhancedPersistentView[E:ClassTag, S:ClassTag](persistenceId:Pers
           log.debug(s"Applying event to state: $event")
           internalApplyEventToState(event)
           if (collectHistory) {
-            history = history :+ EventAndState(event.getClass.getName, event.asInstanceOf[AnyRef], currentState().asInstanceOf[AnyRef])
+            history = history :+ EventAndState(
+              eventType = event.getClass.getName,
+              event = event.asInstanceOf[AnyRef],
+              stateName = currentState().getClass.getSimpleName,
+              state = currentState().asInstanceOf[AnyRef]
+            )
           }
       }
 

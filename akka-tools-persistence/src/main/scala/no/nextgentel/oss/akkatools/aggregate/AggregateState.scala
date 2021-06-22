@@ -17,9 +17,30 @@ case class StateTransition[E, S <: AggregateStateBase[E,S]]
   //def withNewEvent(newEvent:E):StateTransition[E,S] = copy(newEvent = Some(newEvent))
 }
 
+object StateTransitionJava {
+  def create(newState: AggregateStateBaseJava): StateTransitionJava = StateTransitionJava(newState, null)
+}
+
+case class StateTransitionJava
+(
+  newState: AggregateStateBaseJava,
+  newEvent: AnyRef
+)
 
 trait AggregateStateBase[E, S <: AggregateStateBase[E,S]] {
   def transitionState(event:E):StateTransition[E,S]
+}
+
+trait AggregateStateBaseJava extends AggregateStateBase[AnyRef, AggregateStateBaseJava] {
+  override def transitionState(event:AnyRef): StateTransition[AnyRef,AggregateStateBaseJava] = {
+    val stj = onTransitionState(event)
+    StateTransition(
+      newState = stj.newState,
+      newEvent = Option(stj.newEvent),
+    )
+  }
+
+  def onTransitionState(event:AnyRef): StateTransitionJava
 }
 
 trait AggregateState[E, S <: AggregateStateBase[E,S]] extends AggregateStateBase[E,S] {

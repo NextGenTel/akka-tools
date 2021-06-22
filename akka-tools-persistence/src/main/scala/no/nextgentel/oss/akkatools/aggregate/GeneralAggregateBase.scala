@@ -4,6 +4,7 @@ import akka.actor.ActorPath
 import akka.persistence.AtLeastOnceDelivery.UnconfirmedWarning
 import akka.persistence.{DeleteMessagesFailure, DeleteMessagesSuccess, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 import no.nextgentel.oss.akkatools.persistence.{EnhancedPersistentShardingActor, GetState, SendAsDM}
+import java.util.{List => JList}
 
 import scala.reflect.ClassTag
 
@@ -61,6 +62,10 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
 
   def cmdToEvent:PartialFunction[AggregateCmd, ResultingEvent[E]]
 
+  def internalDoCmdToEvent(c: AggregateCmd): Option[ResultingEvent[E]] = {
+    Option(cmdToEvent.applyOrElse(c, null))
+  }
+
   override protected def stateInfo(): String = state.toString
 
 
@@ -73,9 +78,9 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
         // and in that way forward the confirm-responsibility,
         // we'll try to invoke the success-handler so that it might do that..
         // If not, this duplicate DM will just be confirmed
-        val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => ResultingEvent(List[E]())} // Do nothing..
+        val defaultCmdToEvent = ResultingEvent(List[E]()) // Do nothing..
         // Invoke cmdToEvent - not to use the event, but to try to invoke its successHandler.
-        val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(c, defaultCmdToEvent)
+        val eventResult:ResultingEvent[E] = internalDoCmdToEvent(c).getOrElse(defaultCmdToEvent)
         Option(eventResult.successHandler).map( _.apply() )
 
       case _ => () // Nothing we can do..
@@ -102,8 +107,7 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
       }
       else {
         val cmd = x
-        val defaultCmdToEvent:(AggregateCmd) => ResultingEvent[E] = {(q) => throw new AggregateError("Do not know how to process cmd of type " + q.getClass)}
-        val eventResult:ResultingEvent[E] = cmdToEvent.applyOrElse(cmd, defaultCmdToEvent)
+        val eventResult:ResultingEvent[E] = internalDoCmdToEvent(cmd).getOrElse( throw new AggregateError("Do not know how to process cmd of type " + cmd.getClass) )
         // Test the events
         try {
           var eventsToProcessList:List[E] = eventResult.events.apply()
@@ -241,6 +245,58 @@ abstract class GeneralAggregateBase[E:ClassTag, S <: AggregateStateBase[E, S]:Cl
   def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[E] = Seq() // default implementation
 }
 
+abstract class GeneralAggregateBaseJava
+(
+  dmSelf:ActorPath,
+  initialState: AggregateStateBaseJava
+) extends GeneralAggregateBase[AnyRef, AggregateStateBaseJava](dmSelf) {
+
+  import scala.jdk.CollectionConverters._
+
+  override var state: AggregateStateBaseJava = initialState
+
+  override def cmdToEvent: PartialFunction[AggregateCmd, ResultingEvent[AnyRef]] = ??? // No longer used since we override internalDoCmdToEvent
+
+  override def internalDoCmdToEvent(c: AggregateCmd): Option[ResultingEvent[AnyRef]] = {
+
+    val j = doCmdToEvent(c)
+    if (j == null) return None
+
+    var re = ResultingEvent(j.events.asScala.toList)
+
+    if (j.errorHandler != null) {
+      re = re.onError( e => j.errorHandler.onError(e))
+    }
+
+    if (j.successHandler != null) {
+      re = re.onSuccess( j.successHandler.onSuccess())
+    }
+
+    if (j.afterValidationSuccessHandler != null) {
+      re = re.onAfterValidationSuccess( j.afterValidationSuccessHandler.onAfterValidationSuccess())
+    }
+
+    Some(re)
+
+  }
+
+  def doCmdToEvent(c: AggregateCmd): ResultingEventJava
+
+  override def generateDMs(event: AnyRef, previousState: AggregateStateBaseJava): ResultingDMs = {
+    val j = onGenerateDMs(event, previousState)
+    import scala.jdk.CollectionConverters._
+    ResultingDMs(j.list.asScala.toList)
+  }
+
+  def onGenerateDMs(event: AnyRef, previousState: AggregateStateBaseJava): ResultingDMsJava
+
+  override def generateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):Seq[AnyRef] = {
+    onGenerateEventsForFailedDurableMessage(originalPayload, errorMsg).asScala.toSeq
+  }
+
+  def onGenerateEventsForFailedDurableMessage(originalPayload: Any, errorMsg: String):JList[AnyRef] = List().asJava // default implementation
+}
+
 abstract class GeneralAggregateDMViaState[E:ClassTag, S <: AggregateStateBase[E, S]:ClassTag]
 (
   dmSelf:ActorPath
@@ -280,3 +336,11 @@ object ResultingDMs {
   def apply(message:AnyRef, destination:ActorPath):ResultingDMs = ResultingDMs(List(SendAsDM(message, destination)))
   def apply(sendAsDM: SendAsDM):ResultingDMs = ResultingDMs(List(sendAsDM))
 }
+
+object ResultingDMsJava {
+  import scala.jdk.CollectionConverters._
+  def create(message:AnyRef, destination:ActorPath): ResultingDMsJava = ResultingDMsJava(List(SendAsDM(message, destination)).asJava)
+  def create(sendAsDM: SendAsDM): ResultingDMsJava = ResultingDMsJava(List(sendAsDM).asJava)
+}
+
+case class ResultingDMsJava(list: JList[SendAsDM])
